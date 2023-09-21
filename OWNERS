@@ -4,4 +4,7 @@ approvers:
 - technical-oversight-committee
 - knative-release-leads
 - serving-writers
-- eventing-writers
+- serving-progressive-rollout-approvers
+
+reviewers:
+- serving-progressive-rollout-approvers

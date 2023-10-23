@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,9 +37,9 @@ import (
 	logging "knative.dev/pkg/logging"
 	logkey "knative.dev/pkg/logging/logkey"
 	reconciler "knative.dev/pkg/reconciler"
-	versionedscheme "knative.dev/sample-controller/pkg/client/clientset/versioned/scheme"
-	client "knative.dev/sample-controller/pkg/client/injection/client"
-	addressableservice "knative.dev/sample-controller/pkg/client/injection/informers/samples/v1alpha1/addressableservice"
+	versionedscheme "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/scheme"
+	client "knative.dev/serving-progressive-rollout/pkg/client/injection/client"
+	addressableservice "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/samples/v1alpha1/addressableservice"
 )
 
 const (

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import (
 
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
-	fake "knative.dev/sample-controller/pkg/client/injection/informers/factory/fake"
-	simpledeployment "knative.dev/sample-controller/pkg/client/injection/informers/samples/v1alpha1/simpledeployment"
+	fake "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/factory/fake"
+	simpledeployment "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/samples/v1alpha1/simpledeployment"
 )
 
 var Get = simpledeployment.Get

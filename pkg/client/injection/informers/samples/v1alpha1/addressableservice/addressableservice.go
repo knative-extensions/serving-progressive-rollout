@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import (
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	v1alpha1 "knative.dev/sample-controller/pkg/client/informers/externalversions/samples/v1alpha1"
-	factory "knative.dev/sample-controller/pkg/client/injection/informers/factory"
+	v1alpha1 "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/samples/v1alpha1"
+	factory "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/factory"
 )
 
 func init() {
@@ -46,7 +46,7 @@ func Get(ctx context.Context) v1alpha1.AddressableServiceInformer {
 	untyped := ctx.Value(Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch knative.dev/sample-controller/pkg/client/informers/externalversions/samples/v1alpha1.AddressableServiceInformer from context.")
+			"Unable to fetch knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/samples/v1alpha1.AddressableServiceInformer from context.")
 	}
 	return untyped.(v1alpha1.AddressableServiceInformer)
 }

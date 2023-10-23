@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@ import (
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	externalversions "knative.dev/sample-controller/pkg/client/informers/externalversions"
-	fake "knative.dev/sample-controller/pkg/client/injection/client/fake"
-	filtered "knative.dev/sample-controller/pkg/client/injection/informers/factory/filtered"
+	externalversions "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions"
+	fake "knative.dev/serving-progressive-rollout/pkg/client/injection/client/fake"
+	filtered "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/factory/filtered"
 )
 
 var Get = filtered.Get

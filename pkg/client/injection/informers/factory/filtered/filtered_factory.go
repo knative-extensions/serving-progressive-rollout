@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import (
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	externalversions "knative.dev/sample-controller/pkg/client/informers/externalversions"
-	client "knative.dev/sample-controller/pkg/client/injection/client"
+	externalversions "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions"
+	client "knative.dev/serving-progressive-rollout/pkg/client/injection/client"
 )
 
 func init() {
@@ -71,7 +71,7 @@ func Get(ctx context.Context, selector string) externalversions.SharedInformerFa
 	untyped := ctx.Value(Key{Selector: selector})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch knative.dev/sample-controller/pkg/client/informers/externalversions.SharedInformerFactory with selector %s from context.", selector)
+			"Unable to fetch knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions.SharedInformerFactory with selector %s from context.", selector)
 	}
 	return untyped.(externalversions.SharedInformerFactory)
 }

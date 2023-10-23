@@ -3,6 +3,7 @@ module knative.dev/serving-progressive-rollout
 go 1.20
 
 require (
+	github.com/hashicorp/golang-lru v1.0.2
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.5.0
 	k8s.io/api v0.27.6

@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	samplesv1alpha1 "knative.dev/sample-controller/pkg/apis/samples/v1alpha1"
+	samplesv1alpha1 "knative.dev/serving-progressive-rollout/pkg/apis/samples/v1alpha1"
 )
 
 var Scheme = runtime.NewScheme()

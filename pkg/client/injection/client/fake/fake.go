@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ import (
 	rest "k8s.io/client-go/rest"
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
-	fake "knative.dev/sample-controller/pkg/client/clientset/versioned/fake"
-	client "knative.dev/sample-controller/pkg/client/injection/client"
+	fake "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/fake"
+	client "knative.dev/serving-progressive-rollout/pkg/client/injection/client"
 )
 
 func init() {
@@ -51,7 +51,7 @@ func Get(ctx context.Context) *fake.Clientset {
 	untyped := ctx.Value(client.Key{})
 	if untyped == nil {
 		logging.FromContext(ctx).Panic(
-			"Unable to fetch knative.dev/sample-controller/pkg/client/clientset/versioned/fake.Clientset from context.")
+			"Unable to fetch knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/fake.Clientset from context.")
 	}
 	return untyped.(*fake.Clientset)
 }

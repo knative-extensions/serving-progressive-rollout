@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
-	versioned "knative.dev/sample-controller/pkg/client/clientset/versioned"
-	internalinterfaces "knative.dev/sample-controller/pkg/client/informers/externalversions/internalinterfaces"
-	samples "knative.dev/sample-controller/pkg/client/informers/externalversions/samples"
+	versioned "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
+	internalinterfaces "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/internalinterfaces"
+	samples "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/samples"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.

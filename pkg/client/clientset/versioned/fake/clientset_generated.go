@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
-	clientset "knative.dev/sample-controller/pkg/client/clientset/versioned"
-	samplesv1alpha1 "knative.dev/sample-controller/pkg/client/clientset/versioned/typed/samples/v1alpha1"
-	fakesamplesv1alpha1 "knative.dev/sample-controller/pkg/client/clientset/versioned/typed/samples/v1alpha1/fake"
+	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
+	samplesv1alpha1 "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/typed/samples/v1alpha1"
+	fakesamplesv1alpha1 "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/typed/samples/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.

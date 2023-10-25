@@ -145,8 +145,8 @@ const (
 )
 
 // IsServiceOrchestratorCondition returns true if the given ConditionType is a ServiceOrchestratorCondition.
-func IsServiceOrchestratorCondition(t apis.ConditionType) bool {
-	return t == ServiceOrchestratorConditionReady
+func IsServiceOrchestratorCondition(conditionType apis.ConditionType) bool {
+	return conditionType == ServiceOrchestratorConditionReady
 }
 
 // ServiceOrchestratorStatusFields holds the fields of Configuration's status that
@@ -165,8 +165,8 @@ type ServiceOrchestratorStatus struct {
 	ServiceOrchestratorStatusFields `json:",inline"`
 }
 
-func (t *ServiceOrchestratorStatus) SetStageRevisionStatus(stageRevisionStatus []RevisionTarget) {
-	t.StageRevisionStatus = stageRevisionStatus
+func (sos *ServiceOrchestratorStatus) SetStageRevisionStatus(stageRevisionStatus []RevisionTarget) {
+	sos.StageRevisionStatus = stageRevisionStatus
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -180,10 +180,10 @@ type ServiceOrchestratorList struct {
 }
 
 // GetStatus retrieves the status of the Configuration. Implements the KRShaped interface.
-func (t *ServiceOrchestrator) GetStatusSO() *ServiceOrchestratorStatus {
-	return &t.Status
+func (so *ServiceOrchestrator) GetStatusSO() *ServiceOrchestratorStatus {
+	return &so.Status
 }
 
-func (t *ServiceOrchestrator) GetStatus() *duckv1.Status {
-	return &t.Status.Status
+func (so *ServiceOrchestrator) GetStatus() *duckv1.Status {
+	return &so.Status.Status
 }

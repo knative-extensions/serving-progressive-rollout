@@ -24,11 +24,11 @@ import (
 )
 
 // ConvertTo implements apis.Convertible
-func (source *ServiceOrchestrator) ConvertTo(_ context.Context, sink apis.Convertible) error {
+func (so *ServiceOrchestrator) ConvertTo(_ context.Context, sink apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", sink)
 }
 
 // ConvertFrom implements apis.Convertible
-func (sink *ServiceOrchestrator) ConvertFrom(_ context.Context, source apis.Convertible) error {
+func (so *ServiceOrchestrator) ConvertFrom(_ context.Context, source apis.Convertible) error {
 	return fmt.Errorf("v1 is the highest known version, got: %T", source)
 }

@@ -33,36 +33,36 @@ func (*StagePodAutoscaler) GetConditionSet() apis.ConditionSet {
 }
 
 // GetGroupVersionKind returns the GVK for the PodAutoscaler.
-func (pa *StagePodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
+func (spa *StagePodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("StagePodAutoscaler")
 }
 
-func (pa *StagePodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (*int32, *int32) {
-	return pa.Spec.MinScale, pa.Spec.MaxScale
+func (spa *StagePodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (*int32, *int32) {
+	return spa.Spec.MinScale, spa.Spec.MaxScale
 }
 
-func (c *StagePodAutoscaler) IsStageScaleInReady() bool {
-	cs := c.Status
-	return cs.GetCondition(PodAutoscalerStageReady).IsTrue()
+func (spa *StagePodAutoscaler) IsStageScaleInReady() bool {
+	spas := spa.Status
+	return spas.GetCondition(PodAutoscalerStageReady).IsTrue()
 }
 
-func (c *StagePodAutoscaler) IsStageScaleInProgress() bool {
-	cs := c.Status
-	return cs.GetCondition(PodAutoscalerStageReady).IsUnknown()
+func (spa *StagePodAutoscaler) IsStageScaleInProgress() bool {
+	spas := spa.Status
+	return spas.GetCondition(PodAutoscalerStageReady).IsUnknown()
 }
 
 // InitializeConditions sets the initial values to the conditions.
-func (cs *StagePodAutoscalerStatus) InitializeConditions() {
-	stagePodCondSet.Manage(cs).InitializeConditions()
+func (spas *StagePodAutoscalerStatus) InitializeConditions() {
+	stagePodCondSet.Manage(spas).InitializeConditions()
 }
 
-func (cs *StagePodAutoscalerStatus) MarkPodAutoscalerStageNotReady(message string) {
-	stagePodCondSet.Manage(cs).MarkUnknown(
+func (spas *StagePodAutoscalerStatus) MarkPodAutoscalerStageNotReady(message string) {
+	stagePodCondSet.Manage(spas).MarkUnknown(
 		PodAutoscalerStageReady,
 		"PodAutoscalerStageNotReady",
 		"The stage pod autoscaler is not ready: %s.", message)
 }
 
-func (cs *StagePodAutoscalerStatus) MarkPodAutoscalerStageReady() {
-	stagePodCondSet.Manage(cs).MarkTrue(PodAutoscalerStageReady)
+func (spas *StagePodAutoscalerStatus) MarkPodAutoscalerStageReady() {
+	stagePodCondSet.Manage(spas).MarkTrue(PodAutoscalerStageReady)
 }

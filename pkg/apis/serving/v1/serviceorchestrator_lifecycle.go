@@ -39,61 +39,61 @@ func (*ServiceOrchestrator) GetGroupVersionKind() schema.GroupVersionKind {
 
 // IsReady returns true if the Status condition ServiceOrchestratorConditionReady
 // is true and the latest spec has been observed.
-func (c *ServiceOrchestrator) IsReady() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorConditionReady).IsTrue()
+func (so *ServiceOrchestrator) IsReady() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorConditionReady).IsTrue()
 }
 
 // IsFailed returns true if the resource has observed
 // the latest generation and ready is false.
-func (c *ServiceOrchestrator) IsFailed() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorConditionReady).IsFalse()
+func (so *ServiceOrchestrator) IsFailed() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorConditionReady).IsFalse()
 }
 
-func (c *ServiceOrchestrator) IsInProgress() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorConditionReady).IsUnknown()
+func (so *ServiceOrchestrator) IsInProgress() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorConditionReady).IsUnknown()
 }
 
-func (c *ServiceOrchestrator) IsStageInProgress() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorStageReady).IsUnknown()
+func (so *ServiceOrchestrator) IsStageInProgress() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorStageReady).IsUnknown()
 }
 
-func (c *ServiceOrchestrator) IsStageReady() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorStageReady).IsTrue()
+func (so *ServiceOrchestrator) IsStageReady() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorStageReady).IsTrue()
 }
 
-func (c *ServiceOrchestrator) IsStageFailed() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorStageReady).IsFalse()
+func (so *ServiceOrchestrator) IsStageFailed() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorStageReady).IsFalse()
 }
 
-func (c *ServiceOrchestrator) IsStageScaleUpReady() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsTrue()
+func (so *ServiceOrchestrator) IsStageScaleUpReady() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorStageScaleUpReady).IsTrue()
 }
 
-func (c *ServiceOrchestrator) IsStageScaleUpInProgress() bool {
-	cs := c.Status
-	return cs.GetCondition(ServiceOrchestratorStageScaleUpReady).IsUnknown()
+func (so *ServiceOrchestrator) IsStageScaleUpInProgress() bool {
+	sos := so.Status
+	return sos.GetCondition(ServiceOrchestratorStageScaleUpReady).IsUnknown()
 }
 
 // InitializeConditions sets the initial values to the conditions.
-func (cs *ServiceOrchestratorStatus) InitializeConditions() {
-	serviceOrchestratorCondSet.Manage(cs).InitializeConditions()
+func (sos *ServiceOrchestratorStatus) InitializeConditions() {
+	serviceOrchestratorCondSet.Manage(sos).InitializeConditions()
 }
 
 // MarkStageRevisionFailed marks the ServiceOrchestratorStageReady condition to
 // indicate that the revision rollout failed for the current stage.
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionFailed(message string) {
-	serviceOrchestratorCondSet.Manage(cs).MarkFalse(
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionFailed(message string) {
+	serviceOrchestratorCondSet.Manage(sos).MarkFalse(
 		ServiceOrchestratorStageReady,
 		"StageRevisionRolloutFailed",
 		"The rollout of the current stage failed with message: %s.", message)
-	serviceOrchestratorCondSet.Manage(cs).MarkFalse(
+	serviceOrchestratorCondSet.Manage(sos).MarkFalse(
 		ServiceOrchestratorLastStageComplete,
 		"RevisionRolloutFailed",
 		"The rollout of the current stage failed with message: %s.", message)
@@ -101,36 +101,36 @@ func (cs *ServiceOrchestratorStatus) MarkStageRevisionFailed(message string) {
 
 // MarkStageRevisionReady marks the ServiceOrchestratorStageReady condition to
 // indicate that the revision rollout succeeded for the current stage.
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionReady() {
-	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorStageReady)
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionReady() {
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorStageReady)
 }
 
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleUpReady() {
-	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorStageScaleUpReady)
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleUpReady() {
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorStageScaleUpReady)
 }
 
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleDownReady() {
-	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorStageScaleDownReady)
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleDownReady() {
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorStageScaleDownReady)
 }
 
 // MarkLastStageRevisionComplete marks the ServiceOrchestratorLastStageComplete condition to
 // indicate that the revision rollout succeeded for the last stage.
-func (cs *ServiceOrchestratorStatus) MarkLastStageRevisionComplete() {
-	serviceOrchestratorCondSet.Manage(cs).MarkTrue(ServiceOrchestratorLastStageComplete)
+func (sos *ServiceOrchestratorStatus) MarkLastStageRevisionComplete() {
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorLastStageComplete)
 }
 
-func (cs *ServiceOrchestratorStatus) MarkLastStageRevisionInComplete(reason, message string) {
-	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorLastStageComplete, reason, message)
+func (sos *ServiceOrchestratorStatus) MarkLastStageRevisionInComplete(reason, message string) {
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorLastStageComplete, reason, message)
 }
 
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionInProgress(reason, message string) {
-	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorStageReady, reason, message)
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionInProgress(reason, message string) {
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorStageReady, reason, message)
 }
 
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleDownInProgress(reason, message string) {
-	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorStageScaleDownReady, reason, message)
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleDownInProgress(reason, message string) {
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorStageScaleDownReady, reason, message)
 }
 
-func (cs *ServiceOrchestratorStatus) MarkStageRevisionScaleUpInProgress(reason, message string) {
-	serviceOrchestratorCondSet.Manage(cs).MarkUnknown(ServiceOrchestratorStageScaleUpReady, reason, message)
+func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleUpInProgress(reason, message string) {
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorStageScaleUpReady, reason, message)
 }

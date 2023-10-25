@@ -85,6 +85,6 @@ type StagePodAutoscalerSpec struct {
 }
 
 // GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.
-func (pa *StagePodAutoscaler) GetStatus() *duckv1.Status {
-	return &pa.Status.Status
+func (spa *StagePodAutoscaler) GetStatus() *duckv1.Status {
+	return &spa.Status.Status
 }

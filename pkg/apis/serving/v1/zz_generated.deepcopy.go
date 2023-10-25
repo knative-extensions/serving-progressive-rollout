@@ -33,8 +33,8 @@ func (in *RevisionTarget) DeepCopyInto(out *RevisionTarget) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.LatestRevision != nil {
-		in, out := &in.LatestRevision, &out.LatestRevision
+	if in.IsLatestRevision != nil {
+		in, out := &in.IsLatestRevision, &out.IsLatestRevision
 		*out = new(bool)
 		**out = **in
 	}
@@ -131,15 +131,15 @@ func (in *ServiceOrchestratorList) DeepCopyObject() runtime.Object {
 func (in *ServiceOrchestratorSpec) DeepCopyInto(out *ServiceOrchestratorSpec) {
 	*out = *in
 	in.StageTarget.DeepCopyInto(&out.StageTarget)
-	if in.RevisionTarget != nil {
-		in, out := &in.RevisionTarget, &out.RevisionTarget
+	if in.TargetRevisions != nil {
+		in, out := &in.TargetRevisions, &out.TargetRevisions
 		*out = make([]RevisionTarget, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.InitialRevisionStatus != nil {
-		in, out := &in.InitialRevisionStatus, &out.InitialRevisionStatus
+	if in.InitialRevisions != nil {
+		in, out := &in.InitialRevisions, &out.InitialRevisions
 		*out = make([]RevisionTarget, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

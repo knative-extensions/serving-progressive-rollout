@@ -18,7 +18,6 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
@@ -33,16 +32,16 @@ type StagePodAutoscaler struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec holds the desired state of the PodAutoscaler (from the client).
+	// Spec holds the desired state of the StagePodAutoscaler (from the client).
 	// +optional
 	Spec StagePodAutoscalerSpec `json:"spec,omitempty"`
 
-	// Status holds the desired state of the PodAutoscaler (from the client).
+	// Status holds the desired state of the StagePodAutoscaler (from the client).
 	// +optional
 	Status StagePodAutoscalerStatus `json:"status,omitempty"`
 }
 
-// StagePodAutoscalerStatus communicates the observed state of the PodAutoscaler (from the controller).
+// StagePodAutoscalerStatus communicates the observed state of the StagePodAutoscaler (from the controller).
 type StagePodAutoscalerStatus struct {
 	duckv1.Status `json:",inline"`
 
@@ -55,10 +54,7 @@ type StagePodAutoscalerStatus struct {
 
 // Verify that StagePodAutoscaler adheres to the appropriate interfaces.
 var (
-	// Check that Configuration can be converted to higher versions.
-	_ apis.Convertible = (*ServiceOrchestrator)(nil)
-
-	// Check that we can create OwnerReferences to a PodAutoscaler.
+	// Check that we can create OwnerReferences to a StagePodAutoscaler.
 	_ kmeta.OwnerRefable = (*StagePodAutoscaler)(nil)
 	// Check that the type conforms to the duck Knative Resource shape.
 	_ duckv1.KRShaped = (*StagePodAutoscaler)(nil)
@@ -66,7 +62,7 @@ var (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// StagePodAutoscaler is a list of PodAutoscaler resources
+// StagePodAutoscalerList is a list of StagePodAutoscaler resources
 type StagePodAutoscalerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -84,7 +80,7 @@ type StagePodAutoscalerSpec struct {
 	MaxScale *int32 `json:"maxScale,omitempty"`
 }
 
-// GetStatus retrieves the status of the PodAutoscaler. Implements the KRShaped interface.
+// GetStatus retrieves the status of the StagePodAutoscaler. Implements the KRShaped interface.
 func (spa *StagePodAutoscaler) GetStatus() *duckv1.Status {
 	return &spa.Status.Status
 }

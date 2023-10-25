@@ -18,8 +18,6 @@ package v1
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-
 	"knative.dev/pkg/apis"
 )
 
@@ -37,7 +35,7 @@ func (spa *StagePodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("StagePodAutoscaler")
 }
 
-func (spa *StagePodAutoscaler) ScaleBounds(asConfig *autoscalerconfig.Config) (*int32, *int32) {
+func (spa *StagePodAutoscaler) ScaleBounds() (*int32, *int32) {
 	return spa.Spec.MinScale, spa.Spec.MaxScale
 }
 

@@ -25,8 +25,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
-	samplesv1alpha1 "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/typed/samples/v1alpha1"
-	fakesamplesv1alpha1 "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/typed/samples/v1alpha1/fake"
+	servingv1 "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/typed/serving/v1"
+	fakeservingv1 "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/typed/serving/v1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -79,7 +79,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// SamplesV1alpha1 retrieves the SamplesV1alpha1Client
-func (c *Clientset) SamplesV1alpha1() samplesv1alpha1.SamplesV1alpha1Interface {
-	return &fakesamplesv1alpha1.FakeSamplesV1alpha1{Fake: &c.Fake}
+// ServingV1 retrieves the ServingV1Client
+func (c *Clientset) ServingV1() servingv1.ServingV1Interface {
+	return &fakeservingv1.FakeServingV1{Fake: &c.Fake}
 }

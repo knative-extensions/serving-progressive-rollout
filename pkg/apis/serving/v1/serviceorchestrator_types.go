@@ -118,29 +118,26 @@ type ServiceOrchestratorSpec struct {
 }
 
 const (
-	// ServiceOrchestratorConditionReady is set when the latest
-	// underlying revision has reported readiness.
-	ServiceOrchestratorConditionReady = apis.ConditionReady
+	// SOConditionReady is set when the Service Orchestrator has accomplished the transitional upgrade
+	// from the old to the new revision.
+	SOConditionReady = apis.ConditionReady
 
-	// ServiceOrchestratorStageReady is set to False when the
-	// service is not configured properly or has no available
-	// backends ready to receive traffic.
-	ServiceOrchestratorStageReady apis.ConditionType = "StageTrafficReady"
+	// SOStageReady is set to True, when the current stage of the transition is finished.
+	SOStageReady apis.ConditionType = "StageReady"
 
-	// ServiceOrchestratorLastStageComplete is set to False when the
-	// Ingress fails to become Ready.
-	ServiceOrchestratorLastStageComplete apis.ConditionType = "LastStageTrafficReady"
+	// SOLastStageComplete is set to True, when the last stage of the transition is finished.
+	SOLastStageComplete apis.ConditionType = "LastStageReady"
 
-	ServiceOrchestratorStageScaleUpReady apis.ConditionType = "StageTrafficScaleUpReady"
+	// SOStageScaleUpReady is set to True, when scaling up phase is finished for the current stage of the transition.
+	SOStageScaleUpReady apis.ConditionType = "StageScaleUpReady"
 
-	ServiceOrchestratorStageScaleDownReady apis.ConditionType = "StageTrafficScaleDownReady"
-
-	PodAutoscalerStageReady apis.ConditionType = "PodAutoscalerStageReady"
+	// SOStageScaleDownReady is set to True, when scaling down phase is finished for the current stage of the transition.
+	SOStageScaleDownReady apis.ConditionType = "StageScaleDownReady"
 )
 
 // IsServiceOrchestratorCondition returns true if the given ConditionType is a ServiceOrchestratorCondition.
 func IsServiceOrchestratorCondition(conditionType apis.ConditionType) bool {
-	return conditionType == ServiceOrchestratorConditionReady
+	return conditionType == SOConditionReady
 }
 
 // ServiceOrchestratorStatusFields holds the fields of ServiceOrchestrator's status that

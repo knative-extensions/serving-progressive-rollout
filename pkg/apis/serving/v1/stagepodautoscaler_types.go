@@ -18,6 +18,7 @@ package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 )
@@ -40,6 +41,10 @@ type StagePodAutoscaler struct {
 	// +optional
 	Status StagePodAutoscalerStatus `json:"status,omitempty"`
 }
+
+const (
+	SPAReady apis.ConditionType = "PodAutoscalerStageReady"
+)
 
 // StagePodAutoscalerStatus communicates the observed state of the StagePodAutoscaler (from the controller).
 type StagePodAutoscalerStatus struct {

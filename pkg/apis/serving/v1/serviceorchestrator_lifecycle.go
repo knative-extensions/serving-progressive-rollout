@@ -23,8 +23,8 @@ import (
 )
 
 var serviceOrchestratorCondSet = apis.NewLivingConditionSet(
-	ServiceOrchestratorStageReady,
-	ServiceOrchestratorLastStageComplete,
+	SOStageReady,
+	SOLastStageComplete,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -37,48 +37,48 @@ func (*ServiceOrchestrator) GetGroupVersionKind() schema.GroupVersionKind {
 	return SchemeGroupVersion.WithKind("ServiceOrchestrator")
 }
 
-// IsReady returns true if the Status condition ServiceOrchestratorConditionReady
+// IsReady returns true if the Status condition SOConditionReady
 // is true and the latest spec has been observed.
 func (so *ServiceOrchestrator) IsReady() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorConditionReady).IsTrue()
+	return sos.GetCondition(SOConditionReady).IsTrue()
 }
 
 // IsFailed returns true if the resource has observed
 // the latest generation and ready is false.
 func (so *ServiceOrchestrator) IsFailed() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorConditionReady).IsFalse()
+	return sos.GetCondition(SOConditionReady).IsFalse()
 }
 
 func (so *ServiceOrchestrator) IsInProgress() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorConditionReady).IsUnknown()
+	return sos.GetCondition(SOConditionReady).IsUnknown()
 }
 
 func (so *ServiceOrchestrator) IsStageInProgress() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorStageReady).IsUnknown()
+	return sos.GetCondition(SOStageReady).IsUnknown()
 }
 
 func (so *ServiceOrchestrator) IsStageReady() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorStageReady).IsTrue()
+	return sos.GetCondition(SOStageReady).IsTrue()
 }
 
 func (so *ServiceOrchestrator) IsStageFailed() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorStageReady).IsFalse()
+	return sos.GetCondition(SOStageReady).IsFalse()
 }
 
 func (so *ServiceOrchestrator) IsStageScaleUpReady() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorStageScaleUpReady).IsTrue()
+	return sos.GetCondition(SOStageScaleUpReady).IsTrue()
 }
 
 func (so *ServiceOrchestrator) IsStageScaleUpInProgress() bool {
 	sos := so.Status
-	return sos.GetCondition(ServiceOrchestratorStageScaleUpReady).IsUnknown()
+	return sos.GetCondition(SOStageScaleUpReady).IsUnknown()
 }
 
 // InitializeConditions sets the initial values to the conditions.
@@ -90,11 +90,11 @@ func (sos *ServiceOrchestratorStatus) InitializeConditions() {
 // indicate that the revision rollout failed for the current stage.
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionFailed(message string) {
 	serviceOrchestratorCondSet.Manage(sos).MarkFalse(
-		ServiceOrchestratorStageReady,
+		SOStageReady,
 		"StageRevisionRolloutFailed",
 		"The rollout of the current stage failed with message: %s.", message)
 	serviceOrchestratorCondSet.Manage(sos).MarkFalse(
-		ServiceOrchestratorLastStageComplete,
+		SOLastStageComplete,
 		"RevisionRolloutFailed",
 		"The rollout of the current stage failed with message: %s.", message)
 }
@@ -102,35 +102,35 @@ func (sos *ServiceOrchestratorStatus) MarkStageRevisionFailed(message string) {
 // MarkStageRevisionReady marks the ServiceOrchestratorStageReady condition to
 // indicate that the revision rollout succeeded for the current stage.
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionReady() {
-	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorStageReady)
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(SOStageReady)
 }
 
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleUpReady() {
-	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorStageScaleUpReady)
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(SOStageScaleUpReady)
 }
 
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleDownReady() {
-	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorStageScaleDownReady)
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(SOStageScaleDownReady)
 }
 
 // MarkLastStageRevisionComplete marks the ServiceOrchestratorLastStageComplete condition to
 // indicate that the revision rollout succeeded for the last stage.
 func (sos *ServiceOrchestratorStatus) MarkLastStageRevisionComplete() {
-	serviceOrchestratorCondSet.Manage(sos).MarkTrue(ServiceOrchestratorLastStageComplete)
+	serviceOrchestratorCondSet.Manage(sos).MarkTrue(SOLastStageComplete)
 }
 
 func (sos *ServiceOrchestratorStatus) MarkLastStageRevisionInComplete(reason, message string) {
-	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorLastStageComplete, reason, message)
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(SOLastStageComplete, reason, message)
 }
 
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionInProgress(reason, message string) {
-	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorStageReady, reason, message)
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(SOStageReady, reason, message)
 }
 
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleDownInProgress(reason, message string) {
-	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorStageScaleDownReady, reason, message)
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(SOStageScaleDownReady, reason, message)
 }
 
 func (sos *ServiceOrchestratorStatus) MarkStageRevisionScaleUpInProgress(reason, message string) {
-	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(ServiceOrchestratorStageScaleUpReady, reason, message)
+	serviceOrchestratorCondSet.Manage(sos).MarkUnknown(SOStageScaleUpReady, reason, message)
 }

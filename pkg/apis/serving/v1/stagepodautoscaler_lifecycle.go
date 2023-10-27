@@ -22,7 +22,7 @@ import (
 )
 
 var stagePodCondSet = apis.NewLivingConditionSet(
-	PodAutoscalerStageReady,
+	SPAReady,
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -41,12 +41,12 @@ func (spa *StagePodAutoscaler) ScaleBounds() (*int32, *int32) {
 
 func (spa *StagePodAutoscaler) IsStageScaleInReady() bool {
 	spas := spa.Status
-	return spas.GetCondition(PodAutoscalerStageReady).IsTrue()
+	return spas.GetCondition(SPAReady).IsTrue()
 }
 
 func (spa *StagePodAutoscaler) IsStageScaleInProgress() bool {
 	spas := spa.Status
-	return spas.GetCondition(PodAutoscalerStageReady).IsUnknown()
+	return spas.GetCondition(SPAReady).IsUnknown()
 }
 
 // InitializeConditions sets the initial values to the conditions.
@@ -56,11 +56,11 @@ func (spas *StagePodAutoscalerStatus) InitializeConditions() {
 
 func (spas *StagePodAutoscalerStatus) MarkPodAutoscalerStageNotReady(message string) {
 	stagePodCondSet.Manage(spas).MarkUnknown(
-		PodAutoscalerStageReady,
+		SPAReady,
 		"PodAutoscalerStageNotReady",
 		"The stage pod autoscaler is not ready: %s.", message)
 }
 
 func (spas *StagePodAutoscalerStatus) MarkPodAutoscalerStageReady() {
-	stagePodCondSet.Manage(spas).MarkTrue(PodAutoscalerStageReady)
+	stagePodCondSet.Manage(spas).MarkTrue(SPAReady)
 }

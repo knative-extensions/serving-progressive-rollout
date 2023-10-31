@@ -30,15 +30,26 @@ readonly KNATIVE_REPO_BRANCH="${PULL_BASE_REF}"
 function knative_setup() {
   # We will use Istio as the ingress
   install_istio || fail_test "Istio installation failed"
-  download_knative "knative-extensions/net-istio" "net-istio" "${KNATIVE_REPO_BRANCH}"
-  echo "Install net-istio"
-  cd ${KNATIVE_DIR}/"net-istio"
-  ls
 
   download_knative "knative/serving" "serving" "${KNATIVE_REPO_BRANCH}"
   echo "Install Knative Serving"
   cd ${KNATIVE_DIR}/"serving"
-  ls
+  ko apply -Rf config/core/
+  ko apply -Rf config/hpa-autoscaling
+  wait_until_pods_running knative-serving || fail_test "Knative Serving did not come up"
+
+  download_knative "knative-extensions/net-istio" "net-istio" "${KNATIVE_REPO_BRANCH}"
+  echo "Install net-istio"
+  cd ${KNATIVE_DIR}/"net-istio"
+  ko apply -f config/
+  wait_until_pods_running knative-serving || fail_test "Knative net-istio did not come up"
+
+  # Replace the controller and autoscaler with the ones in the plugin
+  cd ${PLUGIN_DIR}
+  kubectl delete deploy autoscaler -n knative-serving
+  kubectl delete deploy controller -n knative-serving
+  ko apply -Rf config/core/deployments
+  wait_until_pods_running knative-serving || fail_test "Knative Serving did not come up for the plugin"
 }
 
 # Install Istio.

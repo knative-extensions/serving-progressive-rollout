@@ -27,6 +27,18 @@ readonly KNATIVE_DIR=$(dirname ${PLUGIN_DIR})
 # The value can be either a specific release branch, e.g. release-1.12 or ${PULL_BASE_REF}.
 readonly KNATIVE_REPO_BRANCH="${PULL_BASE_REF}"
 
+function toggle_feature() {
+  local FEATURE="$1"
+  local STATE="$2"
+  local CONFIG="${3:-config-features}"
+  echo -n "Setting feature ${FEATURE} to ${STATE}"
+  local PATCH="{\"data\":{\"${FEATURE}\":\"${STATE}\"}}"
+  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p "${PATCH}"
+  # We don't have a good mechanism for positive handoff so sleep :(
+  echo "Waiting 30s for change to get picked up."
+  sleep 30
+}
+
 function knative_setup() {
   # We will use Istio as the ingress
   install_istio || fail_test "Istio installation failed"

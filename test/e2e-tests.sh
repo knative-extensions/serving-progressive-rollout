@@ -37,6 +37,7 @@ if [ -z "${E2E_TEST_FLAGS}" ]; then
 fi
 
 cd ${KNATIVE_DIR}/"serving"
+kubectl apply -f test/config/cluster-resources.yaml
 go_test_e2e -timeout=30m \
   ./test/e2e \
   ${E2E_TEST_FLAGS} || failed=1

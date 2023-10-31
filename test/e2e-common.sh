@@ -36,6 +36,25 @@ function use_resolvable_domain() {
   echo "false"
 }
 
+# Create test resources and images
+function test_setup() {
+  echo ">> Setting up logging..."
+
+  # Install kail if needed.
+  if ! which kail > /dev/null; then
+    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  fi
+
+  # Capture all logs.
+  kail > "${ARTIFACTS}/k8s.log-$(basename "${E2E_SCRIPT}").txt" &
+  local kail_pid=$!
+  # Clean up kail so it doesn't interfere with job shutting down
+  add_trap "kill $kail_pid || true" EXIT
+
+  echo ">> Uploading test images..."
+  ${KNATIVE_DIR}/serving/test/upload-test-images.sh || return 1
+}
+
 function knative_setup() {
   # We will use Istio as the ingress
   install_istio || fail_test "Istio installation failed"

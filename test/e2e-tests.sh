@@ -36,6 +36,7 @@ if [ -z "${E2E_TEST_FLAGS}" ]; then
   fi
 fi
 
+kubectl get pod -n knative-serving
 cd ${KNATIVE_DIR}/"serving"
 kubectl apply -f test/config/cluster-resources.yaml
 go_test_e2e -timeout=30m \

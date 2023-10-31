@@ -38,6 +38,7 @@ function use_resolvable_domain() {
 
 # Create test resources and images
 function test_setup() {
+  cd ${KNATIVE_DIR}/serving
   echo ">> Setting up logging..."
 
   # Install kail if needed.

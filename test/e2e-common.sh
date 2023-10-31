@@ -74,11 +74,11 @@ function knative_setup() {
   wait_until_pods_running knative-serving || fail_test "Knative net-istio did not come up"
 
   # Replace the controller and autoscaler with the ones in the plugin
-  cd ${PLUGIN_DIR}
-  kubectl delete deploy autoscaler -n knative-serving
-  kubectl delete deploy controller -n knative-serving
-  ko apply -Rf config/core/deployments
-  wait_until_pods_running knative-serving || fail_test "Knative Serving did not come up for the plugin"
+#  cd ${PLUGIN_DIR}
+#  kubectl delete deploy autoscaler -n knative-serving
+#  kubectl delete deploy controller -n knative-serving
+#  ko apply -Rf config/core/deployments
+#  wait_until_pods_running knative-serving || fail_test "Knative Serving did not come up for the plugin"
 }
 
 # Install Istio.

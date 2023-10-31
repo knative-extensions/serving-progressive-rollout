@@ -27,16 +27,13 @@ readonly KNATIVE_DIR=$(dirname ${PLUGIN_DIR})
 # The value can be either a specific release branch, e.g. release-1.12 or ${PULL_BASE_REF}.
 readonly KNATIVE_REPO_BRANCH="${PULL_BASE_REF}"
 
-function toggle_feature() {
-  local FEATURE="$1"
-  local STATE="$2"
-  local CONFIG="${3:-config-features}"
-  echo -n "Setting feature ${FEATURE} to ${STATE}"
-  local PATCH="{\"data\":{\"${FEATURE}\":\"${STATE}\"}}"
-  kubectl patch cm "${CONFIG}" -n "${SYSTEM_NAMESPACE}" -p "${PATCH}"
-  # We don't have a good mechanism for positive handoff so sleep :(
-  echo "Waiting 30s for change to get picked up."
-  sleep 30
+export INGRESS_CLASS=${INGRESS_CLASS:-istio.ingress.networking.knative.dev}
+
+# Check if we should use --resolvabledomain.  In case the ingress only has
+# hostname, we doesn't yet have a way to support resolvable domain in tests.
+function use_resolvable_domain() {
+  # Temporarily turning off sslip.io tests, as DNS errors aren't always retried.
+  echo "false"
 }
 
 function knative_setup() {

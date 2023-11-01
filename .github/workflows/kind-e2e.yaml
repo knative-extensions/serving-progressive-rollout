@@ -208,13 +208,6 @@ jobs:
           echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
           echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
 
-          echo "check the deploy under $SYSTEM_NAMESPACE"
-          kubectl get deploy -n $SYSTEM_NAMESPACE
-          kubectl delete deploy controller -n $SYSTEM_NAMESPACE
-          kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
-          cd ${REPO_HOME_DIR}
-          ko resolve -Rf config/core | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
-
       - name: Test ${{ matrix.test-suite }}
         run: |
           cd ${KNATIVE_SERVING_DIR}

@@ -116,29 +116,3 @@ spec:
             - name: k-kubelet-probe
               value: "autoscaler"
           failureThreshold: 6
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: autoscaler
-    app.kubernetes.io/component: autoscaler
-    app.kubernetes.io/name: knative-serving
-    app.kubernetes.io/version: devel
-  name: autoscaler
-  namespace: knative-serving
-spec:
-  ports:
-  # Define metrics and profiling for them to be accessible within service meshes.
-  - name: http-metrics
-    port: 9090
-    targetPort: 9090
-  - name: http-profiling
-    port: 8008
-    targetPort: 8008
-  - name: http
-    port: 8080
-    targetPort: 8080
-  selector:
-    app: autoscaler

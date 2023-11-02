@@ -219,12 +219,12 @@ jobs:
           
           # from plugin docker.io/houshengbo/autoscaler-5f036bd030ebc80576cda767d67acb45:latest
           # from serving docker.io/houshengbo/autoscaler-12c0fa24db31956a7cfa673210e4fa13:latest
-          kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"docker.io/houshengbo/autoscaler-5f036bd030ebc80576cda767d67acb45:latest"}]}}}}'
+          # kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"docker.io/houshengbo/autoscaler-5f036bd030ebc80576cda767d67acb45:latest"}]}}}}'
 
           # kubectl delete deploy controller -n $SYSTEM_NAMESPACE
-          # kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
-          # cd ${REPO_HOME_DIR}
-          # ko resolve -f config/core/deployments/autoscaler.yaml | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
+          kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
+          cd ${KNATIVE_SERVING_DIR}
+          ko resolve -f config/core/deployments/autoscaler.yaml | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
 
       - name: Test ${{ matrix.test-suite }}
         run: |

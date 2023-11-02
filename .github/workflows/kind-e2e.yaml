@@ -86,14 +86,10 @@ jobs:
           ./hack/generate-yamls.sh "${REPO_HOME_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env-extension
           source $YAML_OUTPUT_DIR/env-extension
           export TMP_SERVING_CORE=$SERVING_CORE_YAML
-          echo "check the plugin serving core"
-          cat $TMP_SERVING_CORE
           source $HOME/artifacts/build/env
-          echo "check the serving core"
-          cat $SERVING_CORE_YAML
-          # cat $TMP_SERVING_CORE >> $SERVING_CORE_YAML
-          echo "check the full serving core"
-          cat $SERVING_CORE_YAML
+          echo "" >> $SERVING_CORE_YAML
+          echo "---" >> $SERVING_CORE_YAML
+          cat $TMP_SERVING_CORE >> $SERVING_CORE_YAML
 
       - name: Build Test Images
         run: |
@@ -216,16 +212,6 @@ jobs:
           source "${INSTALL_CUSTOM_YAMLS}"
           echo "check the core $SERVING_CORE_YAML"
           cat $SERVING_CORE_YAML
-          echo "check the domain"
-          cat $SERVING_DEFAULT_DOMAIN_YAML
-          echo "check the migrate"
-          cat $SERVING_STORAGE_VERSION_MIGRATE_YAML
-          echo "check the post install"
-          cat $SERVING_POST_INSTALL_JOBS_YAML
-          echo "check the hpa"
-          cat $SERVING_HPA_YAML
-          echo "check the crd $SERVING_CRD_YAML"
-          cat $SERVING_CRD_YAML
 
           cd ${KNATIVE_SERVING_DIR}
           rm ./test/config/chaosduck/chaosduck.yaml

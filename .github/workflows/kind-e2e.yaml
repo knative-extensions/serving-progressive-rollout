@@ -1,0 +1,254 @@
+# Copyright 2023 The Knative Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: e2e
+
+on:
+  pull_request:
+    branches: [ 'main', 'release-*' ]
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
+  # '*.local' hostnames. This works both for `ko` and our own tag-to-digest resolution logic,
+  # thus allowing us to test without bypassing tag-to-digest resolution.
+  CLUSTER_DOMAIN: c${{ github.run_id }}.local
+  REGISTRY_NAME: registry.local
+  REGISTRY_PORT: 5000
+  KO_DOCKER_REPO: registry.local:5000/knative
+  KIND_VERSION: 0.19.0
+  GOTESTSUM_VERSION: 1.7.0
+  KAPP_VERSION: 0.46.0
+  YTT_VERSION: 0.40.1
+  KO_FLAGS: --platform=linux/amd64
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  KNATIVE_DIR: /home/runner/work/serving-progressive-rollout
+  KNATIVE_SERVING_DIR: /home/runner/work/serving-progressive-rollout/serving
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go 1.21.x
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.21.x
+
+    - name: Setup Cache Directories
+      run: |
+        mkdir -p ~/artifacts/build
+        mkdir -p ~/artifacts/build-extension
+        mkdir -p ~/artifacts/registry
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+           ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    # Install the latest release of ko
+    - name: Install ko
+      uses: ko-build/setup-ko@v0.6
+
+    # Download the latest source code of Knative Serving
+    - name: Download Knative Serving
+      run: |
+        cd ${KNATIVE_DIR}
+        git clone https://github.com/knative/serving.git "serving"
+
+    - name: Setup Registry
+      run: |
+        docker run -d --restart=always \
+          -p $REGISTRY_PORT:$REGISTRY_PORT \
+          -v ~/artifacts/registry:/var/lib/registry \
+          --name $REGISTRY_NAME registry:2
+
+        # Make the $REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+        # local reigstry, even when pushing $REGISTRY_NAME:$REGISTRY_PORT/some/image
+        sudo echo "127.0.0.1 $REGISTRY_NAME" | sudo tee -a /etc/hosts
+
+    - name: Build Knative
+      run: |
+        export YAML_OUTPUT_DIR=$HOME/artifacts/build
+        cd ${KNATIVE_SERVING_DIR}
+        ./hack/generate-yamls.sh "${KNATIVE_SERVING_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env
+
+    - name: Build Knative Extension
+      run: |
+        export YAML_OUTPUT_DIR=$HOME/artifacts/build-extension
+        ko resolve -f config/core/deployments/autoscaler.yaml --image-refs $YAML_OUTPUT_DIR/autoscaler
+        ko resolve -f config/core/deployments/controller.yaml --image-refs $YAML_OUTPUT_DIR/controller
+
+    - name: Build Test Images
+      run: |
+        cd ${KNATIVE_SERVING_DIR}
+        ./test/upload-test-images.sh
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: ~/artifacts
+        retention-days: 1
+
+  test:
+    name: test
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Keep running if one leg fails.
+      matrix:
+        k8s-version:
+        - v1.28.x
+
+        ingress:
+        - istio
+
+        test-suite:
+        - runtime
+        - api
+        - e2e
+
+        include:
+        - ingress: istio
+          ingress-class: istio
+          namespace-resources: virtualservices
+
+        - test-suite: runtime
+          test-path: ./test/conformance/runtime/...
+
+        - test-suite: api
+          test-path: ./test/conformance/api/...
+
+        - test-suite: e2e
+          test-path: ./test/e2e
+
+    env:
+      KIND: 1
+      INGRESS_CLASS: ${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+
+    steps:
+    - name: Set up Go 1.21.x
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.21.x
+
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+           ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: artifacts
+        path: ~/artifacts
+
+    - name: Setup KinD 
+      uses: chainguard-dev/actions/setup-kind@main
+      with:
+        k8s-version: ${{ matrix.k8s-version }}
+        kind-worker-count: 4
+        cluster-suffix: c${{ github.run_id }}.local
+        registry-volume: $HOME/artifacts/registry
+
+ 
+    - name: Install Dependencies
+      run: |
+        set -x
+        echo "::group:: install gotestsum ${GOTESTSUM_VERSION}"
+        curl -L https://github.com/gotestyourself/gotestsum/releases/download/v${GOTESTSUM_VERSION}/gotestsum_${GOTESTSUM_VERSION}_linux_amd64.tar.gz | tar xzf - gotestsum
+        chmod +x ./gotestsum
+        sudo mv gotestsum /usr/local/bin
+        echo "::endgroup::"
+
+        echo "::group:: install kapp ${KAPP_VERSION}"
+        curl -Lo ./kapp https://github.com/vmware-tanzu/carvel-kapp/releases/download/v${KAPP_VERSION}/kapp-linux-amd64
+        chmod +x ./kapp
+        sudo mv kapp /usr/local/bin
+        echo "::endgroup::"
+
+        echo "::group:: install ytt ${YTT_VERSION}"
+        curl -Lo ./ytt https://github.com/vmware-tanzu/carvel-ytt/releases/download/v${YTT_VERSION}/ytt-linux-amd64
+        chmod +x ./ytt
+        sudo mv ytt /usr/local/bin
+        echo "::endgroup::"
+
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    # Download the latest source code of Knative Serving
+    - name: Download Knative Serving
+      run: |
+        cd ${KNATIVE_DIR}
+        git clone https://github.com/knative/serving.git "serving"
+
+    - name: Install Serving & Ingress
+      run: |
+        set -x
+        cd ${KNATIVE_SERVING_DIR}
+        # Remove chaosduck since we don't use it and it'll skip the build
+        rm ./test/config/chaosduck/chaosduck.yaml
+
+        source ./test/e2e-common.sh
+
+        export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
+        knative_setup
+
+        # Run the tests tagged as e2e on the KinD cluster.
+        echo "SYSTEM_NAMESPACE=$SYSTEM_NAMESPACE" >> $GITHUB_ENV
+        echo "GATEWAY_OVERRIDE=$GATEWAY_OVERRIDE" >> $GITHUB_ENV
+        echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
+        echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
+        echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
+        
+        export CONTROLLER_IMAGE=$(cat $HOME/artifacts/build-extension/controller | tr -d ' \t\n\r')
+        export AUTOSCALER_IMAGE=$(cat $HOME/artifacts/build-extension/autoscaler | tr -d ' \t\n\r')
+        echo "$CONTROLLER_IMAGE"
+        echo "$AUTOSCALER_IMAGE"
+        kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"'$AUTOSCALER_IMAGE'"}]}}}}'
+        kubectl patch deployment controller -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"controller","image":"'$CONTROLLER_IMAGE'"}]}}}}'
+        kubectl get deployment autoscaler -n $SYSTEM_NAMESPACE -oyaml
+        kubectl get deployment controller -n $SYSTEM_NAMESPACE -oyaml
+
+    - name: Test ${{ matrix.test-suite }}
+      run: |
+        cd ${KNATIVE_SERVING_DIR}
+        gotestsum --format testname -- \
+          -race -count=1 -parallel=1 -tags=e2e \
+          -timeout=30m \
+          ${{ matrix.test-path }} \
+          -skip-cleanup-on-fail \
+          -enable-alpha -enable-beta \
+          --ingress-class=${{ matrix.ingress-class || matrix.ingress }}.ingress.networking.knative.dev
+ 
+    - uses: chainguard-dev/actions/kind-diag@main
+      # Only upload logs on failure.
+      if: ${{ failure() }}
+      with:
+        cluster-resources: nodes,namespaces,crds
+        namespace-resources: configmaps,pods,svc,ksvc,route,configuration,revision,king,${{ matrix.namespace-resources || '' }}
+        artifact-name: logs-${{ matrix.k8s-version}}-${{ matrix.ingress }}-${{ matrix.test-suite }}

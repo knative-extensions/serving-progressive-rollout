@@ -82,6 +82,11 @@ jobs:
           cd ${KNATIVE_SERVING_DIR}
           ./hack/generate-yamls.sh "${KNATIVE_SERVING_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env
 
+      - name: Build Knative Extension
+        run: |
+          export YAML_OUTPUT_DIR=$HOME/artifacts/build
+          ./hack/generate-yamls.sh "$GITHUB_WORKSPACE" "$(mktemp)" $YAML_OUTPUT_DIR/env-extension
+
       - name: Build Test Images
         run: |
           cd ${KNATIVE_SERVING_DIR}
@@ -214,19 +219,17 @@ jobs:
           echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
           echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
 
-          echo "check the deploy under $SYSTEM_NAMESPACE"
-          kubectl get deploy -n $SYSTEM_NAMESPACE
+      - name: Install Serving & Ingress from the extension
+        run: |
+          set -x
+          cd $HOME/artifacts/build/env-extension
+          ls
+          source ./test/e2e-common.sh
           
-          # from plugin docker.io/houshengbo/autoscaler-5f036bd030ebc80576cda767d67acb45:latest
-          # from serving docker.io/houshengbo/autoscaler-12c0fa24db31956a7cfa673210e4fa13:latest
-          # kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"docker.io/houshengbo/autoscaler-5f036bd030ebc80576cda767d67acb45:latest"}]}}}}'
-
-          kubectl get deployment autoscaler -n $SYSTEM_NAMESPACE -oyaml
-          # kubectl delete deploy controller -n $SYSTEM_NAMESPACE
+          kubectl delete deploy controller -n $SYSTEM_NAMESPACE
           kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
-          cd ${REPO_HOME_DIR}
-          ko resolve -f config/core/deployments/autoscaler.yaml | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
-          kubectl get deployment autoscaler -n $SYSTEM_NAMESPACE -oyaml
+          export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env-extension
+          knative_setup
 
       - name: Test ${{ matrix.test-suite }}
         run: |

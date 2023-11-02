@@ -41,6 +41,7 @@ jobs:
       - name: Setup Cache Directories
         run: |
           mkdir -p ~/artifacts/build
+          mkdir -p ~/artifacts/build-extension
           mkdir -p ~/artifacts/registry
 
       - uses: actions/cache@v3
@@ -79,10 +80,20 @@ jobs:
           cd ${KNATIVE_SERVING_DIR}
           ./hack/generate-yamls.sh "${KNATIVE_SERVING_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env
 
-#      - name: Build Knative Extension
-#        run: |
-#          export YAML_OUTPUT_DIR=$HOME/artifacts/build
-#          ./hack/generate-yamls.sh "${REPO_HOME_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env-extension
+      - name: Build Knative Extension
+        run: |
+          export YAML_OUTPUT_DIR=$HOME/artifacts/build-extension
+          ./hack/generate-yamls.sh "${REPO_HOME_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env-extension
+          source $YAML_OUTPUT_DIR/env-extension
+          export TMP_SERVING_CORE=$SERVING_CORE_YAML
+          echo "check the plugin serving core"
+          cat $TMP_SERVING_CORE
+          source $HOME/artifacts/build/env
+          echo "check the serving core"
+          cat $SERVING_CORE_YAML
+          # cat $TMP_SERVING_CORE >> $SERVING_CORE_YAML
+          echo "check the full serving core"
+          cat $SERVING_CORE_YAML
 
       - name: Build Test Images
         run: |
@@ -202,7 +213,8 @@ jobs:
           cat $HOME/artifacts/build/env
           
           export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
-          echo "check the core"
+          source "${INSTALL_CUSTOM_YAMLS}"
+          echo "check the core $SERVING_CORE_YAML"
           cat $SERVING_CORE_YAML
           echo "check the domain"
           cat $SERVING_DEFAULT_DOMAIN_YAML
@@ -212,8 +224,9 @@ jobs:
           cat $SERVING_POST_INSTALL_JOBS_YAML
           echo "check the hpa"
           cat $SERVING_HPA_YAML
-          echo "check the crd"
+          echo "check the crd $SERVING_CRD_YAML"
           cat $SERVING_CRD_YAML
+
           cd ${KNATIVE_SERVING_DIR}
           rm ./test/config/chaosduck/chaosduck.yaml
           
@@ -230,18 +243,25 @@ jobs:
           
           echo "list the current deployments under $SYSTEM_NAMESPACE"
           kubectl get deploy -n $SYSTEM_NAMESPACE
-
-      - name: Install Serving & Ingress from the extension
-        run: |
-          set -x
-          cd $HOME/artifacts/build/env-extension
-          ls
-          source ./test/e2e-common.sh
           
-          kubectl delete deploy controller -n $SYSTEM_NAMESPACE
-          kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
-          export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env-extension
-          knative_setup
+          kubectl get deploy controller -n $SYSTEM_NAMESPACE -oyaml
+          kubectl get deploy autoscaler -n $SYSTEM_NAMESPACE -oyaml
+
+#      - name: Install Serving & Ingress from the extension
+#        run: |
+#          set -x
+#          cat $HOME/artifacts/build-extension/env-extension
+#          export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build-extension/env-extension
+#          source "$HOME/artifacts/build/env"
+#          source "${INSTALL_CUSTOM_YAMLS}"
+#          echo "check the core $SERVING_CORE_YAML"
+#          cat $SERVING_CORE_YAML
+#          cd ${KNATIVE_SERVING_DIR}
+#          source ./test/e2e-common.sh
+#
+#          kubectl delete deploy controller -n $SYSTEM_NAMESPACE
+#          kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
+#          knative_setup
 
       - name: Test ${{ matrix.test-suite }}
         run: |

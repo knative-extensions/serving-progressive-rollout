@@ -224,15 +224,12 @@ jobs:
         echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
         echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
         echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
-        
+
+        # Replace the images of the controller and the autoscaler with the ones built from the extension  
         export CONTROLLER_IMAGE=$(cat $HOME/artifacts/build-extension/controller | tr -d ' \t\n\r')
         export AUTOSCALER_IMAGE=$(cat $HOME/artifacts/build-extension/autoscaler | tr -d ' \t\n\r')
-        echo "$CONTROLLER_IMAGE"
-        echo "$AUTOSCALER_IMAGE"
         kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"'$AUTOSCALER_IMAGE'"}]}}}}'
         kubectl patch deployment controller -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"controller","image":"'$CONTROLLER_IMAGE'"}]}}}}'
-        kubectl get deployment autoscaler -n $SYSTEM_NAMESPACE -oyaml
-        kubectl get deployment controller -n $SYSTEM_NAMESPACE -oyaml
 
     - name: Test ${{ matrix.test-suite }}
       run: |

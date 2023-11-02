@@ -61,9 +61,6 @@ jobs:
         run: |
           cd ${KNATIVE_DIR}
           git clone https://github.com/knative/serving.git "serving"
-          cd serving
-          git fetch origin release-1.12:release-1.12
-          git checkout release-1.12
 
       - name: Setup Registry
         run: |
@@ -82,10 +79,10 @@ jobs:
           cd ${KNATIVE_SERVING_DIR}
           ./hack/generate-yamls.sh "${KNATIVE_SERVING_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env
 
-      - name: Build Knative Extension
-        run: |
-          export YAML_OUTPUT_DIR=$HOME/artifacts/build
-          ./hack/generate-yamls.sh "$GITHUB_WORKSPACE" "$(mktemp)" $YAML_OUTPUT_DIR/env-extension
+#      - name: Build Knative Extension
+#        run: |
+#          export YAML_OUTPUT_DIR=$HOME/artifacts/build
+#          ./hack/generate-yamls.sh "${REPO_HOME_DIR}" "$(mktemp)" $YAML_OUTPUT_DIR/env-extension
 
       - name: Build Test Images
         run: |
@@ -192,9 +189,6 @@ jobs:
         run: |
           cd ${KNATIVE_DIR}
           git clone https://github.com/knative/serving.git "serving"
-          cd serving
-          git fetch origin release-1.12:release-1.12
-          git checkout release-1.12
 
       # Install the latest release of ko
       - name: Install ko
@@ -204,12 +198,27 @@ jobs:
         run: |
           set -x
           # Remove chaosduck since we don't use it and it'll skip the build
+          echo "check artifacts"
+          cat $HOME/artifacts/build/env
+          
+          export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
+          echo "check the core"
+          cat $SERVING_CORE_YAML
+          echo "check the domain"
+          cat $SERVING_DEFAULT_DOMAIN_YAML
+          echo "check the migrate"
+          cat $SERVING_STORAGE_VERSION_MIGRATE_YAML
+          echo "check the post install"
+          cat $SERVING_POST_INSTALL_JOBS_YAML
+          echo "check the hpa"
+          cat $SERVING_HPA_YAML
+          echo "check the crd"
+          cat $SERVING_CRD_YAML
           cd ${KNATIVE_SERVING_DIR}
           rm ./test/config/chaosduck/chaosduck.yaml
           
           source ./test/e2e-common.sh
           
-          export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
           knative_setup
           
           # Run the tests tagged as e2e on the KinD cluster.
@@ -218,6 +227,9 @@ jobs:
           echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
           echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
           echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
+          
+          echo "list the current deployments under $SYSTEM_NAMESPACE"
+          kubectl get deploy -n $SYSTEM_NAMESPACE
 
       - name: Install Serving & Ingress from the extension
         run: |

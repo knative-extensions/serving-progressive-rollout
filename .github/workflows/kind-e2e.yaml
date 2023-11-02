@@ -223,7 +223,7 @@ jobs:
 
           # kubectl delete deploy controller -n $SYSTEM_NAMESPACE
           kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
-          cd ${KNATIVE_SERVING_DIR}
+          cd ${REPO_HOME_DIR}
           ko resolve -f config/core/deployments/autoscaler.yaml | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
 
       - name: Test ${{ matrix.test-suite }}

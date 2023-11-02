@@ -210,10 +210,10 @@ jobs:
 
           echo "check the deploy under $SYSTEM_NAMESPACE"
           kubectl get deploy -n $SYSTEM_NAMESPACE
-          kubectl delete deploy controller -n $SYSTEM_NAMESPACE
-          # kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
+          # kubectl delete deploy controller -n $SYSTEM_NAMESPACE
+          kubectl delete deploy autoscaler -n $SYSTEM_NAMESPACE
           cd ${REPO_HOME_DIR}
-          ko resolve -f config/core/deployments/controller.yaml | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
+          ko resolve -f config/core/deployments/autoscaler.yaml | sed "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/g" | kubectl apply -f -
 
       - name: Test ${{ matrix.test-suite }}
         run: |

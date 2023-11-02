@@ -202,7 +202,8 @@ jobs:
           cat $HOME/artifacts/build/env
           
           export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
-          echo "check the core"
+          source $INSTALL_CUSTOM_YAMLS
+          echo "check the core $SERVING_CORE_YAML"
           cat $SERVING_CORE_YAML
           echo "check the domain"
           cat $SERVING_DEFAULT_DOMAIN_YAML
@@ -212,7 +213,7 @@ jobs:
           cat $SERVING_POST_INSTALL_JOBS_YAML
           echo "check the hpa"
           cat $SERVING_HPA_YAML
-          echo "check the crd"
+          echo "check the crd $SERVING_CRD_YAML"
           cat $SERVING_CRD_YAML
           cd ${KNATIVE_SERVING_DIR}
           rm ./test/config/chaosduck/chaosduck.yaml

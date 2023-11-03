@@ -43,14 +43,10 @@ type ServiceOrchestrator struct {
 
 // Verify that Configuration adheres to the appropriate interfaces.
 var (
-	// Check that Configuration may be validated and defaulted.
-	//_ apis.Validatable = (*ServiceOrchestrator)(nil)
-	_ apis.Defaultable = (*ServiceOrchestrator)(nil)
-
-	// Check that Configuration can be converted to higher versions.
+	// Check that ServiceOrchestrator can be converted to higher versions.
 	_ apis.Convertible = (*ServiceOrchestrator)(nil)
 
-	// Check that we can create OwnerReferences to a Configuration.
+	// Check that we can create OwnerReferences to a ServiceOrchestrator.
 	_ kmeta.OwnerRefable = (*ServiceOrchestrator)(nil)
 
 	// Check that the type conforms to the duck Knative Resource shape.

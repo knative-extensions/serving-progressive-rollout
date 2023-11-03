@@ -1062,6 +1062,7 @@ k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
 <<<<<<< HEAD
+<<<<<<< HEAD
 # knative.dev/caching v0.0.0-20231108204433-b3781bc47aeb
 =======
 <<<<<<< HEAD
@@ -1074,6 +1075,9 @@ k8s.io/utils/trace
 >>>>>>> c87b801 (Added controller and autoscaler into this extension)
 >>>>>>> 4367a82 (Added controller and autoscaler into this extension)
 >>>>>>> 9e4d459 (Added controller and autoscaler into this extension)
+=======
+# knative.dev/caching v0.0.0-20231101191025-c6425778e5ba
+>>>>>>> eb20787 (Updated the dependencies)
 ## explicit; go 1.18
 knative.dev/caching/pkg/apis/caching
 knative.dev/caching/pkg/apis/caching/v1alpha1
@@ -1092,6 +1096,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 ## explicit; go 1.18
 knative.dev/hack
 <<<<<<< HEAD
+<<<<<<< HEAD
 # knative.dev/networking v0.0.0-20231109233957-8f3c5211035b
 =======
 <<<<<<< HEAD
@@ -1104,6 +1109,9 @@ knative.dev/hack
 >>>>>>> c87b801 (Added controller and autoscaler into this extension)
 >>>>>>> 4367a82 (Added controller and autoscaler into this extension)
 >>>>>>> 9e4d459 (Added controller and autoscaler into this extension)
+=======
+# knative.dev/networking v0.0.0-20231103063604-18529fd26a8b
+>>>>>>> eb20787 (Updated the dependencies)
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1190,6 +1198,7 @@ knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
 knative.dev/pkg/websocket
 <<<<<<< HEAD
+<<<<<<< HEAD
 # knative.dev/serving v0.39.1-0.20231110001346-17fa595188b1
 =======
 <<<<<<< HEAD
@@ -1202,6 +1211,9 @@ knative.dev/pkg/websocket
 >>>>>>> c87b801 (Added controller and autoscaler into this extension)
 >>>>>>> 4367a82 (Added controller and autoscaler into this extension)
 >>>>>>> 9e4d459 (Added controller and autoscaler into this extension)
+=======
+# knative.dev/serving v0.39.1-0.20231102153144-141747a2bc3e
+>>>>>>> eb20787 (Updated the dependencies)
 ## explicit; go 1.18
 knative.dev/serving/pkg/activator
 knative.dev/serving/pkg/apis/autoscaling

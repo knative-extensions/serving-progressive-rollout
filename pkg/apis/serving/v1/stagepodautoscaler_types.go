@@ -55,9 +55,6 @@ type StagePodAutoscalerStatus struct {
 
 // Verify that StagePodAutoscaler adheres to the appropriate interfaces.
 var (
-	// Check that PodAutoscaler can be validated and can be defaulted.
-	_ apis.Defaultable = (*StagePodAutoscaler)(nil)
-
 	// Check that Configuration can be converted to higher versions.
 	_ apis.Convertible = (*ServiceOrchestrator)(nil)
 

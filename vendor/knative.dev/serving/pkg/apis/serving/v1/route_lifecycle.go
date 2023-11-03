@@ -174,18 +174,11 @@ func (rs *RouteStatus) MarkCertificateReady(name string) {
 
 // MarkCertificateNotReady marks the RouteConditionCertificateProvisioned
 // condition to indicate that the Certificate is not ready.
-<<<<<<< HEAD
 func (rs *RouteStatus) MarkCertificateNotReady(c *v1alpha1.Certificate) {
 	certificateCondition := c.Status.GetCondition("Ready")
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionCertificateProvisioned,
 		"CertificateNotReady",
 		"Certificate %s is not ready: %s", c.Name, certificateCondition.GetReason())
-=======
-func (rs *RouteStatus) MarkCertificateNotReady(name string) {
-	routeCondSet.Manage(rs).MarkUnknown(RouteConditionCertificateProvisioned,
-		"CertificateNotReady",
-		"Certificate %s is not ready.", name)
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 }
 
 // MarkCertificateNotOwned changes the RouteConditionCertificateProvisioned
@@ -198,17 +191,10 @@ func (rs *RouteStatus) MarkCertificateNotOwned(name string) {
 }
 
 const (
-<<<<<<< HEAD
 	// ExternalDomainTLSNotEnabledMessage is the message which is set on the
 	// RouteConditionCertificateProvisioned condition when it is set to True
 	// because external-domain-tls was not enabled.
 	ExternalDomainTLSNotEnabledMessage = "external-domain-tls is not enabled"
-=======
-	// AutoTLSNotEnabledMessage is the message which is set on the
-	// RouteConditionCertificateProvisioned condition when it is set to True
-	// because AutoTLS was not enabled.
-	AutoTLSNotEnabledMessage = "auto-tls is not enabled"
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 
 	// TLSNotEnabledForClusterLocalMessage is the message which is set on the
 	// RouteConditionCertificateProvisioned condition when it is set to True
@@ -217,11 +203,7 @@ const (
 )
 
 // MarkTLSNotEnabled sets RouteConditionCertificateProvisioned to true when
-<<<<<<< HEAD
 // certificate config such as external-domain-tls is not enabled or private cluster-local service.
-=======
-// certificate config such as auto-tls is not enabled or private cluster-local service.
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 func (rs *RouteStatus) MarkTLSNotEnabled(msg string) {
 	routeCondSet.Manage(rs).MarkTrueWithReason(RouteConditionCertificateProvisioned,
 		"TLSNotEnabled", msg)

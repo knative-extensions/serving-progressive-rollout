@@ -59,17 +59,10 @@ func (dms *DomainMappingStatus) InitializeConditions() {
 }
 
 const (
-<<<<<<< HEAD
 	// ExternalDomainTLSNotEnabledMessage is the message which is set on the
 	// DomainMappingConditionCertificateProvisioned condition when it is set to True
 	// because external-domain-tls was not enabled.
 	ExternalDomainTLSNotEnabledMessage = "external-domain-tls is not enabled"
-=======
-	// AutoTLSNotEnabledMessage is the message which is set on the
-	// DomainMappingConditionCertificateProvisioned condition when it is set to True
-	// because AutoTLS was not enabled.
-	AutoTLSNotEnabledMessage = "auto-tls is not enabled"
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 	// TLSCertificateProvidedExternally indicates that a TLS secret won't be created or managed
 	// instead a reference to an existing TLS secret should have been provided in the DomainMapping spec
 	TLSCertificateProvidedExternally = "TLS certificate was provided externally"

@@ -184,13 +184,8 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 	logger := logging.FromContext(ctx)
 
 	tls := []netv1alpha1.IngressTLS{}
-<<<<<<< HEAD
 	if !externalDomainTLSEnabled(ctx, r) {
 		r.Status.MarkTLSNotEnabled(v1.ExternalDomainTLSNotEnabledMessage)
-=======
-	if !autoTLSEnabled(ctx, r) {
-		r.Status.MarkTLSNotEnabled(v1.AutoTLSNotEnabledMessage)
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 		return tls, nil, nil
 	}
 
@@ -270,17 +265,10 @@ func (c *Reconciler) tls(ctx context.Context, host string, r *v1.Route, traffic 
 			tls = append(tls, resources.MakeIngressTLS(cert, dnsNames.List()))
 		} else {
 			acmeChallenges = append(acmeChallenges, cert.Status.HTTP01Challenges...)
-<<<<<<< HEAD
 			r.Status.MarkCertificateNotReady(cert)
 			// When httpProtocol is enabled, downgrade http scheme.
 			// Explicitly not using the override settings here as to not to muck with
 			// external-domain-tls semantics.
-=======
-			r.Status.MarkCertificateNotReady(cert.Name)
-			// When httpProtocol is enabled, downgrade http scheme.
-			// Explicitly not using the override settings here as to not to muck with
-			// AutoTLS semantics.
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 			if config.FromContext(ctx).Network.HTTPProtocol == netcfg.HTTPEnabled {
 				if dnsNames.Has(host) {
 					r.Status.URL = &apis.URL{
@@ -503,35 +491,20 @@ func setTargetsScheme(rs *v1.RouteStatus, dnsNames []string, scheme string) {
 	}
 }
 
-<<<<<<< HEAD
 func externalDomainTLSEnabled(ctx context.Context, r *v1.Route) bool {
 	if !config.FromContext(ctx).Network.ExternalDomainTLS {
-=======
-func autoTLSEnabled(ctx context.Context, r *v1.Route) bool {
-	if !config.FromContext(ctx).Network.AutoTLS {
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 		return false
 	}
 
 	logger := logging.FromContext(ctx)
-<<<<<<< HEAD
 	annotationValue := networking.GetDisableExternalDomainTLS(r.Annotations)
-=======
-	annotationValue := networking.GetDisableAutoTLS(r.Annotations)
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 
 	disabledByAnnotation, err := strconv.ParseBool(annotationValue)
 	if annotationValue != "" && err != nil {
 		// validation should've caught an invalid value here.
-<<<<<<< HEAD
 		// if we have one anyway, assume not disabled and log a warning.
 		logger.Warnf("Invalid annotation value for %q. Value: %q",
 			networking.DisableExternalDomainTLSAnnotationKey, annotationValue)
-=======
-		// if we have one anyways, assume not disabled and log a warning.
-		logger.Warnf("Invalid annotation value for %q. Value: %q",
-			networking.DisableAutoTLSAnnotationKey, annotationValue)
->>>>>>> c87b801 (Added controller and autoscaler into this extension)
 	}
 
 	return !disabledByAnnotation

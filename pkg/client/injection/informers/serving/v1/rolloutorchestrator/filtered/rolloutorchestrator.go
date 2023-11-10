@@ -47,7 +47,7 @@ func withInformer(ctx context.Context) (context.Context, []controller.Informer) 
 	infs := []controller.Informer{}
 	for _, selector := range labelSelectors {
 		f := filtered.Get(ctx, selector)
-		inf := f.Serving().V1().ServiceOrchestrators()
+		inf := f.Serving().V1().RolloutOrchestrators()
 		ctx = context.WithValue(ctx, Key{Selector: selector}, inf)
 		infs = append(infs, inf.Informer())
 	}
@@ -55,11 +55,11 @@ func withInformer(ctx context.Context) (context.Context, []controller.Informer) 
 }
 
 // Get extracts the typed informer from the context.
-func Get(ctx context.Context, selector string) v1.ServiceOrchestratorInformer {
+func Get(ctx context.Context, selector string) v1.RolloutOrchestratorInformer {
 	untyped := ctx.Value(Key{Selector: selector})
 	if untyped == nil {
 		logging.FromContext(ctx).Panicf(
-			"Unable to fetch knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/serving/v1.ServiceOrchestratorInformer with selector %s from context.", selector)
+			"Unable to fetch knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/serving/v1.RolloutOrchestratorInformer with selector %s from context.", selector)
 	}
-	return untyped.(v1.ServiceOrchestratorInformer)
+	return untyped.(v1.RolloutOrchestratorInformer)
 }

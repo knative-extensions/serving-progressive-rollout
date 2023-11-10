@@ -27,27 +27,27 @@ import (
 // +genreconciler
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ServiceOrchestrator represents the orchestrator to launch the new revision and direct the traffic
+// RolloutOrchestrator represents the orchestrator to launch the new revision and direct the traffic
 // in an incremental way.
-type ServiceOrchestrator struct {
+type RolloutOrchestrator struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// +optional
-	Spec ServiceOrchestratorSpec `json:"spec,omitempty"`
+	Spec RolloutOrchestratorSpec `json:"spec,omitempty"`
 
 	// +optional
-	Status ServiceOrchestratorStatus `json:"status,omitempty"`
+	Status RolloutOrchestratorStatus `json:"status,omitempty"`
 }
 
-// Verify that ServiceOrchestrator adheres to the appropriate interfaces.
+// Verify that RolloutOrchestrator adheres to the appropriate interfaces.
 var (
-	// Check that we can create OwnerReferences to a ServiceOrchestrator.
-	_ kmeta.OwnerRefable = (*ServiceOrchestrator)(nil)
+	// Check that we can create OwnerReferences to a RolloutOrchestrator.
+	_ kmeta.OwnerRefable = (*RolloutOrchestrator)(nil)
 
 	// Check that the type conforms to the duck Knative Resource shape.
-	_ duckv1.KRShaped = (*ServiceOrchestrator)(nil)
+	_ duckv1.KRShaped = (*RolloutOrchestrator)(nil)
 )
 
 // TargetRevision holds the information of the revision for the current stage.
@@ -100,8 +100,8 @@ type StageTarget struct {
 	TargetFinishTime apis.VolatileTime `json:"targetFinishTime,omitempty"`
 }
 
-// ServiceOrchestratorSpec holds the desired state of the ServiceOrchestrator (from the client).
-type ServiceOrchestratorSpec struct {
+// RolloutOrchestratorSpec holds the desired state of the RolloutOrchestrator (from the client).
+type RolloutOrchestratorSpec struct {
 	StageTarget `json:",inline"`
 
 	// StageTarget holds the information of all revisions during the transition for the current stage.
@@ -135,42 +135,42 @@ const (
 	SOStageScaleDownReady apis.ConditionType = "StageScaleDownReady"
 )
 
-// IsServiceOrchestratorCondition returns true if the given ConditionType is a ServiceOrchestratorCondition.
-func IsServiceOrchestratorCondition(conditionType apis.ConditionType) bool {
+// IsRolloutOrchestratorCondition returns true if the given ConditionType is a RolloutOrchestratorCondition.
+func IsRolloutOrchestratorCondition(conditionType apis.ConditionType) bool {
 	return conditionType == SOConditionReady
 }
 
-// ServiceOrchestratorStatusFields holds the fields of ServiceOrchestrator's status that
+// RolloutOrchestratorStatusFields holds the fields of RolloutOrchestrator's status that
 // are not generally shared.  This is defined separately and inlined so that
 // other types can readily consume these fields via duck typing.
-type ServiceOrchestratorStatusFields struct {
+type RolloutOrchestratorStatusFields struct {
 	// StageRevisionStatus holds the traffic split.
 	// +optional
 	StageRevisionStatus []TargetRevision `json:"stageRevisionStatus,omitempty"`
 }
 
-// ServiceOrchestratorStatus communicates the observed state of the ServiceOrchestrator (from the controller).
-type ServiceOrchestratorStatus struct {
+// RolloutOrchestratorStatus communicates the observed state of the RolloutOrchestrator (from the controller).
+type RolloutOrchestratorStatus struct {
 	duckv1.Status `json:",inline"`
 
-	ServiceOrchestratorStatusFields `json:",inline"`
+	RolloutOrchestratorStatusFields `json:",inline"`
 }
 
-func (sos *ServiceOrchestratorStatus) SetStageRevisionStatus(stageRevisionStatus []TargetRevision) {
+func (sos *RolloutOrchestratorStatus) SetStageRevisionStatus(stageRevisionStatus []TargetRevision) {
 	sos.StageRevisionStatus = stageRevisionStatus
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ServiceOrchestratorList is a list of ServiceOrchestrator resources
-type ServiceOrchestratorList struct {
+// RolloutOrchestratorList is a list of RolloutOrchestrator resources
+type RolloutOrchestratorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []ServiceOrchestrator `json:"items"`
+	Items []RolloutOrchestrator `json:"items"`
 }
 
-// GetStatus retrieves the status of the ServiceOrchestrator. Implements the KRShaped interface.
-func (so *ServiceOrchestrator) GetStatus() *duckv1.Status {
+// GetStatus retrieves the status of the RolloutOrchestrator. Implements the KRShaped interface.
+func (so *RolloutOrchestrator) GetStatus() *duckv1.Status {
 	return &so.Status.Status
 }

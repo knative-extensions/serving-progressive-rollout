@@ -25,7 +25,7 @@ import (
 	injection "knative.dev/pkg/injection"
 	logging "knative.dev/pkg/logging"
 	factoryfiltered "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/factory/filtered"
-	filtered "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/serviceorchestrator/filtered"
+	filtered "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator/filtered"
 )
 
 var Get = filtered.Get
@@ -44,7 +44,7 @@ func withInformer(ctx context.Context) (context.Context, []controller.Informer) 
 	infs := []controller.Informer{}
 	for _, selector := range labelSelectors {
 		f := factoryfiltered.Get(ctx, selector)
-		inf := f.Serving().V1().ServiceOrchestrators()
+		inf := f.Serving().V1().RolloutOrchestrators()
 		ctx = context.WithValue(ctx, filtered.Key{Selector: selector}, inf)
 		infs = append(infs, inf.Informer())
 	}

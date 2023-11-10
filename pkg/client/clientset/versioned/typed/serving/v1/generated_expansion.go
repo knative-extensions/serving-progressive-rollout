@@ -18,6 +18,6 @@ limitations under the License.
 
 package v1
 
-type ServiceOrchestratorExpansion interface{}
+type RolloutOrchestratorExpansion interface{}
 
 type StagePodAutoscalerExpansion interface{}

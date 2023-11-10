@@ -159,10 +159,10 @@ var (
 		Resource: "configurations",
 	}
 
-	// ServiceOrchestratorsResource represents a Knative ServiceOrchestrator
-	ServiceOrchestratorsResource = schema.GroupResource{
+	// RolloutOrchestratorsResource represents a Knative RolloutOrchestrators
+	RolloutOrchestratorsResource = schema.GroupResource{
 		Group:    GroupName,
-		Resource: "serviceorchestrators",
+		Resource: "rolloutorchestrators",
 	}
 
 	// RevisionsResource represents a Knative Revision

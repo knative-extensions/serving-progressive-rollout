@@ -23,16 +23,16 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-func TestServiceOrchestratorGetStatus(t *testing.T) {
-	serviceOrchestrator := &ServiceOrchestrator{
-		Status: ServiceOrchestratorStatus{
+func TestRolloutOrchestratorGetStatus(t *testing.T) {
+	rolloutOrchestrator := &RolloutOrchestrator{
+		Status: RolloutOrchestratorStatus{
 			Status: duckv1.Status{
 				ObservedGeneration: 23,
 			},
 		},
 	}
 
-	if got, want := *serviceOrchestrator.GetStatus(), serviceOrchestrator.Status.Status; !reflect.DeepEqual(got, want) {
+	if got, want := *rolloutOrchestrator.GetStatus(), rolloutOrchestrator.Status.Status; !reflect.DeepEqual(got, want) {
 		t.Errorf("GetStatus() = %v, want: %v", got, want)
 	}
 }

@@ -17,7 +17,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: serviceorchestrators.serving.knative.dev
+  name: rolloutorchestrators.serving.knative.dev
   labels:
     app.kubernetes.io/name: knative-serving
     app.kubernetes.io/version: devel
@@ -26,9 +26,9 @@ metadata:
 spec:
   group: serving.knative.dev
   names:
-    kind: ServiceOrchestrator
-    plural: serviceorchestrators
-    singular: serviceorchestrator
+    kind: RolloutOrchestrator
+    plural: rolloutorchestrators
+    singular: rolloutorchestrator
     categories:
       - all
       - knative
@@ -51,7 +51,7 @@ spec:
           jsonPath: ".status.conditions[?(@.type=='Ready')].reason"
       schema:
         openAPIV3Schema:
-          description: ServiceOrchestrator represents the orchestractor to launch the new revision and direct the traffic in an incremental way.
+          description: RolloutOrchestrator represents the orchestractor to launch the new revision and direct the traffic in an incremental way.
           type: object
           properties:
             apiVersion:
@@ -63,7 +63,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: ServiceOrchestratorSpec holds the desired state of the Configuration (from the client).
+              description: RolloutOrchestratorSpec holds the desired state of the Configuration (from the client).
               type: object
               properties:
                 initialRevisions:
@@ -166,7 +166,7 @@ spec:
                   description: TargetFinishTime indicates target time to complete this target.
                   type: string
             status:
-              description: ServiceOrchestratorStatus communicates the observed state of the Configuration (from the controller).
+              description: RolloutOrchestratorStatus communicates the observed state of the Configuration (from the controller).
               type: object
               properties:
                 annotations:

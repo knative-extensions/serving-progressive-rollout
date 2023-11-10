@@ -24,10 +24,10 @@ import (
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
 	fake "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/factory/fake"
-	serviceorchestrator "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/serviceorchestrator"
+	rolloutorchestrator "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 )
 
-var Get = serviceorchestrator.Get
+var Get = rolloutorchestrator.Get
 
 func init() {
 	injection.Fake.RegisterInformer(withInformer)
@@ -35,6 +35,6 @@ func init() {
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
 	f := fake.Get(ctx)
-	inf := f.Serving().V1().ServiceOrchestrators()
-	return context.WithValue(ctx, serviceorchestrator.Key{}, inf), inf.Informer()
+	inf := f.Serving().V1().RolloutOrchestrators()
+	return context.WithValue(ctx, rolloutorchestrator.Key{}, inf), inf.Informer()
 }

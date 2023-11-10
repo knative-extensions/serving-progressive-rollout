@@ -28,7 +28,7 @@ import (
 
 type ServingV1Interface interface {
 	RESTClient() rest.Interface
-	ServiceOrchestratorsGetter
+	RolloutOrchestratorsGetter
 	StagePodAutoscalersGetter
 }
 
@@ -37,8 +37,8 @@ type ServingV1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ServingV1Client) ServiceOrchestrators(namespace string) ServiceOrchestratorInterface {
-	return newServiceOrchestrators(c, namespace)
+func (c *ServingV1Client) RolloutOrchestrators(namespace string) RolloutOrchestratorInterface {
+	return newRolloutOrchestrators(c, namespace)
 }
 
 func (c *ServingV1Client) StagePodAutoscalers(namespace string) StagePodAutoscalerInterface {

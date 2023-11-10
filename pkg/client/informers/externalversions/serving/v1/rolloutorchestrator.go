@@ -32,59 +32,59 @@ import (
 	v1 "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 )
 
-// ServiceOrchestratorInformer provides access to a shared informer and lister for
-// ServiceOrchestrators.
-type ServiceOrchestratorInformer interface {
+// RolloutOrchestratorInformer provides access to a shared informer and lister for
+// RolloutOrchestrators.
+type RolloutOrchestratorInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ServiceOrchestratorLister
+	Lister() v1.RolloutOrchestratorLister
 }
 
-type serviceOrchestratorInformer struct {
+type rolloutOrchestratorInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewServiceOrchestratorInformer constructs a new informer for ServiceOrchestrator type.
+// NewRolloutOrchestratorInformer constructs a new informer for RolloutOrchestrator type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewServiceOrchestratorInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredServiceOrchestratorInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewRolloutOrchestratorInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredRolloutOrchestratorInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredServiceOrchestratorInformer constructs a new informer for ServiceOrchestrator type.
+// NewFilteredRolloutOrchestratorInformer constructs a new informer for RolloutOrchestrator type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredServiceOrchestratorInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredRolloutOrchestratorInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1().ServiceOrchestrators(namespace).List(context.TODO(), options)
+				return client.ServingV1().RolloutOrchestrators(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1().ServiceOrchestrators(namespace).Watch(context.TODO(), options)
+				return client.ServingV1().RolloutOrchestrators(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1.ServiceOrchestrator{},
+		&servingv1.RolloutOrchestrator{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *serviceOrchestratorInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredServiceOrchestratorInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *rolloutOrchestratorInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredRolloutOrchestratorInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *serviceOrchestratorInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1.ServiceOrchestrator{}, f.defaultInformer)
+func (f *rolloutOrchestratorInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&servingv1.RolloutOrchestrator{}, f.defaultInformer)
 }
 
-func (f *serviceOrchestratorInformer) Lister() v1.ServiceOrchestratorLister {
-	return v1.NewServiceOrchestratorLister(f.Informer().GetIndexer())
+func (f *rolloutOrchestratorInformer) Lister() v1.RolloutOrchestratorLister {
+	return v1.NewRolloutOrchestratorLister(f.Informer().GetIndexer())
 }

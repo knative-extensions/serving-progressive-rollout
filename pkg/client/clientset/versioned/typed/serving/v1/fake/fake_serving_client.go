@@ -28,8 +28,8 @@ type FakeServingV1 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1) ServiceOrchestrators(namespace string) v1.ServiceOrchestratorInterface {
-	return &FakeServiceOrchestrators{c, namespace}
+func (c *FakeServingV1) RolloutOrchestrators(namespace string) v1.RolloutOrchestratorInterface {
+	return &FakeRolloutOrchestrators{c, namespace}
 }
 
 func (c *FakeServingV1) StagePodAutoscalers(namespace string) v1.StagePodAutoscalerInterface {

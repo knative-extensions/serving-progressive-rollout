@@ -24,8 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ServiceOrchestrators returns a ServiceOrchestratorInformer.
-	ServiceOrchestrators() ServiceOrchestratorInformer
+	// RolloutOrchestrators returns a RolloutOrchestratorInformer.
+	RolloutOrchestrators() RolloutOrchestratorInformer
 	// StagePodAutoscalers returns a StagePodAutoscalerInformer.
 	StagePodAutoscalers() StagePodAutoscalerInformer
 }
@@ -41,9 +41,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ServiceOrchestrators returns a ServiceOrchestratorInformer.
-func (v *version) ServiceOrchestrators() ServiceOrchestratorInformer {
-	return &serviceOrchestratorInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// RolloutOrchestrators returns a RolloutOrchestratorInformer.
+func (v *version) RolloutOrchestrators() RolloutOrchestratorInformer {
+	return &rolloutOrchestratorInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // StagePodAutoscalers returns a StagePodAutoscalerInformer.

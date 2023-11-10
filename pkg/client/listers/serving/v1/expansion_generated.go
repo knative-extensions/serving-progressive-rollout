@@ -18,13 +18,13 @@ limitations under the License.
 
 package v1
 
-// ServiceOrchestratorListerExpansion allows custom methods to be added to
-// ServiceOrchestratorLister.
-type ServiceOrchestratorListerExpansion interface{}
+// RolloutOrchestratorListerExpansion allows custom methods to be added to
+// RolloutOrchestratorLister.
+type RolloutOrchestratorListerExpansion interface{}
 
-// ServiceOrchestratorNamespaceListerExpansion allows custom methods to be added to
-// ServiceOrchestratorNamespaceLister.
-type ServiceOrchestratorNamespaceListerExpansion interface{}
+// RolloutOrchestratorNamespaceListerExpansion allows custom methods to be added to
+// RolloutOrchestratorNamespaceLister.
+type RolloutOrchestratorNamespaceListerExpansion interface{}
 
 // StagePodAutoscalerListerExpansion allows custom methods to be added to
 // StagePodAutoscalerLister.

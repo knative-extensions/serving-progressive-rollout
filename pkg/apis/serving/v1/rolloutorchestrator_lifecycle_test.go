@@ -23,95 +23,95 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-func TestServiceOrchestratorGetConditionSet(t *testing.T) {
-	serviceOrchestrator := &ServiceOrchestrator{
-		Status: ServiceOrchestratorStatus{
+func TestRolloutOrchestratorGetConditionSet(t *testing.T) {
+	rolloutOrchestrator := &RolloutOrchestrator{
+		Status: RolloutOrchestratorStatus{
 			Status: duckv1.Status{
 				ObservedGeneration: 23,
 			},
 		},
 	}
 
-	if got, want := serviceOrchestrator.GetConditionSet(), serviceOrchestratorCondSet; !reflect.DeepEqual(got, want) {
+	if got, want := rolloutOrchestrator.GetConditionSet(), rolloutOrchestratorCondSet; !reflect.DeepEqual(got, want) {
 		t.Errorf("GetStatus() = %v, want: %v", got, want)
 	}
 }
 
-func TestServiceOrchestratorGetGroupVersionKind(t *testing.T) {
-	serviceOrchestrator := &ServiceOrchestrator{}
+func TestRolloutOrchestratorGetGroupVersionKind(t *testing.T) {
+	rolloutOrchestrator := &RolloutOrchestrator{}
 
-	if got, want := serviceOrchestrator.GetGroupVersionKind(), SchemeGroupVersion.WithKind("ServiceOrchestrator"); !reflect.DeepEqual(got, want) {
+	if got, want := rolloutOrchestrator.GetGroupVersionKind(), SchemeGroupVersion.WithKind("RolloutOrchestrator"); !reflect.DeepEqual(got, want) {
 		t.Errorf("GetStatus() = %v, want: %v", got, want)
 	}
 }
 
-func TestServiceOrchestratorStatus(t *testing.T) {
+func TestRolloutOrchestratorStatus(t *testing.T) {
 	tests := []struct {
 		name                           string
-		so                             *ServiceOrchestrator
+		so                             *RolloutOrchestrator
 		expectedStageScaleUpReady      bool
 		expectedStageScaleUpInProgress bool
 		expectedStageReady             bool
 		expectedReady                  bool
 	}{{
-		name:                           "ServiceOrchestrator with empty spec and status",
-		so:                             emptyServiceOrchestrator(),
+		name:                           "RolloutOrchestrator with empty spec and status",
+		so:                             emptyRolloutOrchestrator(),
 		expectedStageScaleUpReady:      false,
 		expectedStageScaleUpInProgress: true,
 		expectedStageReady:             false,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with scale up in progress",
-		so:                             serviceOrchestratorWithStageRevisionScaleUpInProgress(),
+		name:                           "RolloutOrchestrator with scale up in progress",
+		so:                             rolloutOrchestratorWithStageRevisionScaleUpInProgress(),
 		expectedStageScaleUpReady:      false,
 		expectedStageScaleUpInProgress: true,
 		expectedStageReady:             false,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with scale up ready",
-		so:                             serviceOrchestratorWithStageRevisionScaleUpReady(),
+		name:                           "RolloutOrchestrator with scale up ready",
+		so:                             rolloutOrchestratorWithStageRevisionScaleUpReady(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             false,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with scale down in progress",
-		so:                             serviceOrchestratorWithStageRevisionScaleDownInProgress(),
+		name:                           "RolloutOrchestrator with scale down in progress",
+		so:                             rolloutOrchestratorWithStageRevisionScaleDownInProgress(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             false,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with scale down ready",
-		so:                             serviceOrchestratorWithStageRevisionScaleDownReady(),
+		name:                           "RolloutOrchestrator with scale down ready",
+		so:                             rolloutOrchestratorWithStageRevisionScaleDownReady(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             false,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with stage ready",
-		so:                             serviceOrchestratorWithStageReady(),
+		name:                           "RolloutOrchestrator with stage ready",
+		so:                             rolloutOrchestratorWithStageReady(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             true,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with stage in progress",
-		so:                             serviceOrchestratorWithStageReadyInProgress(),
+		name:                           "RolloutOrchestrator with stage in progress",
+		so:                             rolloutOrchestratorWithStageReadyInProgress(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             false,
 		expectedReady:                  false,
 	}, {
-		name:                           "ServiceOrchestrator with last stage ready",
-		so:                             serviceOrchestratorWithLastStageComplete(),
+		name:                           "RolloutOrchestrator with last stage ready",
+		so:                             rolloutOrchestratorWithLastStageComplete(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             true,
 		expectedReady:                  true,
 	}, {
-		name:                           "ServiceOrchestrator with last stage in progress",
-		so:                             serviceOrchestratorWithLastStageIncomplete(),
+		name:                           "RolloutOrchestrator with last stage in progress",
+		so:                             rolloutOrchestratorWithLastStageIncomplete(),
 		expectedStageScaleUpReady:      true,
 		expectedStageScaleUpInProgress: false,
 		expectedStageReady:             true,
@@ -141,38 +141,38 @@ func TestServiceOrchestratorStatus(t *testing.T) {
 
 }
 
-func emptyServiceOrchestrator() *ServiceOrchestrator {
-	return &ServiceOrchestrator{}
+func emptyRolloutOrchestrator() *RolloutOrchestrator {
+	return &RolloutOrchestrator{}
 }
 
-func serviceOrchestratorWithStageRevisionScaleUpReady() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithStageRevisionScaleUpReady() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	return so
 }
 
-func serviceOrchestratorWithStageRevisionScaleUpInProgress() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithStageRevisionScaleUpInProgress() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpInProgress("Scaling up in progress", "need to wait for the readiness")
 	return so
 }
 
-func serviceOrchestratorWithStageRevisionScaleDownReady() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithStageRevisionScaleDownReady() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownReady()
 	return so
 }
 
-func serviceOrchestratorWithStageRevisionScaleDownInProgress() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithStageRevisionScaleDownInProgress() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownInProgress("Scaling down in progress", "need to wait for the readiness")
 	return so
 }
 
-func serviceOrchestratorWithLastStageComplete() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithLastStageComplete() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownReady()
 	so.Status.MarkStageRevisionReady()
@@ -180,8 +180,8 @@ func serviceOrchestratorWithLastStageComplete() *ServiceOrchestrator {
 	return so
 }
 
-func serviceOrchestratorWithLastStageIncomplete() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithLastStageIncomplete() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownReady()
 	so.Status.MarkStageRevisionReady()
@@ -189,16 +189,16 @@ func serviceOrchestratorWithLastStageIncomplete() *ServiceOrchestrator {
 	return so
 }
 
-func serviceOrchestratorWithStageReady() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithStageReady() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownReady()
 	so.Status.MarkStageRevisionReady()
 	return so
 }
 
-func serviceOrchestratorWithStageReadyInProgress() *ServiceOrchestrator {
-	so := &ServiceOrchestrator{}
+func rolloutOrchestratorWithStageReadyInProgress() *RolloutOrchestrator {
+	so := &RolloutOrchestrator{}
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownReady()
 	so.Status.MarkStageRevisionInProgress("", "")

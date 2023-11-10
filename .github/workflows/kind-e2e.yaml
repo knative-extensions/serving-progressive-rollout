@@ -214,7 +214,6 @@ jobs:
         rm ./test/config/chaosduck/chaosduck.yaml
 
         source ./test/e2e-common.sh
-
         export INSTALL_CUSTOM_YAMLS=$HOME/artifacts/build/env
         knative_setup
 
@@ -224,6 +223,10 @@ jobs:
         echo "GATEWAY_NAMESPACE_OVERRIDE=$GATEWAY_NAMESPACE_OVERRIDE" >> $GITHUB_ENV
         echo "CA_CERT=$CA_CERT" >> $GITHUB_ENV
         echo "SERVER_NAME=$SERVER_NAME" >> $GITHUB_ENV
+
+        # Install the CRDs of the serving-progressive-rollout
+        cd ${KNATIVE_DIR}/serving-progressive-rollout
+        kubectl apply -f config/core/300-resources
 
         # Replace the images of the controller and the autoscaler with the ones built from the extension  
         export CONTROLLER_IMAGE=$(cat $HOME/artifacts/build-extension/controller | tr -d ' \t\n\r')

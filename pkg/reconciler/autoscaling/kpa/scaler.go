@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/injection/clients/dynamicclient"
+	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
@@ -283,7 +284,8 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler,
+	sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -293,6 +295,15 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 	}
 
 	min, max := pa.ScaleBounds(asConfig)
+	if spa != nil {
+		minS, maxS := spa.ScaleBounds()
+		if minS != nil && min > *minS {
+			min = *minS
+		}
+		if maxS != nil && *maxS < max {
+			max = *maxS
+		}
+	}
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// Log reachability as quoted string, since default value is "".
 	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
@@ -369,3 +380,5 @@ func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundT
 	}
 	return netprober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
+
+//

@@ -294,16 +294,7 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
-	min, max := pa.ScaleBounds(asConfig)
-	if spa != nil {
-		minS, maxS := spa.ScaleBounds()
-		if minS != nil && min > *minS {
-			min = *minS
-		}
-		if maxS != nil && *maxS < max {
-			max = *maxS
-		}
-	}
+	min, max := GetScaleBounds(asConfig, pa, spa)
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// Log reachability as quoted string, since default value is "".
 	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
@@ -381,4 +372,18 @@ func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundT
 	return netprober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
 }
 
-//
+// GetScaleBounds returns the min and the max scales for the current stage.
+func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler,
+	spa *autoscalingv1.StagePodAutoscaler) (int32, int32) {
+	min, max := pa.ScaleBounds(asConfig)
+	if spa != nil {
+		minS, maxS := spa.ScaleBounds()
+		if minS != nil && min > *minS {
+			min = *minS
+		}
+		if maxS != nil && *maxS < max {
+			max = *maxS
+		}
+	}
+	return min, max
+}

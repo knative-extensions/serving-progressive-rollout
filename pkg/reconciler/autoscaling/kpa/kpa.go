@@ -309,13 +309,7 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 // activeThreshold returns the scale required for the pa to be marked Active
 func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
-	min, _ := pa.ScaleBounds(asConfig)
-	if spa != nil {
-		minS, _ := spa.ScaleBounds()
-		if minS != nil && min > *minS {
-			min = *minS
-		}
-	}
+	min, _ := GetScaleBounds(asConfig, pa, spa)
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := resources.GetInitialScale(asConfig, pa)
 		return int(intMax(min, initialScale))

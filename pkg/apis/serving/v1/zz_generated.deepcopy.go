@@ -90,15 +90,15 @@ func (in *RolloutOrchestratorList) DeepCopyObject() runtime.Object {
 func (in *RolloutOrchestratorSpec) DeepCopyInto(out *RolloutOrchestratorSpec) {
 	*out = *in
 	in.StageTarget.DeepCopyInto(&out.StageTarget)
-	if in.TargetRevisions != nil {
-		in, out := &in.TargetRevisions, &out.TargetRevisions
+	if in.InitialRevisions != nil {
+		in, out := &in.InitialRevisions, &out.InitialRevisions
 		*out = make([]TargetRevision, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.InitialRevisions != nil {
-		in, out := &in.InitialRevisions, &out.InitialRevisions
+	if in.TargetRevisions != nil {
+		in, out := &in.TargetRevisions, &out.TargetRevisions
 		*out = make([]TargetRevision, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

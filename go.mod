@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/hashicorp/golang-lru v1.0.2
+	go.opencensus.io v0.24.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.5.0
 	k8s.io/api v0.27.6
@@ -102,7 +103,6 @@ require (
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
 	go.uber.org/multierr v1.10.0 // indirect

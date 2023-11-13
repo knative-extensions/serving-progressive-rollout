@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
+	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
@@ -57,6 +58,7 @@ func NewController(
 	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
+	spaInformer := spainformer.Get(ctx)
 
 	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
 		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
@@ -70,6 +72,7 @@ func NewController(
 		},
 		podsLister: podsInformer.Lister(),
 		deciders:   deciders,
+		spaLister:  spaInformer.Lister(),
 	}
 	impl := pareconciler.NewImpl(ctx, c, autoscaling.KPA, func(impl *controller.Impl) controller.Options {
 		logger.Info("Setting up ConfigMap receivers")
@@ -100,6 +103,9 @@ func NewController(
 	}
 	sksInformer.Informer().AddEventHandler(handleMatchingControllers)
 	metricInformer.Informer().AddEventHandler(handleMatchingControllers)
+
+	// The spa and the pa have a one-on-one mapping relationship, sharing the same name.
+	spaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Watch the knative pods.
 	podsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

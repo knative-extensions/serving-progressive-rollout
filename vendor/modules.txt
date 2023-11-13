@@ -1226,7 +1226,6 @@ knative.dev/serving/pkg/reconciler/accessor
 knative.dev/serving/pkg/reconciler/accessor/networking
 knative.dev/serving/pkg/reconciler/autoscaling
 knative.dev/serving/pkg/reconciler/autoscaling/config
-knative.dev/serving/pkg/reconciler/autoscaling/kpa
 knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources
 knative.dev/serving/pkg/reconciler/autoscaling/resources
 knative.dev/serving/pkg/reconciler/autoscaling/resources/names

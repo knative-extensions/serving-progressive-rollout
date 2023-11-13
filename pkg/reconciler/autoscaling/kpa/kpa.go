@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,33 +23,44 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/serving/pkg/metrics"
 
 	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
 	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	servinglisters "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
-	"knative.dev/serving/pkg/metrics"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "knative.dev/serving/pkg/resources"
-
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-const (
-	noPrivateServiceName = "No Private Service Name"
-	noTrafficReason      = "NoTraffic"
-	minActivators        = 2
+// Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
+// information from Deciders.
+type Reconciler struct {
+	*areconciler.Base
+
+	podsLister corev1listers.PodLister
+	deciders   resources.Deciders
+	scaler     *scaler
+	spaLister  servinglisters.StagePodAutoscalerLister
+}
+
+// Check that our Reconciler implements the necessary interfaces.
+var (
+	_ pareconciler.Interface            = (*Reconciler)(nil)
+	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
 )
 
 // podCounts keeps record of various numbers of pods
@@ -62,24 +73,20 @@ type podCounts struct {
 	terminating int
 }
 
-// Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
-// information from Deciders.
-type Reconciler struct {
-	*areconciler.Base
-
-	podsLister corev1listers.PodLister
-	deciders   resources.Deciders
-	scaler     *scaler
-}
-
-// Check that our Reconciler implements the necessary interfaces.
-var (
-	_ pareconciler.Interface            = (*Reconciler)(nil)
-	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
+const (
+	noPrivateServiceName = "No Private Service Name"
+	noTrafficReason      = "NoTraffic"
+	minActivators        = 2
 )
 
-// ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
+	defer cancel()
+	return nil
+}
+
+// ReconcileKind implements Interface.ReconcileKind.
+func (c *Reconciler) ReconcileKind1(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler) pkgreconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 

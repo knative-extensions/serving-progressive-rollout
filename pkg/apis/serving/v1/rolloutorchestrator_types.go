@@ -102,19 +102,29 @@ type StageTarget struct {
 
 // RolloutOrchestratorSpec holds the desired state of the RolloutOrchestrator (from the client).
 type RolloutOrchestratorSpec struct {
+	// StageTarget holds the information of all revisions during the transition for the current stage.
 	StageTarget `json:",inline"`
 
-	// StageTarget holds the information of all revisions during the transition for the current stage.
-
-	// TargetRevisions holds the information of the target revisions in the final stage.
-	// These entries will always contain RevisionName references.
-	// +optional
-	TargetRevisions []TargetRevision `json:"targetRevisions,omitempty"`
+	// InitialRevisions and TargetRevisions are used together:
+	// 1. When there is no revision available, the InitialRevisions will be empty, and the
+	// TargetRevisions will be empty.
+	// 2. When there is an existing revision, and we create a new revision, InitialRevisions
+	// will be set to the existing revision with 100% traffic, and TargetRevisions will be
+	// set to the new revision with 100% traffic.
+	// 3. During the transition from the old to new revision, TargetRevisions and InitialRevisions
+	// remain the same as TargetRevisions pointing to the new revision of the ultimate goal,
+	// and InitialRevision pointing to the old revision of the initial status.
+	// 4. When the transition is over, InitialRevisions and TargetRevisions will be reset to empty.
 
 	// InitialRevisions holds the information of the initial revisions in the initial stage.
 	// These entries will always contain RevisionName references.
 	// +optional
 	InitialRevisions []TargetRevision `json:"initialRevisions,omitempty"`
+
+	// TargetRevisions holds the information of the target revisions in the final stage.
+	// These entries will always contain RevisionName references.
+	// +optional
+	TargetRevisions []TargetRevision `json:"targetRevisions,omitempty"`
 }
 
 const (

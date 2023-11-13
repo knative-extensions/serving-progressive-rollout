@@ -28,6 +28,7 @@ import (
 
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	servingrectest "knative.dev/pkg/reconciler/testing"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
@@ -46,6 +47,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
+	servingtest "knative.dev/serving/pkg/testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +76,7 @@ func TestScaler(t *testing.T) {
 		maxScale            int32
 		wantReplicas        int32
 		wantScaling         bool
-		sks                 SKSOption
+		sks                 servingtest.SKSOption
 		paMutation          func(*autoscalingv1alpha1.PodAutoscaler)
 		proberfunc          func(*autoscalingv1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		configMutator       func(*config.Config)
@@ -98,7 +100,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  1,
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
-			WithWindowAnnotation(paStableWindow.String())(k)
+			servingtest.WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow).Add(1*time.Second))
 		},
 		wantCBCount: 1,
@@ -109,7 +111,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
-			WithWindowAnnotation(paStableWindow.String())(k)
+			servingtest.WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
@@ -149,7 +151,7 @@ func TestScaler(t *testing.T) {
 		startReplicas: 1,
 		scaleTo:       0,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
-			WithWindowAnnotation(paStableWindow.String())(k)
+			servingtest.WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
 	}, {
@@ -341,7 +343,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
-			WithReachabilityReachable(k)
+			servingtest.WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "scale down to minScale after grace period",
@@ -352,7 +354,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityReachable(k)
+			servingtest.WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "ignore minScale if unreachable",
@@ -363,7 +365,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityUnreachable(k) // not needed, here for clarity
+			servingtest.WithReachabilityUnreachable(k) // not needed, here for clarity
 		},
 	}, {
 		label:         "observe minScale if reachability unknown",
@@ -374,7 +376,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityUnknown(k)
+			servingtest.WithReachabilityUnknown(k)
 		},
 	}, {
 		label:         "scales up",
@@ -478,7 +480,7 @@ func TestScaler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := servingrectest.SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 
@@ -526,7 +528,7 @@ func TestScaler(t *testing.T) {
 				test.configMutator(cfg)
 			}
 			ctx = config.ToContext(ctx, cfg)
-			desiredScale, err := revisionScaler.scale(ctx, pa, sks, test.scaleTo)
+			desiredScale, err := revisionScaler.scale(ctx, pa, nil, sks, test.scaleTo)
 			if err != nil {
 				t.Error("Scale got an unexpected error:", err)
 			}
@@ -581,7 +583,7 @@ func TestDisableScaleToZero(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := servingrectest.SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 
@@ -612,12 +614,12 @@ func TestDisableScaleToZero(t *testing.T) {
 			}
 			pa := newKPA(ctx, t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
-			WithReachabilityReachable(pa)
+			servingtest.WithReachabilityReachable(pa)
 
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
 			ctx = config.ToContext(ctx, conf)
-			desiredScale, err := revisionScaler.scale(ctx, pa, nil /*sks doesn't matter in this test*/, test.scaleTo)
+			desiredScale, err := revisionScaler.scale(ctx, pa, nil, nil /*sks doesn't matter in this test*/, test.scaleTo)
 
 			if err != nil {
 				t.Error("Scale got an unexpected error:", err)
@@ -763,7 +765,7 @@ func TestActivatorProbe(t *testing.T) {
 	}()
 	theErr := errors.New("rain")
 
-	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
+	pa := kpa("who-let", "the-dogs-out", servingtest.WithPAStatusService("woof"))
 	tests := []struct {
 		name    string
 		rt      network.RoundTripperFunc

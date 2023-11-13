@@ -381,7 +381,7 @@ func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.P
 		if minS != nil && min > *minS {
 			min = *minS
 		}
-		if maxS != nil && *maxS < max {
+		if maxS != nil && max > *maxS {
 			max = *maxS
 		}
 	}

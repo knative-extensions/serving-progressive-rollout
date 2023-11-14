@@ -64,12 +64,12 @@ spec:
               description: Spec holds the desired state of the PodAutoscaler (from the client).
               type: object
               properties:
-                maxScale:
-                  description: MaxScale sets the upper bound for the number of the replicas.
+                stageMaxScale:
+                  description: StageMaxScale sets the upper bound for the number of the replicas.
                   type: integer
                   format: int32
-                minScale:
-                  description: MinScale sets the lower bound for the number of the replicas.
+                stageMinScale:
+                  description: StageMinScale sets the lower bound for the number of the replicas.
                   type: integer
                   format: int32
             status:

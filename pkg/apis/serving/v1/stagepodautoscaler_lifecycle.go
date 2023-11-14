@@ -36,7 +36,7 @@ func (spa *StagePodAutoscaler) GetGroupVersionKind() schema.GroupVersionKind {
 }
 
 func (spa *StagePodAutoscaler) ScaleBounds() (*int32, *int32) {
-	return spa.Spec.MinScale, spa.Spec.MaxScale
+	return spa.Spec.StageMinScale, spa.Spec.StageMaxScale
 }
 
 func (spa *StagePodAutoscaler) IsStageScaleInReady() bool {

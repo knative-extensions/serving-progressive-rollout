@@ -76,13 +76,13 @@ type StagePodAutoscalerList struct {
 }
 
 type StagePodAutoscalerSpec struct {
-	// MinScale sets the lower bound for the number of the replicas.
+	// StageMinScale sets the lower bound for the number of the replicas.
 	// +optional
-	MinScale *int32 `json:"minScale,omitempty"`
+	StageMinScale *int32 `json:"stageMinScale,omitempty"`
 
-	// MaxScale sets the upper bound for the number of the replicas.
+	// StageMaxScale sets the upper bound for the number of the replicas.
 	// +optional
-	MaxScale *int32 `json:"maxScale,omitempty"`
+	StageMaxScale *int32 `json:"stageMaxScale,omitempty"`
 }
 
 // GetStatus retrieves the status of the StagePodAutoscaler. Implements the KRShaped interface.

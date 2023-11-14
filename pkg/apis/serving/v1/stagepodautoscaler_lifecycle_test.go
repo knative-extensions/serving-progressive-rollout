@@ -55,8 +55,8 @@ func TestStagePodAutoscalerScaleBounds(t *testing.T) {
 
 	stagePodAutoscaler := &StagePodAutoscaler{
 		Spec: StagePodAutoscalerSpec{
-			MinScale: minScale,
-			MaxScale: maxScale,
+			StageMinScale: minScale,
+			StageMaxScale: maxScale,
 		},
 	}
 

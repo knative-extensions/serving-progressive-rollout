@@ -22,29 +22,30 @@ import (
 	"net/http"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
+	"knative.dev/pkg/logging"
 	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/activator"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	netapis "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	nethttp "knative.dev/networking/pkg/http"
 	netheader "knative.dev/networking/pkg/http/header"
 	netprober "knative.dev/networking/pkg/prober"
-	"knative.dev/pkg/apis/duck"
-	"knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
+	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	kparesources "knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	aresources "knative.dev/serving/pkg/reconciler/autoscaling/resources"
 	"knative.dev/serving/pkg/resources"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -91,6 +92,60 @@ type scaler struct {
 	// For async probes.
 	probeManager asyncProber
 	enqueueCB    func(interface{}, time.Duration)
+}
+
+// newScaler creates a scaler.
+func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
+	logger := logging.FromContext(ctx)
+	transport := pkgnet.NewProberTransport()
+	ks := &scaler{
+		dynamicClient: dynamicclient.Get(ctx),
+		transport:     transport,
+
+		// We wrap the PodScalable Informer Factory here so Get() uses the outer context.
+		// As the returned Informer is shared across reconciles, passing the context from
+		// an individual reconcile to Get() could lead to problems.
+		listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
+			_, l, err := psInformerFactory.Get(ctx, gvr)
+			return l, err
+		},
+
+		// Production setup uses the default probe implementation.
+		activatorProbe: activatorProbe,
+		probeManager: netprober.New(func(arg interface{}, success bool, err error) {
+			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
+			// Re-enqueue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
+			enqueueCB(arg, reenqeuePeriod)
+		}, transport),
+		enqueueCB: enqueueCB,
+	}
+	return ks
+}
+
+// Resolves the pa to the probing endpoint Eg. http://hostname:port/healthz
+func paToProbeTarget(pa *autoscalingv1alpha1.PodAutoscaler) string {
+	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
+	port := netapis.ServicePort(pa.Spec.ProtocolType)
+
+	return fmt.Sprintf("http://%s:%d/%s", svc, port, nethttp.HealthCheckPath)
+}
+
+// activatorProbe returns true if via probe it determines that the
+// PA is backed by the Activator.
+func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error) {
+	// No service name -- no probe.
+	if pa.Status.ServiceName == "" {
+		return false, nil
+	}
+	return netprober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
+}
+
+func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
+	d, ok := pa.ScaleToZeroPodRetention()
+	if ok {
+		return d
+	}
+	return cfg.ScaleToZeroPodRetentionPeriod
 }
 
 // pre: 0 <= min <= max && 0 <= x
@@ -237,22 +292,6 @@ func (ks *scaler) handleScaleToZero(ctx context.Context, pa *autoscalingv1alpha1
 	}
 }
 
-// Resolves the pa to the probing endpoint Eg. http://hostname:port/healthz
-func paToProbeTarget(pa *autoscalingv1alpha1.PodAutoscaler) string {
-	svc := pkgnet.GetServiceHostname(pa.Status.ServiceName, pa.Namespace)
-	port := netapis.ServicePort(pa.Spec.ProtocolType)
-
-	return fmt.Sprintf("http://%s:%d/%s", svc, port, nethttp.HealthCheckPath)
-}
-
-func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
-	d, ok := pa.ScaleToZeroPodRetention()
-	if ok {
-		return d
-	}
-	return cfg.ScaleToZeroPodRetentionPeriod
-}
-
 func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, desiredScale int32,
 	ps *autoscalingv1alpha1.PodScalable) error {
 	logger := logging.FromContext(ctx)
@@ -284,8 +323,7 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
-func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler,
-	sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
+func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler, sks *netv1alpha1.ServerlessService, desiredScale int32) (int32, error) {
 	asConfig := config.FromContext(ctx).Autoscaler
 	logger := logging.FromContext(ctx)
 
@@ -332,58 +370,4 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 
 	logger.Infof("Scaling from %d to %d", currentScale, desiredScale)
 	return desiredScale, ks.applyScale(ctx, pa, desiredScale, ps)
-}
-
-// newScaler creates a scaler.
-func newScaler(ctx context.Context, psInformerFactory duck.InformerFactory, enqueueCB func(interface{}, time.Duration)) *scaler {
-	logger := logging.FromContext(ctx)
-	transport := pkgnet.NewProberTransport()
-	ks := &scaler{
-		dynamicClient: dynamicclient.Get(ctx),
-		transport:     transport,
-
-		// We wrap the PodScalable Informer Factory here so Get() uses the outer context.
-		// As the returned Informer is shared across reconciles, passing the context from
-		// an individual reconcile to Get() could lead to problems.
-		listerFactory: func(gvr schema.GroupVersionResource) (cache.GenericLister, error) {
-			_, l, err := psInformerFactory.Get(ctx, gvr)
-			return l, err
-		},
-
-		// Production setup uses the default probe implementation.
-		activatorProbe: activatorProbe,
-		probeManager: netprober.New(func(arg interface{}, success bool, err error) {
-			logger.Infof("Async prober is done for %v: success?: %v error: %v", arg, success, err)
-			// Re-enqueue the PA in any case. If the probe timed out to retry again, if succeeded to scale to 0.
-			enqueueCB(arg, reenqeuePeriod)
-		}, transport),
-		enqueueCB: enqueueCB,
-	}
-	return ks
-}
-
-// activatorProbe returns true if via probe it determines that the
-// PA is backed by the Activator.
-func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundTripper) (bool, error) {
-	// No service name -- no probe.
-	if pa.Status.ServiceName == "" {
-		return false, nil
-	}
-	return netprober.Do(context.Background(), transport, paToProbeTarget(pa), probeOptions...)
-}
-
-// GetScaleBounds returns the min and the max scales for the current stage.
-func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler,
-	spa *autoscalingv1.StagePodAutoscaler) (int32, int32) {
-	min, max := pa.ScaleBounds(asConfig)
-	if spa != nil {
-		minS, maxS := spa.ScaleBounds()
-		if minS != nil && min > *minS {
-			min = *minS
-		}
-		if maxS != nil && max > *maxS {
-			max = *maxS
-		}
-	}
-	return min, max
 }

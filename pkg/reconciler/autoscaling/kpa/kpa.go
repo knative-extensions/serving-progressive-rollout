@@ -23,11 +23,7 @@ import (
 
 	"go.opencensus.io/stats"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	corev1listers "k8s.io/client-go/listers/core/v1"
-	"knative.dev/serving/pkg/metrics"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
@@ -35,33 +31,28 @@ import (
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
-	servinglisters "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
+	sprlisters "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/scaling"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
+	"knative.dev/serving/pkg/metrics"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
 	"knative.dev/serving/pkg/reconciler/autoscaling/config"
 	"knative.dev/serving/pkg/reconciler/autoscaling/kpa/resources"
 	anames "knative.dev/serving/pkg/reconciler/autoscaling/resources/names"
 	resourceutil "knative.dev/serving/pkg/resources"
+
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-// Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
-// information from Deciders.
-type Reconciler struct {
-	*areconciler.Base
-
-	podsLister corev1listers.PodLister
-	deciders   resources.Deciders
-	scaler     *scaler
-	spaLister  servinglisters.StagePodAutoscalerLister
-}
-
-// Check that our Reconciler implements the necessary interfaces.
-var (
-	_ pareconciler.Interface            = (*Reconciler)(nil)
-	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
+const (
+	noPrivateServiceName = "No Private Service Name"
+	noTrafficReason      = "NoTraffic"
+	minActivators        = 2
 )
 
 // podCounts keeps record of various numbers of pods
@@ -74,10 +65,21 @@ type podCounts struct {
 	terminating int
 }
 
-const (
-	noPrivateServiceName = "No Private Service Name"
-	noTrafficReason      = "NoTraffic"
-	minActivators        = 2
+// Reconciler tracks PAs and right sizes the ScaleTargetRef based on the
+// information from Deciders.
+type Reconciler struct {
+	*areconciler.Base
+
+	podsLister corev1listers.PodLister
+	deciders   resources.Deciders
+	scaler     *scaler
+	spaLister  sprlisters.StagePodAutoscalerLister
+}
+
+// Check that our Reconciler implements the necessary interfaces.
+var (
+	_ pareconciler.Interface            = (*Reconciler)(nil)
+	_ pkgreconciler.OnDeletionInterface = (*Reconciler)(nil)
 )
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -193,7 +195,6 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-
 	computeStatus(ctx, pa, spa, pc, logger)
 	return nil
 }
@@ -227,8 +228,7 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler,
-	pc podCounts, logger *zap.SugaredLogger) {
+func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
 	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
 
 	reportMetrics(pa, pc)
@@ -357,4 +357,20 @@ func computeNumActivators(readyPods int, decider *scaling.Decider) int32 {
 	}
 
 	return int32(math.Max(minActivators, math.Ceil(capacityToCover/decider.Spec.ActivatorCapacity)))
+}
+
+// GetScaleBounds returns the min and the max scales for the current stage.
+func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler,
+	spa *autoscalingv1.StagePodAutoscaler) (int32, int32) {
+	min, max := pa.ScaleBounds(asConfig)
+	if spa != nil {
+		minS, maxS := spa.ScaleBounds()
+		if minS != nil && min > *minS {
+			min = *minS
+		}
+		if maxS != nil && max > *maxS {
+			max = *maxS
+		}
+	}
+	return min, max
 }

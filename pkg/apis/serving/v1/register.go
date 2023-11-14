@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"knative.dev/serving-progressive-rollout/pkg/apis/serving"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // SchemeGroupVersion is group version used to register these objects.

@@ -107,6 +107,11 @@ func (l *Listers) GetServingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakeservingclientset.AddToScheme)
 }
 
+// GetServingProgressiveRolloutObjects returns the runtime.Objects from the fakesprclientset.
+func (l *Listers) GetServingProgressiveRolloutObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(fakesprclientset.AddToScheme)
+}
+
 // GetNetworkingObjects returns the runtime.Objects from the fakenetworkingclientset.
 func (l *Listers) GetNetworkingObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(fakenetworkingclientset.AddToScheme)
@@ -147,14 +152,14 @@ func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
 	return palisters.NewPodAutoscalerLister(l.IndexerFor(&autoscalingv1alpha1.PodAutoscaler{}))
 }
 
-// GetStagePodAutoscalerLister returns a lister for the StagePodAutoscaler objects.
-func (l *Listers) GetStagePodAutoscalerLister() spalisters.StagePodAutoscalerLister {
-	return spalisters.NewStagePodAutoscalerLister(l.IndexerFor(&sprv1.StagePodAutoscaler{}))
-}
-
 // GetMetricLister returns a lister for the Metric objects.
 func (l *Listers) GetMetricLister() palisters.MetricLister {
 	return palisters.NewMetricLister(l.IndexerFor(&autoscalingv1alpha1.Metric{}))
+}
+
+// GetStagePodAutoscalerLister returns a lister for the StagePodAutoscaler objects.
+func (l *Listers) GetStagePodAutoscalerLister() spalisters.StagePodAutoscalerLister {
+	return spalisters.NewStagePodAutoscalerLister(l.IndexerFor(&sprv1.StagePodAutoscaler{}))
 }
 
 // GetHorizontalPodAutoscalerLister gets lister for HorizontalPodAutoscaler resources.

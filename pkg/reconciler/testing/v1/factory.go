@@ -24,15 +24,14 @@ import (
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakenetworkingclient "knative.dev/networking/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
-	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
-
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
+	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	"knative.dev/pkg/logging"
 	logtesting "knative.dev/pkg/logging/testing"
 	"knative.dev/pkg/reconciler"
+	fakesprclient "knative.dev/serving-progressive-rollout/pkg/client/injection/client/fake"
+	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,6 +68,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 
 		ctx, kubeClient := fakekubeclient.With(ctx, ls.GetKubeObjects()...)
 		ctx, client := fakeservingclient.With(ctx, ls.GetServingObjects()...)
+		ctx, sprclient := fakesprclient.With(ctx, ls.GetServingProgressiveRolloutObjects()...)
 		ctx, netclient := fakenetworkingclient.With(ctx, ls.GetNetworkingObjects()...)
 		ctx, dynamicClient := fakedynamicclient.With(ctx, ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
@@ -111,6 +111,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		for _, reactor := range r.WithReactors {
 			kubeClient.PrependReactor("*", "*", reactor)
 			client.PrependReactor("*", "*", reactor)
+			sprclient.PrependReactor("*", "*", reactor)
 			netclient.PrependReactor("*", "*", reactor)
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
@@ -126,7 +127,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(ctx, action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, client, netclient, kubeClient, cachingClient}
+		actionRecorderList := rtesting.ActionRecorderList{dynamicClient, client, sprclient, netclient, kubeClient, cachingClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList
@@ -172,16 +173,16 @@ type key struct{}
 var TrackerKey key = struct{}{}
 
 // AssertTrackingConfig will ensure the provided Configuration is being tracked
-func AssertTrackingConfig(namespace, name string) func(*testing.T, *rtesting.TableRow) {
-	gvk := v1.SchemeGroupVersion.WithKind("Configuration")
-	return AssertTrackingObject(gvk, namespace, name)
-}
-
-// AssertTrackingRevision will ensure the provided Revision is being tracked
-func AssertTrackingRevision(namespace, name string) func(*testing.T, *rtesting.TableRow) {
-	gvk := v1.SchemeGroupVersion.WithKind("Revision")
-	return AssertTrackingObject(gvk, namespace, name)
-}
+//func AssertTrackingConfig(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+//	gvk := v1.SchemeGroupVersion.WithKind("Configuration")
+//	return AssertTrackingObject(gvk, namespace, name)
+//}
+//
+//// AssertTrackingRevision will ensure the provided Revision is being tracked
+//func AssertTrackingRevision(namespace, name string) func(*testing.T, *rtesting.TableRow) {
+//	gvk := v1.SchemeGroupVersion.WithKind("Revision")
+//	return AssertTrackingObject(gvk, namespace, name)
+//}
 
 // AssertTrackingObject will ensure the following objects are being tracked
 func AssertTrackingObject(gvk schema.GroupVersionKind, namespace, name string) func(*testing.T, *rtesting.TableRow) {

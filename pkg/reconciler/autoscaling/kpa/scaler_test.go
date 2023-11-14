@@ -28,19 +28,9 @@ import (
 
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
-	servingrectest "knative.dev/pkg/reconciler/testing"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	fakedynamic "k8s.io/client-go/dynamic/fake"
-	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 	nv1a1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
@@ -57,6 +47,17 @@ import (
 	revisionresources "knative.dev/serving/pkg/reconciler/revision/resources"
 	"knative.dev/serving/pkg/reconciler/revision/resources/names"
 
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	fakedynamic "k8s.io/client-go/dynamic/fake"
+	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+
+	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing"
 )
 
@@ -480,7 +481,7 @@ func TestScaler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := servingrectest.SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 
@@ -583,7 +584,7 @@ func TestDisableScaleToZero(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := servingrectest.SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 

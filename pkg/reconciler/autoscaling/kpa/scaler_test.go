@@ -61,12 +61,6 @@ import (
 	. "knative.dev/serving/pkg/testing"
 )
 
-const (
-	testNamespace = "test-namespace"
-	testRevision  = "test-revision"
-	key           = testNamespace + "/" + testRevision
-)
-
 func TestScaler(t *testing.T) {
 	const activationTimeout = progressDeadline + activationTimeoutBuffer
 	tests := []struct {
@@ -675,7 +669,6 @@ func newRevision(ctx context.Context, t *testing.T, servingClient clientset.Inte
 
 func newDeployment(ctx context.Context, t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *appsv1.Deployment {
 	t.Helper()
-
 	uns := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",
@@ -822,7 +815,7 @@ type countingProber struct {
 	count int
 }
 
-func (c *countingProber) Offer(ctx context.Context, target string, arg interface{}, period, timeout time.Duration, ops ...interface{}) bool {
+func (c *countingProber) Offer(_ context.Context, _ string, _ interface{}, _, _ time.Duration, _ ...interface{}) bool {
 	c.count++
 	return true
 }

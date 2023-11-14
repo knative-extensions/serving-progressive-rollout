@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"math"
 
-	"go.opencensus.io/stats"
+	goStats "go.opencensus.io/stats"
 	"go.uber.org/zap"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
@@ -242,7 +242,7 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 
 	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 
-	stats := []stats.Measurement{
+	stats := []goStats.Measurement{
 		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),
 		pendingPodCountM.M(int64(pc.pending)), terminatingPodCountM.M(int64(pc.terminating)),
 	}

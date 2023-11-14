@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Knative Authors
+Copyright 2018 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -103,6 +103,9 @@ const (
 	paStableWindow           = 45 * time.Second
 	progressDeadline         = 121 * time.Second
 	stableWindow             = 5 * time.Minute
+	testNamespace            = "test-namespace"
+	testRevision             = "test-revision"
+	key                      = testNamespace + "/" + testRevision
 )
 
 func defaultConfigMapData() map[string]string {
@@ -1029,7 +1032,7 @@ func TestReconcile(t *testing.T) {
 				-42 /* ebc */)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic,
-				withScales(20, defaultScale), withInitialScale(20), WithReachabilityReachable,
+				withScales(20, defaultScale), withInitialScaleB(20), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(scaledAct)),
@@ -1040,7 +1043,7 @@ func TestReconcile(t *testing.T) {
 		}, makeReadyPods(20, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
-				markScaleTargetInitialized, withScales(20, 20), withInitialScale(20), WithReachabilityReachable,
+				markScaleTargetInitialized, withScales(20, 20), withInitialScaleB(20), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
@@ -1705,7 +1708,7 @@ type testDeciders struct {
 	mutex              sync.Mutex
 }
 
-func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
+func (km *testDeciders) Get(_ context.Context, namespace, name string) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1715,7 +1718,7 @@ func (km *testDeciders) Get(ctx context.Context, namespace, name string) (*scali
 	return km.decider, nil
 }
 
-func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
+func (km *testDeciders) Create(_ context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1725,7 +1728,7 @@ func (km *testDeciders) Create(ctx context.Context, decider *scaling.Decider) (*
 	return decider, nil
 }
 
-func (km *testDeciders) Delete(ctx context.Context, namespace, name string) {
+func (km *testDeciders) Delete(_ context.Context, _, _ string) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1737,7 +1740,7 @@ func (km *testDeciders) Delete(ctx context.Context, namespace, name string) {
 	km.deleteCall <- struct{}{}
 }
 
-func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
+func (km *testDeciders) Update(_ context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	km.mutex.Lock()
 	defer km.mutex.Unlock()
 
@@ -1747,27 +1750,27 @@ func (km *testDeciders) Update(ctx context.Context, decider *scaling.Decider) (*
 	return decider, nil
 }
 
-func (km *testDeciders) Watch(fn func(types.NamespacedName)) {}
+func (km *testDeciders) Watch(_ func(types.NamespacedName)) {}
 
 type failingDeciders struct {
 	getErr    error
 	createErr error
 }
 
-func (km *failingDeciders) Get(ctx context.Context, namespace, name string) (*scaling.Decider, error) {
+func (km *failingDeciders) Get(_ context.Context, _, _ string) (*scaling.Decider, error) {
 	return nil, km.getErr
 }
 
-func (km *failingDeciders) Create(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
+func (km *failingDeciders) Create(_ context.Context, _ *scaling.Decider) (*scaling.Decider, error) {
 	return nil, km.createErr
 }
 
-func (km *failingDeciders) Delete(ctx context.Context, namespace, name string) {}
+func (km *failingDeciders) Delete(_ context.Context, _, _ string) {}
 
-func (km *failingDeciders) Watch(fn func(types.NamespacedName)) {
+func (km *failingDeciders) Watch(_ func(types.NamespacedName)) {
 }
 
-func (km *failingDeciders) Update(ctx context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
+func (km *failingDeciders) Update(_ context.Context, decider *scaling.Decider) (*scaling.Decider, error) {
 	return decider, nil
 }
 
@@ -1918,6 +1921,10 @@ func TestResolveScrapeTarget(t *testing.T) {
 	}
 }
 
+func withInitialScaleB(initScale int) PodAutoscalerOption {
+	return withInitialScale(initScale)
+}
+
 func withInitialScale(initScale int) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
@@ -1998,4 +2005,122 @@ func TestComputeActivatorNum(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReconcileWithNSR(t *testing.T) {
+	testRevision := "testRevision1"
+	testNamespace := "testNamespace1"
+	key := testNamespace + "/" + testRevision
+	deployName := testRevision + "-deployment"
+	const (
+		defaultScale = 19
+		unknownScale = scaleUnknown
+		underscale   = defaultScale - 1
+		overscale    = defaultScale + 1
+
+		defaultAct = 3 // 1-10 ready pods + 200 TBC
+		scaledAct  = 4 // 11 or 12 ready pods + 200 TBC
+	)
+	privateSvc := names.PrivateService(testRevision)
+
+	// Set up a default deployment with the appropriate scale so that we don't
+	// see patches to correct that scale.
+	defaultDeployment := deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+		d.Spec.Replicas = ptr.Int32(defaultScale)
+	})
+
+	defaultSKS := sks(testNamespace, testRevision, WithDeployRef(deployName), WithSKSReady, WithNumActivators(defaultAct))
+
+	defaultReady := makeReadyPods(1, testNamespace, testRevision)[0]
+
+	type deciderKey struct{}
+	type asConfigKey struct{}
+	type netConfigKey struct{}
+
+	// Note: due to how KPA reconciler works we are dependent on the
+	// two constant objects above, which means, that all tests must share
+	// the same namespace and revision name.
+	table := TableTest{{
+		Name: "bad workqueue key, Part I",
+		Key:  "too/many/parts",
+	}, {
+		Name: "bad workqueue key, Part II",
+		Key:  "too-few-parts",
+	}, {
+		Name: "key not found",
+		Key:  "foo/not-found",
+	}, {
+		Name: "steady state",
+		Key:  key,
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
+				markScaleTargetInitialized, WithPAMetricsService(privateSvc),
+				withScales(1, defaultScale), WithPAStatusService(testRevision), WithObservedGeneration(1)),
+			defaultSKS,
+			metric(testNamespace, testRevision),
+			defaultDeployment, defaultReady},
+	}, {
+		Name: "steady not serving",
+		Key:  key,
+		Ctx: context.WithValue(context.Background(), deciderKey{},
+			decider(testNamespace, testRevision, 0 /* desiredScale */, 0 /* ebc */)),
+		Objects: []runtime.Object{
+			kpa(testNamespace, testRevision, WithScaleTargetInitialized, withScales(0, 0),
+				WithNoTraffic(noTrafficReason, "The target is not receiving traffic."),
+				WithPASKSReady, markOld, WithPAStatusService(testRevision),
+				WithPAMetricsService(privateSvc), WithObservedGeneration(1)),
+			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady),
+			metric(testNamespace, testRevision),
+			deploy(testNamespace, testRevision, func(d *appsv1.Deployment) {
+				d.Spec.Replicas = ptr.Int32(0)
+			}),
+		},
+	}}
+	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
+		ctx = podscalable.WithDuck(ctx)
+
+		fakeDeciders := newTestDeciders()
+		// TODO(vagababov): see if we can get rid of the static piece of configuration and
+		// constant namespace and revision names.
+
+		// Make new decider if it's not in the context
+		if d := ctx.Value(deciderKey{}); d == nil {
+			decider := resources.MakeDecider(
+				kpa(testNamespace, testRevision), defaultConfig().Autoscaler)
+			decider.Status.DesiredScale = defaultScale
+			decider.Generation = 2112
+			fakeDeciders.Create(ctx, decider)
+		} else {
+			fakeDeciders.Create(ctx, d.(*scaling.Decider))
+		}
+
+		testConfigs := defaultConfig()
+		if asConfig := ctx.Value(asConfigKey{}); asConfig != nil {
+			testConfigs.Autoscaler = asConfig.(*autoscalerconfig.Config)
+		}
+		if netConfig := ctx.Value(netConfigKey{}); netConfig != nil {
+			testConfigs.Network = netConfig.(*netcfg.Config)
+		}
+		psf := podscalable.Get(ctx)
+		scaler := newScaler(ctx, psf, func(interface{}, time.Duration) {})
+		scaler.activatorProbe = func(*autoscalingv1alpha1.PodAutoscaler, http.RoundTripper) (bool, error) { return true, nil }
+		r := &Reconciler{
+			Base: &areconciler.Base{
+				Client:           servingclient.Get(ctx),
+				NetworkingClient: networkingclient.Get(ctx),
+				SKSLister:        listers.GetServerlessServiceLister(),
+				MetricLister:     listers.GetMetricLister(),
+			},
+			podsLister: listers.GetPodsLister(),
+			deciders:   fakeDeciders,
+			scaler:     scaler,
+			spaLister:  listers.GetStagePodAutoscalerLister(),
+		}
+		return pareconciler.NewReconciler(ctx, logging.FromContext(ctx),
+			servingclient.Get(ctx), listers.GetPodAutoscalerLister(),
+			controller.GetEventRecorder(ctx), r, autoscaling.KPA,
+			controller.Options{
+				ConfigStore: &testConfigStore{config: testConfigs},
+			})
+	}))
 }

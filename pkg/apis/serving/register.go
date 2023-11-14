@@ -165,16 +165,10 @@ var (
 		Resource: "rolloutorchestrators",
 	}
 
-	// RevisionsResource represents a Knative Revision
-	RevisionsResource = schema.GroupResource{
+	// StagePodAutoscalersResource represents a Knative RolloutOrchestrators
+	StagePodAutoscalersResource = schema.GroupResource{
 		Group:    GroupName,
-		Resource: "revisions",
-	}
-
-	// RoutesResource represents a Knative Route
-	RoutesResource = schema.GroupResource{
-		Group:    GroupName,
-		Resource: "routes",
+		Resource: "stagepodautoscalers",
 	}
 )
 

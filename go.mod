@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/google/go-cmp v0.6.0
+	github.com/hashicorp/golang-lru v1.0.2
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.9.0
 	go.uber.org/zap v1.26.0
@@ -13,6 +14,7 @@ require (
 	k8s.io/client-go v0.27.6
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+	knative.dev/caching v0.0.0-20231108204433-b3781bc47aeb
 	knative.dev/hack v0.0.0-20231109190034-5deaddeb51a7
 	knative.dev/networking v0.0.0-20231115015815-3af9769712cd
 	knative.dev/pkg v0.0.0-20231115001034-97c7258e3a98
@@ -81,7 +83,6 @@ require (
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/gorilla/websocket v1.5.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.3 // indirect
-	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -130,7 +131,6 @@ require (
 	k8s.io/gengo v0.0.0-20221011193443-fad74ee6edd9 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect
-	knative.dev/caching v0.0.0-20231109234001-c2b2543ace4a // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect

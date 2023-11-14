@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,6 +33,9 @@ import (
 	fakenetworkingclientset "knative.dev/networking/pkg/client/clientset/versioned/fake"
 	networkinglisters "knative.dev/networking/pkg/client/listers/networking/v1alpha1"
 	"knative.dev/pkg/reconciler/testing"
+	sprv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	fakesprclientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/fake"
+	spalisters "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving/v1beta1"
@@ -48,6 +51,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakekubeclientset.AddToScheme,
 	fakenetworkingclientset.AddToScheme,
 	fakeservingclientset.AddToScheme,
+	fakesprclientset.AddToScheme,
 }
 
 // Listers provides access to Listers for various objects.
@@ -141,6 +145,11 @@ func (l *Listers) GetRevisionLister() servinglisters.RevisionLister {
 // GetPodAutoscalerLister gets the PodAutoscaler lister.
 func (l *Listers) GetPodAutoscalerLister() palisters.PodAutoscalerLister {
 	return palisters.NewPodAutoscalerLister(l.IndexerFor(&autoscalingv1alpha1.PodAutoscaler{}))
+}
+
+// GetStagePodAutoscalerLister returns a lister for the StagePodAutoscaler objects.
+func (l *Listers) GetStagePodAutoscalerLister() spalisters.StagePodAutoscalerLister {
+	return spalisters.NewStagePodAutoscalerLister(l.IndexerFor(&sprv1.StagePodAutoscaler{}))
 }
 
 // GetMetricLister returns a lister for the Metric objects.

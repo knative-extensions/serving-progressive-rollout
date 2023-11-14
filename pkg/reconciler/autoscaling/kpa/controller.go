@@ -24,6 +24,7 @@ import (
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
+	roinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
@@ -35,9 +36,9 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/serving-progressive-rollout/pkg/apis/serving"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-	"knative.dev/serving/pkg/apis/serving"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	"knative.dev/serving/pkg/deployment"
 	areconciler "knative.dev/serving/pkg/reconciler/autoscaling"
@@ -55,10 +56,12 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	sksInformer := sksinformer.Get(ctx)
-	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
+
 	metricInformer := metricinformer.Get(ctx)
 	psInformerFactory := podscalable.Get(ctx)
+	s := roinformer.Get(ctx)
 	spaInformer := spainformer.Get(ctx)
+	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
 
 	onlyKPAClass := pkgreconciler.AnnotationFilterFunc(
 		autoscaling.ClassAnnotationKey, autoscaling.KPA, false /*allowUnset*/)
@@ -106,6 +109,7 @@ func NewController(
 
 	// The spa and the pa have a one-on-one mapping relationship, sharing the same name.
 	spaInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+	s.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
 	// Watch the knative pods.
 	podsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{

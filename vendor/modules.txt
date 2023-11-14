@@ -1346,7 +1346,6 @@ knative.dev/serving/pkg/reconciler/serverlessservice/resources/names
 knative.dev/serving/pkg/reconciler/service
 knative.dev/serving/pkg/reconciler/service/resources
 knative.dev/serving/pkg/reconciler/service/resources/names
-knative.dev/serving/pkg/reconciler/testing/v1
 knative.dev/serving/pkg/resources
 knative.dev/serving/pkg/testing
 # sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd

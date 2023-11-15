@@ -26,6 +26,9 @@ import (
 	"testing"
 	"time"
 
+	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
+
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
@@ -36,6 +39,7 @@ import (
 	"knative.dev/pkg/apis/duck"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/network"
+	"knative.dev/pkg/ptr"
 	_ "knative.dev/pkg/system/testing"
 	"knative.dev/serving/pkg/activator"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -824,4 +828,195 @@ func markSKSInProxyFor(sks *nv1a1.ServerlessService, d time.Duration) {
 	sks.Status.MarkActivatorEndpointsPopulated()
 	// This works because the conditions are sorted alphabetically
 	sks.Status.Conditions[0].LastTransitionTime = apis.VolatileTime{Inner: metav1.NewTime(time.Now().Add(-d))}
+}
+
+func TestGetScaleBounds(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *autoscalerconfig.Config
+		pa          *autoscalingv1alpha1.PodAutoscaler
+		spa         *autoscalingv1.StagePodAutoscaler
+		ExpectedMin int32
+		ExpectedMax int32
+	}{{
+		name: "Only Config is specified with values",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa:          &autoscalingv1alpha1.PodAutoscaler{},
+		spa:         &autoscalingv1.StagePodAutoscaler{},
+		ExpectedMin: 2,
+		ExpectedMax: 5,
+	}, {
+		name: "PodAutoscaler has lower min and max values than the Config",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "1",
+					autoscaling.MaxScaleAnnotationKey: "3"},
+			},
+		},
+		spa:         &autoscalingv1.StagePodAutoscaler{},
+		ExpectedMin: 1,
+		ExpectedMax: 3,
+	}, {
+		name: "PodAutoscaler has min and max values over the Config",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "5",
+					autoscaling.MaxScaleAnnotationKey: "6"},
+			},
+		},
+		spa:         &autoscalingv1.StagePodAutoscaler{},
+		ExpectedMin: 5,
+		ExpectedMax: 6,
+	}, {
+		name: "PodAutoscaler has min value only over the Config",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "5"},
+			},
+		},
+		spa:         &autoscalingv1.StagePodAutoscaler{},
+		ExpectedMin: 5,
+		ExpectedMax: 5,
+	}, {
+		name: "PodAutoscaler has max value only over the Config",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "valid",
+				Annotations: map[string]string{autoscaling.MaxScaleAnnotationKey: "4"},
+			},
+		},
+		spa:         &autoscalingv1.StagePodAutoscaler{},
+		ExpectedMin: 2,
+		ExpectedMax: 4,
+	}, {
+		name:   "PodAutoscaler has max value only",
+		config: &autoscalerconfig.Config{},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "valid",
+				Annotations: map[string]string{autoscaling.MaxScaleAnnotationKey: "4"},
+			},
+		},
+		spa:         &autoscalingv1.StagePodAutoscaler{},
+		ExpectedMin: 0,
+		ExpectedMax: 4,
+	}, {
+		name: "StagePodAutoscaler has lower min and max values than the PodAutoscaler",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "2",
+					autoscaling.MaxScaleAnnotationKey: "5"},
+			},
+		},
+		spa: &autoscalingv1.StagePodAutoscaler{
+			Spec: autoscalingv1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(1),
+				StageMaxScale: ptr.Int32(2),
+			},
+		},
+		ExpectedMin: 1,
+		ExpectedMax: 2,
+	}, {
+		name: "StagePodAutoscaler has higher min and max values than the PodAutoscaler",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "2",
+					autoscaling.MaxScaleAnnotationKey: "5"},
+			},
+		},
+		spa: &autoscalingv1.StagePodAutoscaler{
+			Spec: autoscalingv1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(3),
+				StageMaxScale: ptr.Int32(6),
+			},
+		},
+		ExpectedMin: 2,
+		ExpectedMax: 5,
+	}, {
+		name: "StagePodAutoscaler has higher min and lower max values than the PodAutoscaler",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "2",
+					autoscaling.MaxScaleAnnotationKey: "5"},
+			},
+		},
+		spa: &autoscalingv1.StagePodAutoscaler{
+			Spec: autoscalingv1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(3),
+				StageMaxScale: ptr.Int32(4),
+			},
+		},
+		ExpectedMin: 2,
+		ExpectedMax: 4,
+	}, {
+		name: "StagePodAutoscaler has lower min and higher max values than the PodAutoscaler",
+		config: &autoscalerconfig.Config{
+			MinScale: 2,
+			MaxScale: 5,
+		},
+		pa: &autoscalingv1alpha1.PodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "valid",
+				Annotations: map[string]string{autoscaling.MinScaleAnnotationKey: "2",
+					autoscaling.MaxScaleAnnotationKey: "5"},
+			},
+		},
+		spa: &autoscalingv1.StagePodAutoscaler{
+			Spec: autoscalingv1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(1),
+				StageMaxScale: ptr.Int32(6),
+			},
+		},
+		ExpectedMin: 1,
+		ExpectedMax: 5,
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			min, max := GetScaleBounds(test.config, test.pa, test.spa)
+			if min != test.ExpectedMin {
+				t.Fatalf("Min of GetScaleBounds() = %v, want %v", min, test.ExpectedMin)
+			}
+			if max != test.ExpectedMax {
+				t.Fatalf("Max of GetScaleBounds() = %v, want %v", max, test.ExpectedMax)
+			}
+		})
+	}
 }

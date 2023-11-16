@@ -19,20 +19,18 @@ package service
 import (
 	"context"
 
+	"k8s.io/client-go/tools/cache"
+	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/controller"
+	"knative.dev/pkg/logging"
 	cfgmap "knative.dev/serving/pkg/apis/config"
+	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
 	kserviceinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/service"
 	ksvcreconciler "knative.dev/serving/pkg/client/injection/reconciler/serving/v1/service"
-	"knative.dev/serving/pkg/reconciler/service"
-
-	"k8s.io/client-go/tools/cache"
-	"knative.dev/pkg/configmap"
-	"knative.dev/pkg/controller"
-	"knative.dev/pkg/logging"
-	v1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // NewController initializes the controller and is called by the generated code
@@ -50,7 +48,7 @@ func NewController(
 	configStore := cfgmap.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
-	c := service.NewReconciler(
+	c := NewReconciler(
 		servingclient.Get(ctx),
 		configurationInformer.Lister(),
 		revisionInformer.Lister(),

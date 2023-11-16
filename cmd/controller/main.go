@@ -31,7 +31,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision"
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
-	"knative.dev/serving/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -40,6 +39,8 @@ import (
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/stagepodautoscaler"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
+
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/service"
 )
 
 const (

@@ -29,7 +29,7 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 	versioned "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/internalinterfaces"
-	samples "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/samples"
+	serving "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/serving"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.
@@ -243,9 +243,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Samples() samples.Interface
+	Serving() serving.Interface
 }
 
-func (f *sharedInformerFactory) Samples() samples.Interface {
-	return samples.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Serving() serving.Interface {
+	return serving.New(f, f.namespace, f.tweakListOptions)
 }

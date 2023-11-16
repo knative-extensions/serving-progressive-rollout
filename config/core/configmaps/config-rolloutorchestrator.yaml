@@ -1,0 +1,34 @@
+# Copyright 2023 The Knative Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-rolloutorchestrator
+  namespace: knative-serving
+  labels:
+    app.kubernetes.io/component: rolloutorchestrator
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/version: devel
+data:
+  _example: |
+    # over-consumption-ratio sets the percentage about how much resource more than the requested can be used
+    # to accomplish the rolling upgrade.
+    #
+    # By default, the number is 25, meaning 25% more of the resources we can allocate to roll out a new revision,
+    # based on an existing revision. For example, the existing revision has 8 pods running, and we create a new
+    # revision to replace it. During the transitional phase from the existing revision to this new revision, we
+    # allow the total maximum number of pods to reach 8+8*25%=10 pods. Each stage, we roll out 25% more, adding
+    # two more pods to the new revision and reducing two pods of the existing revision.
+    over-consumption-ratio: "25"

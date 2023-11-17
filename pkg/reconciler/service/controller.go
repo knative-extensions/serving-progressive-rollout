@@ -23,9 +23,12 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving-progressive-rollout/pkg/client/injection/client"
+	rolloutorchestratorinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
+	painformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/podautoscaler"
 	configurationinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/configuration"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 	routeinformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/route"
@@ -44,15 +47,20 @@ func NewController(
 	routeInformer := routeinformer.Get(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
+	rolloutorchestratorInformer := rolloutorchestratorinformer.Get(ctx)
+	paInformer := painformer.Get(ctx)
 
 	configStore := cfgmap.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
 
 	c := NewReconciler(
+		client.Get(ctx),
 		servingclient.Get(ctx),
 		configurationInformer.Lister(),
 		revisionInformer.Lister(),
 		routeInformer.Lister(),
+		rolloutorchestratorInformer.Lister(),
+		paInformer.Lister(),
 	)
 
 	opts := func(*controller.Impl) controller.Options {

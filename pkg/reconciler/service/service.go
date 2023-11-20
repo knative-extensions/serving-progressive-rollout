@@ -104,7 +104,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 	roName := resourcenames.Configuration(service)
 	rolloutOrchestrator, err := c.rolloutOrchestratorLister.RolloutOrchestrators(service.Namespace).Get(roName)
 	if apierrs.IsNotFound(err) {
-		rolloutOrchestrator, err = c.createUpdateRolloutOrchestrator(ctx, service, route, nil, true)
+		rolloutOrchestrator, err = c.createRolloutOrchestrator(ctx, service, route)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed",
 				"Failed to create RolloutOrchestrator %q: %v", roName, err)
@@ -123,125 +123,133 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 	return rolloutOrchestrator, nil
 }
 
-func (c *Reconciler) createUpdateRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	route *servingv1.Route, so *v1.RolloutOrchestrator, create bool) (*v1.RolloutOrchestrator, error) {
+func createRevRecordsFromRevList(revList []*servingv1.Revision) map[string]resources.RevisionRecord {
+	records := map[string]resources.RevisionRecord{}
+	for _, revision := range revList {
+		record := resources.RevisionRecord{}
+		if val, ok := revision.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
+			i, err := strconv.ParseInt(val, 10, 32)
+			if err == nil {
+				record.MinScale = ptr.Int32(int32(i))
+			}
+		}
+		if val, ok := revision.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
+			i, err := strconv.ParseInt(val, 10, 32)
+			if err == nil {
+				record.MaxScale = ptr.Int32(int32(i))
+			}
+		}
+		record.Name = revision.Name
+		records[revision.Name] = record
+	}
+	return records
+}
+
+func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
+	route *servingv1.Route) (*v1.RolloutOrchestrator, error) {
 	// To create the RolloutOrchestrator we need to make sure we have stageTraffic and Traffic in the spec, and
 	// stageReady, and Ready in the status.
 	records := map[string]resources.RevisionRecord{}
 
-	lister := c.revisionLister.Revisions(service.Namespace)
-	list, err := lister.List(labels.SelectorFromSet(labels.Set{
+	revList, err := c.revisionLister.Revisions(service.Namespace).List(labels.SelectorFromSet(labels.Set{
 		serving.ConfigurationLabelKey: service.Name,
 		serving.ServiceLabelKey:       service.Name,
 	}))
 
 	logger := logging.FromContext(ctx)
 
-	if err == nil && len(list) > 0 {
-		for _, revision := range list {
-			record := resources.RevisionRecord{}
-
-			if val, ok := revision.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
-				i, err := strconv.ParseInt(val, 10, 32)
-				if err == nil {
-					record.MinScale = ptr.Int32(int32(i))
-				}
-			}
-
-			if val, ok := revision.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
-				i, err := strconv.ParseInt(val, 10, 32)
-				if err == nil {
-					record.MaxScale = ptr.Int32(int32(i))
-				}
-			}
-			record.Name = revision.Name
-			records[revision.Name] = record
-
-		}
+	if err == nil && len(revList) > 0 {
+		records = createRevRecordsFromRevList(revList)
 	}
 
-	so = resources.MakeServiceOrchestrator(service, route, records, logger, so)
-	if create {
-		so, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Create(
-			ctx, so, metav1.CreateOptions{})
-		if err != nil {
-			return so, err
-		}
-	} else {
-		so, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
-		if err != nil {
-			return so, err
-		}
+	so := resources.MakeServiceOrchestrator(service, route, records, logger, nil)
+	so, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Create(
+		ctx, so, metav1.CreateOptions{})
+	if err != nil {
+		return so, err
 	}
-	so, _ = c.calculateStageRevisionTarget(ctx, so)
-	origin := so.DeepCopy()
-	if equality.Semantic.DeepEqual(origin.Spec, so.Spec) {
-		return so, nil
-	}
-	so, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
-	return so, err
+	return c.updateStageRevisionTarget(ctx, so)
 }
 
-func (c *Reconciler) calculateStageRevisionTarget(ctx context.Context, so *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
-	if so.Status.StageRevisionStatus == nil || len(so.Status.StageRevisionStatus) == 0 ||
-		so.Spec.InitialRevisions == nil || len(so.Spec.InitialRevisions) == 0 {
+func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
+	route *servingv1.Route, ro *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
+	records := map[string]resources.RevisionRecord{}
+	revList, err := c.revisionLister.Revisions(service.Namespace).List(labels.SelectorFromSet(labels.Set{
+		serving.ConfigurationLabelKey: service.Name,
+		serving.ServiceLabelKey:       service.Name,
+	}))
 
-		// There is no stage revision status, which indicates that no route is configured. We can directly set
-		// the ultimate revision target as the current stage revision target.
-		so.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
+	logger := logging.FromContext(ctx)
 
-	} else {
-		if len(so.Spec.InitialRevisions) > 2 || len(so.Spec.TargetRevisions) > 1 {
-			// If the initial revision status contains more than one revision, or the ultimate revision target contains
-			// more than one revision, we will set the current stage target to the ultimate revision target.
-			so.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
-			//} else if len(so.Spec.InitialRevisionStatus) == 2 {
-			//	// TODO this is a special case
-			//	if *so.Spec.InitialRevisionStatus[0].Percent != int64(100) || *so.Spec.InitialRevisionStatus[0].Percent != int64(0) {
-			//		so.Spec.StageRevisionTarget = append([]v1.RevisionTarget{}, so.Spec.RevisionTarget...)
-			//	}
-
-		} else {
-			if so.Spec.StageTargetRevisions == nil {
-				// If so.Spec.StageRevisionTarget is not empty, we need to calculate the stage revision target.
-				so = c.updateStageRevisionSpec(so)
-				return so, nil
-			}
-			// If the initial revision status and ultimate revision target both contains only one revision, we will
-			// roll out the revision incrementally.
-			// Check if stage revision status is ready or in progress
-			if so.IsStageReady() {
-				if so.IsReady() {
-					// If the last stage has rolled out, nothing changes.
-					return so, nil
-				} else {
-					// The current stage revision is complete. We need to calculate the next stage target.
-					so = c.updateStageRevisionSpec(so)
-				}
-			} else if so.IsStageInProgress() {
-				// Do nothing, because it is in progress to the current so.Spec.StageRevisionTarget
-				// so.Spec.StageRevisionTarget is not empty.
-				return so, nil
-			}
-		}
+	if err == nil && len(revList) > 0 {
+		records = createRevRecordsFromRevList(revList)
 	}
 
-	return so, nil
+	ro = resources.MakeServiceOrchestrator(service, route, records, logger, ro)
+	ro, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
+	if err != nil {
+		return ro, err
+	}
+	return c.updateStageRevisionTarget(ctx, ro)
 }
 
-func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
-	if len(so.Status.StageRevisionStatus) > 2 || len(so.Spec.TargetRevisions) != 1 {
+func (c *Reconciler) updateStageRevisionTarget(ctx context.Context, ro *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
+	origin := ro.DeepCopy()
+	calculateStageRevisionTarget(ro, c.podAutoscalerLister)
+	if equality.Semantic.DeepEqual(origin.Spec, ro.Spec) {
+		return ro, nil
+	}
+	return c.client.ServingV1().RolloutOrchestrators(ro.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
+}
+
+func calculateStageRevisionTarget(ro *v1.RolloutOrchestrator, podAutoscalerLister palisters.PodAutoscalerLister) {
+	if ro.IsNoRouteConfigured() || ro.IsNotOneToOneUpgrade() {
+		//
+		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
+		return
+	}
+	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsReady()) {
+		// If so.Spec.StageRevisionTarget is empty, we need to calculate the stage revision target.
+
+		// If the initial revision status and ultimate revision target both contains only one revision, we will
+		// roll out the revision incrementally.
+		// Check if stage revision status is ready or in progress.
+		ro = updateStageRevisionSpec(ro, podAutoscalerLister)
+		return
+	}
+	//
+	//if ro.IsStageReady() && !ro.IsReady() {
+	//	// The current stage revision is complete. We need to calculate the next stage target.
+	//	ro = c.updateStageRevisionSpec(ro, c.podAutoscalerLister)
+	//	return
+	//}
+	//} else if ro.IsStageInProgress() {
+	// 1. Do nothing, if the last stage has rolled out, nothing changes.
+	// 2. Do nothing, if it is in progress to the current so.Spec.StageRevisionTarget
+	// so.Spec.StageRevisionTarget is not empty.
+	//return
+	//}
+}
+
+func updateStageRevisionSpec(so *v1.RolloutOrchestrator, podAutoscalerLister palisters.PodAutoscalerLister) *v1.RolloutOrchestrator {
+	if so.IsTransitionOutOfScope() {
 		return so
 	}
-	finalRevision := so.Spec.TargetRevisions[0].RevisionName
 
+	// The length of the TargetRevisions is always one here, meaning that there is
+	// only one revision as the target revision when the rollout is over.
+	finalRevision := so.Spec.TargetRevisions[0].RevisionName
 	startRevisionStatus := so.Status.StageRevisionStatus
 	if so.Spec.StageTargetRevisions == nil {
+		// If StageTargetRevisions is empty, we will start from the beginning, meaning
+		// that starting from the InitialRevisions.
 		startRevisionStatus = so.Spec.InitialRevisions
 	}
 	ratio := resources.OverSubRatio
 	found := false
 	index := -1
+
+	// The length of startRevisionStatus is either 1 or 2.
 	if len(startRevisionStatus) == 2 {
 		if startRevisionStatus[0].RevisionName == finalRevision {
 			found = true
@@ -262,10 +270,10 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 
 		//	finalTraffic := *so.Spec.RevisionTarget[0].Percent
 
-		pa, _ := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
+		pa, _ := podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
 		currentReplicas := *pa.Status.DesiredScale
 
-		pa, _ = c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
+		//pa, _ = c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
 		targetReplicas := int32(32)
 		if pa != nil {
 			targetReplicas = *pa.Status.DesiredScale
@@ -285,7 +293,7 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 
 			} else {
@@ -295,10 +303,10 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else if currentReplicas < maxV {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				} else if currentReplicas == maxV {
 					// Full load.
-					stageRevisionTarget = c.fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 			}
 		} else {
@@ -309,11 +317,11 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else if currentReplicas <= minV {
 					// Lowest load.
-					stageRevisionTarget = c.lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 
 				} else if currentReplicas > minV {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 
 			} else {
@@ -324,13 +332,13 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else if currentReplicas > minV && currentReplicas < maxV {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				} else if currentReplicas == maxV {
 					// Full load.
-					stageRevisionTarget = c.fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				} else if currentReplicas <= minV {
 					// Lowest load.
-					stageRevisionTarget = c.lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 
 			}
@@ -350,10 +358,10 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 		min := startRevisionStatus[0].MinScale
 		max := startRevisionStatus[0].MaxScale
 		index = 0
-		pa, _ := c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(startRevisionStatus[0].RevisionName)
+		pa, _ := podAutoscalerLister.PodAutoscalers(so.Namespace).Get(startRevisionStatus[0].RevisionName)
 		currentReplicas := *pa.Status.DesiredScale
 
-		pa, _ = c.podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
+		pa, _ = podAutoscalerLister.PodAutoscalers(so.Namespace).Get(finalRevision)
 
 		targetReplicas := int32(32)
 		if pa != nil {
@@ -375,7 +383,7 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 
 			} else {
@@ -385,10 +393,10 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else if currentReplicas < maxV {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				} else if currentReplicas == maxV {
 					// Full load.
-					stageRevisionTarget = c.fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 			}
 		} else {
@@ -399,11 +407,11 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else if currentReplicas <= minV {
 					// Lowest load.
-					stageRevisionTarget = c.lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 
 				} else if currentReplicas > minV {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 
 			} else {
@@ -414,13 +422,13 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 					stageRevisionTarget = append([]v1.TargetRevision{}, so.Spec.TargetRevisions...)
 				} else if currentReplicas > minV && currentReplicas < maxV {
 					// Driven by traffic
-					stageRevisionTarget = c.trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = trafficDriven(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				} else if currentReplicas == maxV {
 					// Full load.
-					stageRevisionTarget = c.fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = fullLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				} else if currentReplicas == minV {
 					// Lowest load.
-					stageRevisionTarget = c.lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio)
+					stageRevisionTarget = lowestLoad(startRevisionStatus, index, so.Spec.TargetRevisions, currentTraffic, so.Namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 				}
 
 			}
@@ -438,25 +446,25 @@ func (c *Reconciler) updateStageRevisionSpec(so *v1.RolloutOrchestrator) *v1.Rol
 
 func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
 	route *servingv1.Route, so *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
-	so1, err := c.createUpdateRolloutOrchestrator(ctx, service, route, so, false)
-	if err != nil {
-		return so, err
-	}
-	if equality.Semantic.DeepEqual(so.Spec, so1.Spec) {
-		return so, nil
-	}
-	return c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so1, metav1.UpdateOptions{})
+	return c.updateRolloutOrchestrator(ctx, service, route, so)
+	//if err != nil {
+	//	return so, err
+	//}
+	//if equality.Semantic.DeepEqual(so.Spec, so1.Spec) {
+	//	return so, nil
+	//}
+	//return c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so1, metav1.UpdateOptions{})
 }
 
-func (c *Reconciler) trafficDriven(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
-	currentTraffic int64, namespace string, currentReplicas, targetReplicas int32, ratio int) []v1.TargetRevision {
-	return c.lowestLoad(rt, index, rtF, currentTraffic, namespace, currentReplicas, targetReplicas, ratio)
+func trafficDriven(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
+	currentTraffic int64, namespace string, currentReplicas, targetReplicas int32, ratio int, podAutoscalerLister palisters.PodAutoscalerLister) []v1.TargetRevision {
+	return lowestLoad(rt, index, rtF, currentTraffic, namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 }
 
-func (c *Reconciler) fullLoad(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
-	currentTraffic int64, namespace string, currentReplicas, targetReplicas int32, ratio int) []v1.TargetRevision {
+func fullLoad(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
+	currentTraffic int64, namespace string, currentReplicas, targetReplicas int32, ratio int, podAutoscalerLister palisters.PodAutoscalerLister) []v1.TargetRevision {
 
-	return c.lowestLoad(rt, index, rtF, currentTraffic, namespace, currentReplicas, targetReplicas, ratio)
+	return lowestLoad(rt, index, rtF, currentTraffic, namespace, currentReplicas, targetReplicas, ratio, podAutoscalerLister)
 }
 
 func getReplicasTraffic(percent int64, currentReplicas int32, ratio int) (int32, int64) {
@@ -467,8 +475,8 @@ func getReplicasTraffic(percent int64, currentReplicas int32, ratio int) (int32,
 	return int32(stageReplicas), int64(stageTrafficDelta)
 }
 
-func (c *Reconciler) lowestLoad(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
-	currentTraffic int64, namespace string, currentReplicas, targetReplicas int32, ratio int) []v1.TargetRevision {
+func lowestLoad(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
+	currentTraffic int64, namespace string, currentReplicas, targetReplicas int32, ratio int, podAutoscalerLister palisters.PodAutoscalerLister) []v1.TargetRevision {
 	stageReplicasInt, stageTrafficDeltaInt := getReplicasTraffic(*rt[index].Percent, currentReplicas, ratio)
 	var stageRevisionTarget []v1.TargetRevision
 	if len(rt) == 1 {
@@ -532,7 +540,7 @@ func (c *Reconciler) lowestLoad(rt []v1.TargetRevision, index int, rtF []v1.Targ
 				}
 
 			} else {
-				pa, _ := c.podAutoscalerLister.PodAutoscalers(namespace).Get(r.RevisionName)
+				pa, _ := podAutoscalerLister.PodAutoscalers(namespace).Get(r.RevisionName)
 				oldReplicas := int32(0)
 				if pa != nil {
 					oldReplicas = *pa.Status.DesiredScale

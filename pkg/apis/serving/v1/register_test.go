@@ -23,12 +23,12 @@ import (
 )
 
 func TestRegisterHelpers(t *testing.T) {
-	if got, want := Kind("Revision"), "Revision.serving.knative.dev"; got.String() != want {
-		t.Errorf("Kind(Revision) = %v, want %v", got.String(), want)
+	if got, want := Kind("RolloutOrchestrator"), "RolloutOrchestrator.serving.knative.dev"; got.String() != want {
+		t.Errorf("Kind(RolloutOrchestrator) = %v, want %v", got.String(), want)
 	}
 
-	if got, want := Resource("Revision"), "Revision.serving.knative.dev"; got.String() != want {
-		t.Errorf("Resource(Revision) = %v, want %v", got.String(), want)
+	if got, want := Resource("StagePodAutoscaler"), "StagePodAutoscaler.serving.knative.dev"; got.String() != want {
+		t.Errorf("Resource(StagePodAutoscaler) = %v, want %v", got.String(), want)
 	}
 
 	if got, want := SchemeGroupVersion.String(), "serving.knative.dev/v1"; got != want {

@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	"knative.dev/pkg/configmap"
+	"knative.dev/pkg/logging"
 
 	"knative.dev/pkg/controller"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -28,6 +29,7 @@ import (
 	roinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
+	cfgmap "knative.dev/serving/pkg/apis/config"
 )
 
 // NewController creates a new rolloutorchestrator controller
@@ -35,14 +37,21 @@ func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,
 ) *controller.Impl {
+	logger := logging.FromContext(ctx)
 	soInformer := roinformer.Get(ctx)
 	stagePodAutoscalerInformer := spainformer.Get(ctx)
+
+	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{
 		client:                   servingclient.Get(ctx),
 		stagePodAutoscalerLister: stagePodAutoscalerInformer.Lister(),
 	}
-	impl := roreconciler.NewImpl(ctx, c)
+	opts := func(*controller.Impl) controller.Options {
+		return controller.Options{ConfigStore: configStore}
+	}
+	impl := roreconciler.NewImpl(ctx, c, opts)
 
 	soInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 

@@ -35,7 +35,7 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
-// Reconciler implements controller.Reconciler for Configuration resources.
+// Reconciler implements controller.Reconciler for RolloutOrchestrator resources.
 type Reconciler struct {
 	client clientset.Interface
 
@@ -43,7 +43,7 @@ type Reconciler struct {
 	stagePodAutoscalerLister listers.StagePodAutoscalerLister
 }
 
-// Check that our Reconciler implements soreconciler.Interface
+// Check that our Reconciler implements roreconciler.Interface
 var _ roreconciler.Interface = (*Reconciler)(nil)
 
 // createOrUpdateEachSPAForRev create or update the StagePodAutoscaler, based on the specific (Stage)TargetRevision
@@ -76,6 +76,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	if err != nil {
 		return err
 	}
+
 	// Create the stagePodAutoscaler for the revision to be scaled up
 	_, err = c.createOrUpdateEachSPAForRev(ctx, ro, revScalingUp, false)
 	if err != nil {

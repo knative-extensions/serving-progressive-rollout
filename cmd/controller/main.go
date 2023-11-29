@@ -36,6 +36,7 @@ import (
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
 	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/stagepodautoscaler"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
 )
@@ -46,6 +47,7 @@ const (
 
 var ctors = []injection.ControllerConstructor{
 	configuration.NewController,
+	stagepodautoscaler.NewController,
 	labeler.NewController,
 	revision.NewController,
 	route.NewController,

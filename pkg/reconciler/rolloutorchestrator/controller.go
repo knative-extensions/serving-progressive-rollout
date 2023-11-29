@@ -32,7 +32,7 @@ import (
 	cfgmap "knative.dev/serving/pkg/apis/config"
 )
 
-// NewController creates a new rolloutorchestrator controller
+// NewController creates a new RolloutOrchestrator controller
 func NewController(
 	ctx context.Context,
 	cmw configmap.Watcher,

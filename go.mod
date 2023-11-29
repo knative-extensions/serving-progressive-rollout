@@ -1,6 +1,8 @@
 module knative.dev/serving-progressive-rollout
 
-go 1.20
+go 1.21
+
+toolchain go1.21.4
 
 require (
 	github.com/google/go-cmp v0.6.0
@@ -14,11 +16,11 @@ require (
 	k8s.io/client-go v0.27.6
 	k8s.io/code-generator v0.27.6
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
-	knative.dev/caching v0.0.0-20231109234001-c2b2543ace4a
-	knative.dev/hack v0.0.0-20231109190034-5deaddeb51a7
-	knative.dev/networking v0.0.0-20231115015815-3af9769712cd
-	knative.dev/pkg v0.0.0-20231115001034-97c7258e3a98
-	knative.dev/serving v0.39.1-0.20231116002444-75613869a913
+	knative.dev/caching v0.0.0-20231129014048-3fefe85d37a2
+	knative.dev/hack v0.0.0-20231129013717-94f0ccfbab2d
+	knative.dev/networking v0.0.0-20231129014433-ee22af1c2102
+	knative.dev/pkg v0.0.0-20231129013332-6df4a9a2a222
+	knative.dev/serving v0.39.1-0.20231129130847-87171d81e7a9
 )
 
 require (
@@ -117,7 +119,7 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/api v0.150.0 // indirect
+	google.golang.org/api v0.151.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b // indirect

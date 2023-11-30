@@ -48,36 +48,36 @@ var _ roreconciler.Interface = (*Reconciler)(nil)
 
 // createOrUpdateSPARevDown create or update the StagePodAutoscaler, based on the specific (Stage)TargetRevision
 // defined in the RolloutOrchestrator for the revision scaling down.
-func (c *Reconciler) createOrUpdateSPARevDown(ctx context.Context, ro *v1.RolloutOrchestrator,
+func (r *Reconciler) createOrUpdateSPARevDown(ctx context.Context, ro *v1.RolloutOrchestrator,
 	targetRev *v1.TargetRevision, scaleUpReady bool) (*v1.StagePodAutoscaler, error) {
-	spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(targetRev.RevisionName)
+	spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(targetRev.RevisionName)
 	if apierrs.IsNotFound(err) {
-		return c.createStagePADown(ctx, ro, targetRev, scaleUpReady)
+		return r.createStagePA(ctx, ro, targetRev, scaleUpReady, UpdateSPAForRevDown)
 	}
 	if err != nil {
 		return spa, err
 	}
-	return c.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx,
-		updateSPAForRevDown(spa, targetRev, scaleUpReady), metav1.UpdateOptions{})
+	return r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx,
+		UpdateSPAForRevDown(spa, targetRev, scaleUpReady), metav1.UpdateOptions{})
 }
 
 // createOrUpdateSPARevUp create or update the StagePodAutoscaler, based on the specific (Stage)TargetRevision
 // defined in the RolloutOrchestrator for the revision scaling up.
-func (c *Reconciler) createOrUpdateSPARevUp(ctx context.Context, ro *v1.RolloutOrchestrator,
+func (r *Reconciler) createOrUpdateSPARevUp(ctx context.Context, ro *v1.RolloutOrchestrator,
 	targetRev *v1.TargetRevision) (*v1.StagePodAutoscaler, error) {
-	spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(targetRev.RevisionName)
+	spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(targetRev.RevisionName)
 	if apierrs.IsNotFound(err) {
-		return c.createStagePARevUp(ctx, ro, targetRev)
+		return r.createStagePA(ctx, ro, targetRev, true, UpdateSPAForRevUp)
 	}
 	if err != nil {
 		return spa, err
 	}
-	return c.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx,
-		updateSPAForRevUp(spa, targetRev), metav1.UpdateOptions{})
+	return r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx,
+		UpdateSPAForRevUp(spa, targetRev, true), metav1.UpdateOptions{})
 }
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (c *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrator) pkgreconciler.Event {
+func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrator) pkgreconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
 
@@ -90,32 +90,32 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	// of the available revisions, and their name, traffic percentage, target number of replicas, whether it
 	// scales up or down, min and max scales defined by the Knative Service.
 	stageTargetRevisions := ro.Spec.StageTargetRevisions
-	revScalingUp, revScalingDown, err := retrieveRevsUpDown(stageTargetRevisions)
+	revScalingUp, revScalingDown, err := RetrieveRevsUpDown(stageTargetRevisions)
 	if err != nil {
 		return err
 	}
 
 	// Create or update the StagePodAutoscaler for the revision to be scaled up
 	//_, err = c.createOrUpdateEachSPAForRev(ctx, ro, revScalingUp, false)
-	_, err = c.createOrUpdateSPARevUp(ctx, ro, revScalingUp)
+	_, err = r.createOrUpdateSPARevUp(ctx, ro, revScalingUp)
 	if err != nil {
 		return err
 	}
 
 	// If spec.StageRevisionStatus is nil, check on if the number of replicas meets the conditions.
 	if ro.IsStageInProgress() {
-		spa, err := c.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingUp.RevisionName)
+		spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingUp.RevisionName)
 		if err != nil {
 			return err
 		}
 		// spa.IsStageScaleInReady() returns true, as long as both DesireScale and ActualScale are available.
-		if !spa.IsStageScaleInReady() || !isStageScaleUpReady(spa, revScalingUp) {
+		if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revScalingUp) {
 			// Create the stage pod autoscaler with the new maxScale set to
 			// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 			// scale down the old revision.
 			// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
 			// phase is not over.
-			_, err = c.createOrUpdateSPARevDown(ctx, ro, revScalingDown, false)
+			_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, false)
 			if err != nil {
 				return err
 			}
@@ -127,27 +127,27 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
 		// Create or update the stagePodAutoscaler for the revision to be scaled down.
-		_, err = c.createOrUpdateSPARevDown(ctx, ro, revScalingDown, true)
+		_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, true)
 		if err != nil {
 			return err
 		}
 
-		spa, err = c.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown.RevisionName)
+		spa, err = r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown.RevisionName)
 		if err != nil {
 			return err
 		}
-		if !isStageScaleDownReady(spa, revScalingDown) {
+		if !IsStageScaleDownReady(spa, revScalingDown) {
 			return nil
 		}
 
 		ro.Status.MarkStageRevisionScaleDownReady()
 
 		// Clean up and set the status of the StageRevision. It means the orchestrator has accomplished this stage.
-		stageCleaned := removeNonTrafficRev(stageTargetRevisions)
+		stageCleaned := RemoveNonTrafficRev(stageTargetRevisions)
 		ro.Status.SetStageRevisionStatus(stageCleaned)
 		ro.Status.MarkStageRevisionReady()
 
-		if lastStageComplete(ro.Status.StageRevisionStatus, ro.Spec.TargetRevisions) {
+		if LastStageComplete(ro.Status.StageRevisionStatus, ro.Spec.TargetRevisions) {
 			ro.Status.MarkLastStageRevisionComplete()
 			return nil
 		}
@@ -155,7 +155,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		return nil
 	}
 
-	if ro.IsStageReady() && ro.IsInProgress() && !lastStageComplete(ro.Status.StageRevisionStatus,
+	if ro.IsStageReady() && ro.IsInProgress() && !LastStageComplete(ro.Status.StageRevisionStatus,
 		stageTargetRevisions) {
 		// Start to move to the next stage.
 		ro.Status.LaunchNewStage()
@@ -164,20 +164,17 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	return nil
 }
 
-func (c *Reconciler) createStagePARevUp(ctx context.Context, ro *v1.RolloutOrchestrator, revision *v1.TargetRevision) (*v1.StagePodAutoscaler, error) {
-	spa := createBaseStagePodAutoscaler(ro, revision)
-	spa = updateSPAForRevUp(spa, revision)
-	return c.client.ServingV1().StagePodAutoscalers(ro.Namespace).Create(ctx, spa, metav1.CreateOptions{})
+type updateSPAForRev func(*v1.StagePodAutoscaler, *v1.TargetRevision, bool) *v1.StagePodAutoscaler
+
+func (r *Reconciler) createStagePA(ctx context.Context, ro *v1.RolloutOrchestrator, revision *v1.TargetRevision,
+	scaleUpReady bool, fn updateSPAForRev) (*v1.StagePodAutoscaler, error) {
+	spa := CreateBaseStagePodAutoscaler(ro, revision)
+	spa = fn(spa, revision, scaleUpReady)
+	return r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Create(ctx, spa, metav1.CreateOptions{})
 }
 
-func (c *Reconciler) createStagePADown(ctx context.Context, ro *v1.RolloutOrchestrator, revision *v1.TargetRevision,
-	scaleUpReady bool) (*v1.StagePodAutoscaler, error) {
-	spa := createBaseStagePodAutoscaler(ro, revision)
-	spa = updateSPAForRevDown(spa, revision, scaleUpReady)
-	return c.client.ServingV1().StagePodAutoscalers(ro.Namespace).Create(ctx, spa, metav1.CreateOptions{})
-}
-
-func removeNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
+// RemoveNonTrafficRev removes the redundant TargetRevision from the list of TargetRevisions.
+func RemoveNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
 	result := make([]v1.TargetRevision, 0)
 	for _, r := range ts {
 		if r.Percent != nil && *r.Percent != 0 {
@@ -199,47 +196,44 @@ func targetRevisionEqual(currentStatusRevisions, finalTargetRevisions []v1.Targe
 	return false
 }
 
-// updateSPAForRevUp update the SPA(StagePodAutoscaler) for the revision scaling up, based on the TargetReplicas
+// UpdateSPAForRevUp update the SPA(StagePodAutoscaler) for the revision scaling up, based on the TargetReplicas
 // min & max scales defined in the Knative Service.
-func updateSPAForRevUp(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision) *v1.StagePodAutoscaler {
-	min := int32(0)
-	if revision.MinScale != nil {
-		min = *revision.MinScale
-	}
+func UpdateSPAForRevUp(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision, _ bool) *v1.StagePodAutoscaler {
+	// For revisions scaling up, the StageMaxScale is always set to the final MaxScale.
+	spa.Spec.StageMaxScale = revision.MaxScale
+	min := getMinScale(revision)
 
+	// TargetReplicas is nil, when either the revision has 0% traffic assigned or 100% traffic assigned.
+	// It will be either the old revision scales down to 0 or the new revision scale up to replace the old revision.
+	// In either case, the spa pick up the StageMinScale and StageMaxScale scales from the knative service.
 	if revision.TargetReplicas == nil {
 		spa.Spec.StageMinScale = revision.MinScale
-		spa.Spec.StageMaxScale = revision.MaxScale
 		return spa
 	}
 	targetReplicas := *revision.TargetReplicas
-	spa.Spec.StageMaxScale = revision.MaxScale
 	if targetReplicas < min && *revision.Percent < int64(100) {
+		// If the less than of 100% traffic is assigned to this revision or targetReplicas is less than minscale,
+		// set StageMinScale directly to targetReplicas.
 		spa.Spec.StageMinScale = ptr.Int32(targetReplicas)
 	} else {
+		// If the 100% traffic is assigned to this revision or targetReplicas is equal to or greater than min,
+		// set StageMinScale directly to the final MinScale from the knative service.
 		spa.Spec.StageMinScale = revision.MinScale
 	}
 	return spa
 }
 
-// updateSPAForRevDown update the SPA(StagePodAutoscaler) for the revision scaling down, based on the TargetReplicas
+// UpdateSPAForRevDown update the SPA(StagePodAutoscaler) for the revision scaling down, based on the TargetReplicas
 // min & max scales defined in the Knative Service, if the scaleUpReady is true.
 //
 // If the scaleUpReady is false, no change to the SPA(StagePodAutoscaler).
-func updateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision,
+func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision,
 	scaleUpReady bool) *v1.StagePodAutoscaler {
 	if !scaleUpReady {
 		return spa
 	}
-	min := int32(0)
-	max := int32(math.MaxInt32)
-	if revision.MinScale != nil {
-		min = *revision.MinScale
-	}
-
-	if revision.MaxScale != nil {
-		max = *revision.MaxScale
-	}
+	min := getMinScale(revision)
+	max := getMaxScale(revision)
 
 	if revision.TargetReplicas == nil {
 		spa.Spec.StageMinScale = revision.MinScale
@@ -247,21 +241,31 @@ func updateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 		return spa
 	}
 	targetReplicas := *revision.TargetReplicas
-	if targetReplicas < max {
-		spa.Spec.StageMaxScale = ptr.Int32(targetReplicas)
-	} else {
+
+	// If targetReplicas is equal to or greater than maxScale, StageMinScale and StageMaxScale are set to the final
+	// MinScale and MaxScale.
+	if targetReplicas >= max {
 		spa.Spec.StageMaxScale = revision.MaxScale
-	}
-	if targetReplicas < min {
-		spa.Spec.StageMinScale = ptr.Int32(targetReplicas)
-	} else {
 		spa.Spec.StageMinScale = revision.MinScale
+		return spa
 	}
 
+	// If targetReplicas is less than maxScale, StageMaxScale is set to targetReplicas.
+	spa.Spec.StageMaxScale = ptr.Int32(targetReplicas)
+
+	// If targetReplicas is less than minScale, StageMinScale is set to targetReplicas.
+	if targetReplicas < min {
+		spa.Spec.StageMinScale = ptr.Int32(targetReplicas)
+		return spa
+	}
+
+	// If targetReplicas is larger than or equal to minScale, StageMinScale is set to final MinScale.
+	spa.Spec.StageMinScale = revision.MinScale
 	return spa
 }
 
-func retrieveRevsUpDown(targetRevs []v1.TargetRevision) (*v1.TargetRevision, *v1.TargetRevision, error) {
+// RetrieveRevsUpDown returns the old and the new revision in the list of the TargetRevisions.
+func RetrieveRevsUpDown(targetRevs []v1.TargetRevision) (*v1.TargetRevision, *v1.TargetRevision, error) {
 	upIndex, downIndex := -1, -1
 	for i, rev := range targetRevs {
 		if rev.IsRevScalingUp() {
@@ -271,58 +275,67 @@ func retrieveRevsUpDown(targetRevs []v1.TargetRevision) (*v1.TargetRevision, *v1
 		}
 	}
 	if upIndex == -1 || downIndex == -1 {
-		return nil, nil, fmt.Errorf("unable to find the revision to scale up or down in the target revisions")
+		return nil, nil, fmt.Errorf("unable to find the revision to scale up or down in the target revisions %v", targetRevs)
 	}
 	return &targetRevs[upIndex], &targetRevs[downIndex], nil
 }
 
-func lastStageComplete(stageRevisionStatus, finalTargetRevs []v1.TargetRevision) bool {
+// LastStageComplete decides whether the last stage of the progressive upgrade is complete or not.
+func LastStageComplete(stageRevisionStatus, finalTargetRevs []v1.TargetRevision) bool {
 	return equality.Semantic.DeepEqual(stageRevisionStatus, finalTargetRevs) ||
 		targetRevisionEqual(stageRevisionStatus, finalTargetRevs)
 }
 
-func isStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision) bool {
+func actualScaleBetweenMinMax(spa *v1.StagePodAutoscaler, min, max int32) bool {
+	return *spa.Status.DesiredScale == *spa.Status.ActualScale && *spa.Status.ActualScale >= min && *spa.Status.ActualScale <= max
+}
+
+// IsStageScaleUpReady decides whether the scaling up has completed or on the way for the current stage, based
+// on the revision and the spa(StagePodAutoscaler).
+func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision) bool {
 	if spa.Status.DesiredScale == nil || spa.Status.ActualScale == nil {
 		return false
 	}
-	min := int32(0)
-	max := int32(math.MaxInt32)
-	if revision.MinScale != nil {
-		min = *revision.MinScale
+	min := getMinScale(revision)
+	max := getMaxScale(revision)
+	if revision.TargetReplicas == nil {
+		// For revision scaling up without TargetReplicas, it means this revision will be assigned 100% of the traffic.
+		return actualScaleBetweenMinMax(spa, min, max)
 	}
 
-	if revision.MaxScale != nil {
-		max = *revision.MaxScale
-	}
-	if revision.TargetReplicas == nil {
-		if *spa.Status.DesiredScale == *spa.Status.ActualScale && *spa.Status.ActualScale >= min && *spa.Status.ActualScale <= max {
-			return true
-		}
-		return false
-	}
+	// There are two modes to scale up and down the replicas of the revisions:
+	// 1. No traffic. Knative Service specifies both min and max scales for the revision. We need to control the
+	// StageMinScale and StageMaxScale to make sure the replicas increase or decrease. In this case, we need to
+	// precisely make sure both DesiredScale and ActualScale are equal to or greater than TargetReplicas to determine
+	// scaling up phase is over. TargetReplicas is no larger than minScale, because revision runs at the number of
+	// minScale. We need to first scale up the new revision, make sure it run at the correct number, and scale down the
+	// old revision. Shifting traffic does not change anything in terms of the number of replicas.
+	// 2. Traffic driven. In this case, TargetReplicas is larger than minScale and lower than or equal to maxScale
+	// for the revision. We need to change the number of the replicas by shifting the traffic. As long as we know the
+	// new revision is on the way of scaling up, we are able to start the scaling down phase as well.
 	if *spa.Status.DesiredScale >= *revision.TargetReplicas && *spa.Status.ActualScale >= *revision.TargetReplicas {
+		// This is for the first mode.
 		return true
-	} else if *spa.Status.DesiredScale == *revision.TargetReplicas && *spa.Status.DesiredScale == *spa.Status.ActualScale {
-		return true
-	} else if *spa.Status.DesiredScale >= min && *spa.Status.DesiredScale == *spa.Status.ActualScale {
+	}
+	if *spa.Status.DesiredScale >= min && *spa.Status.DesiredScale == *spa.Status.ActualScale {
+		// This is for the second mode.
 		return true
 	}
 
 	return false
 }
 
-func isStageScaleDownReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision) bool {
+// IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based
+// on the revision and the spa(StagePodAutoscaler).
+func IsStageScaleDownReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision) bool {
 	if spa.Status.DesiredScale == nil || spa.Status.ActualScale == nil {
 		return false
 	}
 	if revision.TargetReplicas == nil {
-		max := int32(math.MaxInt32)
-		if revision.MaxScale != nil {
-			max = *revision.MaxScale
-		}
+		// For revision scaling up without TargetReplicas, it means this revision will be assigned 0% of the traffic.
+		max := getMaxScale(revision)
 		return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, max)
 	}
-
 	return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, *revision.TargetReplicas)
 }
 
@@ -330,8 +343,10 @@ func bothValuesUnderTargetValue(desire, actual, target int32) bool {
 	return desire <= target && actual <= target
 }
 
-func createBaseStagePodAutoscaler(ro *v1.RolloutOrchestrator, revision *v1.TargetRevision) *v1.StagePodAutoscaler {
-	spa := &v1.StagePodAutoscaler{
+// CreateBaseStagePodAutoscaler returns the basic spa(StagePodAutoscaler), base
+// on the RolloutOrchestrator and the revision.
+func CreateBaseStagePodAutoscaler(ro *v1.RolloutOrchestrator, revision *v1.TargetRevision) (spa *v1.StagePodAutoscaler) {
+	spa = &v1.StagePodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
 			Namespace: ro.Namespace,
@@ -345,5 +360,20 @@ func createBaseStagePodAutoscaler(ro *v1.RolloutOrchestrator, revision *v1.Targe
 			StageMaxScale: revision.MaxScale,
 		},
 	}
-	return spa
+	return
+}
+
+func getMinScale(revision *v1.TargetRevision) (min int32) {
+	if revision.MinScale != nil {
+		min = *revision.MinScale
+	}
+	return
+}
+
+func getMaxScale(revision *v1.TargetRevision) (max int32) {
+	max = int32(math.MaxInt32)
+	if revision.MaxScale != nil {
+		max = *revision.MaxScale
+	}
+	return
 }

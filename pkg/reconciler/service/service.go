@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"knative.dev/pkg/logging"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -56,6 +57,7 @@ type Reconciler struct {
 	revisionLister            servinglisters.RevisionLister
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
+	enqueueAfter              func(interface{}, time.Duration)
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface
@@ -454,6 +456,63 @@ func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *
 	//	return so, nil
 	//}
 	//return c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so1, metav1.UpdateOptions{})
+}
+
+func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, s *servingv1.Service, so *v1.RolloutOrchestrator,
+	service *servingv1.Service) pkgreconciler.Event {
+	if so.IsReady() {
+		// Knative Service cannot reflect the status of the RolloutOrchestrator.
+		// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
+		//service.Status.MarkServiceOrchestratorReady()
+		return nil
+	} else {
+		// Knative Service cannot reflect the status of the RolloutOrchestrator.
+		// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
+		//service.Status.MarkServiceOrchestratorInProgress()
+		if rolloutorchestrator.LastStageComplete(so.Spec.StageTargetRevisions, so.Spec.TargetRevisions) {
+			// We reach the last stage, there is no need to schedule a requeue in 2 mins.
+			return nil
+		}
+
+		targetTime := so.Spec.TargetFinishTime
+
+		now := metav1.NewTime(time.Now())
+		if targetTime.Inner.Before(&now) {
+			// Check if the stage target time has expired. If so, change the traffic split to the next stage.
+			stageRevisionTarget := shiftTrafficNextStage(so.Spec.StageTargetRevisions)
+			so.Spec.StageTargetRevisions = stageRevisionTarget
+			t := time.Now()
+			so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Minute * 2))
+			c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
+			c.enqueueAfter(s, time.Duration(60*float64(time.Second)))
+			return nil
+		} else {
+			// If not, continue to wait.
+			c.enqueueAfter(s, time.Duration(60*float64(time.Second)))
+			return nil
+		}
+	}
+}
+
+func shiftTrafficNextStage(revisionTarget []v1.TargetRevision) []v1.TargetRevision {
+	stageTrafficDeltaInt := int64(resources.OverSubRatio)
+	for i, _ := range revisionTarget {
+		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
+			if *revisionTarget[i].Percent+stageTrafficDeltaInt >= 100 {
+				revisionTarget[i].Percent = ptr.Int64(100)
+			} else {
+				revisionTarget[i].Percent = ptr.Int64(*revisionTarget[i].Percent + stageTrafficDeltaInt)
+			}
+		} else if revisionTarget[i].Direction == "down" {
+			if *revisionTarget[i].Percent-stageTrafficDeltaInt <= 0 {
+				revisionTarget[i].Percent = ptr.Int64(0)
+			} else {
+				revisionTarget[i].Percent = ptr.Int64(*revisionTarget[i].Percent - stageTrafficDeltaInt)
+			}
+		}
+	}
+
+	return revisionTarget
 }
 
 func trafficDriven(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,

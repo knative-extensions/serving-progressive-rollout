@@ -24,6 +24,7 @@ import (
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving-progressive-rollout/pkg/client/injection/client"
+	roinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	rolloutorchestratorinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -49,6 +50,7 @@ func NewController(
 	revisionInformer := revisioninformer.Get(ctx)
 	rolloutorchestratorInformer := rolloutorchestratorinformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
+	roInformer := roinformer.Get(ctx)
 
 	configStore := cfgmap.NewStore(logger.Named("config-store"))
 	configStore.WatchConfigs(cmw)
@@ -67,6 +69,7 @@ func NewController(
 		return controller.Options{ConfigStore: configStore}
 	}
 	impl := ksvcreconciler.NewImpl(ctx, c, opts)
+	c.enqueueAfter = impl.EnqueueAfter
 
 	serviceInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
 
@@ -76,6 +79,7 @@ func NewController(
 	}
 	configurationInformer.Informer().AddEventHandler(handleControllerOf)
 	routeInformer.Informer().AddEventHandler(handleControllerOf)
+	roInformer.Informer().AddEventHandler(handleControllerOf)
 
 	return impl
 }

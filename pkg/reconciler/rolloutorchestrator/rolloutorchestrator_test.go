@@ -21,8 +21,11 @@ import (
 	"reflect"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 func TestIsStageScaleUpReady(t *testing.T) {
@@ -117,6 +120,24 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			RevisionName:     "rev-0001",
 			Direction:        "down",
 			TargetReplicas:   ptr.Int32(10),
+			IsLatestRevision: ptr.Bool(false),
+			Percent:          ptr.Int64(50),
+			MinScale:         ptr.Int32(8),
+			MaxScale:         ptr.Int32(15),
+		},
+		ExpectedResult: true,
+	}, {
+		name: "Test MinScale < TargetReplicas == DesiredScale == ActualScale < MaxScale",
+		spa: &v1.StagePodAutoscaler{
+			Status: v1.StagePodAutoscalerStatus{
+				DesiredScale: ptr.Int32(11),
+				ActualScale:  ptr.Int32(11),
+			},
+		},
+		revision: &v1.TargetRevision{
+			RevisionName:     "rev-0001",
+			Direction:        "down",
+			TargetReplicas:   ptr.Int32(11),
 			IsLatestRevision: ptr.Bool(false),
 			Percent:          ptr.Int64(50),
 			MinScale:         ptr.Int32(8),
@@ -227,7 +248,7 @@ func TestIsStageScaleUpReady(t *testing.T) {
 		},
 		ExpectedResult: true,
 	}, {
-		name: "Test MinScale < MaxScale <==> DesiredScale == ActualScale",
+		name: "Test MinScale < MaxScale < DesiredScale == ActualScale",
 		spa: &v1.StagePodAutoscaler{
 			Status: v1.StagePodAutoscalerStatus{
 				DesiredScale: ptr.Int32(10),
@@ -247,9 +268,9 @@ func TestIsStageScaleUpReady(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := isStageScaleUpReady(test.spa, test.revision)
+			r := IsStageScaleUpReady(test.spa, test.revision)
 			if r != test.ExpectedResult {
-				t.Fatalf("Result of isStageScaleUpReady() = %v, want %v", r, test.ExpectedResult)
+				t.Fatalf("Result of IsStageScaleUpReady() = %v, want %v", r, test.ExpectedResult)
 			}
 		})
 	}
@@ -459,7 +480,7 @@ func TestIsStageScaleDownReady(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := isStageScaleDownReady(test.spa, test.revision)
+			r := IsStageScaleDownReady(test.spa, test.revision)
 			if r != test.ExpectedResult {
 				t.Fatalf("Result of isStageScaleDownReady() = %v, want %v", r, test.ExpectedResult)
 			}
@@ -513,9 +534,9 @@ func TestRemoveNonTrafficRev(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := removeNonTrafficRev(test.input)
+			result := RemoveNonTrafficRev(test.input)
 			if !reflect.DeepEqual(result, test.ExpectedResult) {
-				t.Fatalf("Result of removeNonTrafficRev() = %v, want %v", result, test.ExpectedResult)
+				t.Fatalf("Result of RemoveNonTrafficRev() = %v, want %v", result, test.ExpectedResult)
 			}
 		})
 	}
@@ -582,15 +603,25 @@ func TestLastStageComplete(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := lastStageComplete(test.stageRevisionStatus, test.finalTargetRevs)
+			result := LastStageComplete(test.stageRevisionStatus, test.finalTargetRevs)
 			if result != test.expectedResult {
-				t.Fatalf("Result of lastStageComplete() = %v, want %v", result, test.expectedResult)
+				t.Fatalf("Result of LastStageComplete() = %v, want %v", result, test.expectedResult)
 			}
 		})
 	}
 }
 
 func TestRetrieveRevsUpDown(t *testing.T) {
+	targetRevs := []v1.TargetRevision{
+		{
+			RevisionName: "r-001",
+			Direction:    "up",
+			Percent:      ptr.Int64(20),
+		}, {
+			RevisionName: "r-002",
+			Percent:      ptr.Int64(80),
+		},
+	}
 	tests := []struct {
 		name        string
 		targetRevs  []v1.TargetRevision
@@ -644,39 +675,30 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 		},
 		expectedErr: nil,
 	}, {
-		name: "Test when stageRevisionStatus as input does not have revisions scaling up and down",
-		targetRevs: []v1.TargetRevision{
-			{
-				RevisionName: "r-001",
-				Direction:    "up",
-				Percent:      ptr.Int64(20),
-			}, {
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(80),
-			},
-		},
+		name:        "Test when stageRevisionStatus as input does not have revisions scaling up and down",
+		targetRevs:  targetRevs,
 		upRev:       nil,
 		downRev:     nil,
-		expectedErr: fmt.Errorf("unable to find the revision to scale up or down in the target revisions"),
+		expectedErr: fmt.Errorf("unable to find the revision to scale up or down in the target revisions %v", targetRevs),
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			up, down, err := retrieveRevsUpDown(test.targetRevs)
+			up, down, err := RetrieveRevsUpDown(test.targetRevs)
 			if !reflect.DeepEqual(up, test.upRev) {
-				t.Fatalf("upRev of retrieveRevsUpDown() = %v, want %v", up, test.upRev)
+				t.Fatalf("upRev of RetrieveRevsUpDown() = %v, want %v", up, test.upRev)
 			}
 			if !reflect.DeepEqual(down, test.downRev) {
-				t.Fatalf("downRev of retrieveRevsUpDown() = %v, want %v", down, test.downRev)
+				t.Fatalf("downRev of RetrieveRevsUpDown() = %v, want %v", down, test.downRev)
 			}
 
 			if err == nil {
 				if !reflect.DeepEqual(err, test.expectedErr) {
-					t.Fatalf("err of retrieveRevsUpDown() = %v, want %v", err, test.expectedErr)
+					t.Fatalf("err of RetrieveRevsUpDown() = %v, want %v", err, test.expectedErr)
 				}
 			} else {
 				if !reflect.DeepEqual(err.Error(), test.expectedErr.Error()) {
-					t.Fatalf("err of retrieveRevsUpDown() = %v, want %v", err.Error(), test.expectedErr.Error())
+					t.Fatalf("err of RetrieveRevsUpDown() = %v, want %v", err.Error(), test.expectedErr.Error())
 				}
 			}
 		})
@@ -695,7 +717,7 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 		revision:       &v1.TargetRevision{},
 		expectedResult: &v1.StagePodAutoscaler{},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision with TargetReplicas",
+		name: "Update the StagePodAutoscaler with minscale/maxscale set to nil",
 		targetRevs: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(1),
@@ -705,20 +727,43 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 		revision: &v1.TargetRevision{
 			RevisionName:     "r-001",
 			Direction:        "up",
-			TargetReplicas:   ptr.Int32(10),
+			TargetReplicas:   ptr.Int32(2),
 			IsLatestRevision: ptr.Bool(true),
 			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
+			MinScale:         nil,
+			MaxScale:         nil,
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(10),
-				StageMaxScale: ptr.Int32(100),
+				StageMinScale: nil,
+				StageMaxScale: nil,
 			},
 		},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision with TargetReplicas > MaxScale",
+		name: "Update the StagePodAutoscaler with TargetReplicas set to nil",
+		targetRevs: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(1),
+				StageMaxScale: ptr.Int32(2),
+			},
+		},
+		revision: &v1.TargetRevision{
+			RevisionName:     "r-001",
+			Direction:        "up",
+			TargetReplicas:   nil,
+			IsLatestRevision: ptr.Bool(true),
+			Percent:          ptr.Int64(20),
+			MinScale:         ptr.Int32(3),
+			MaxScale:         ptr.Int32(5),
+		},
+		expectedResult: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(3),
+				StageMaxScale: ptr.Int32(5),
+			},
+		},
+	}, {
+		name: "Update the StagePodAutoscaler when TargetReplicas > MinScale and Percent < 100",
 		targetRevs: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(20),
@@ -728,20 +773,43 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 		revision: &v1.TargetRevision{
 			RevisionName:     "r-001",
 			Direction:        "up",
-			TargetReplicas:   ptr.Int32(101),
+			TargetReplicas:   ptr.Int32(11),
 			IsLatestRevision: ptr.Bool(true),
 			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
+			MinScale:         ptr.Int32(10),
+			MaxScale:         ptr.Int32(11),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(100),
-				StageMaxScale: ptr.Int32(100),
+				StageMinScale: ptr.Int32(10),
+				StageMaxScale: ptr.Int32(11),
 			},
 		},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision without TargetReplicas",
+		name: "Update the StagePodAutoscaler when TargetReplicas < MinScale and Percent < 100",
+		targetRevs: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(20),
+				StageMaxScale: ptr.Int32(40),
+			},
+		},
+		revision: &v1.TargetRevision{
+			RevisionName:     "r-001",
+			Direction:        "up",
+			TargetReplicas:   ptr.Int32(5),
+			IsLatestRevision: ptr.Bool(true),
+			Percent:          ptr.Int64(20),
+			MinScale:         ptr.Int32(10),
+			MaxScale:         ptr.Int32(11),
+		},
+		expectedResult: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(5),
+				StageMaxScale: ptr.Int32(11),
+			},
+		},
+	}, {
+		name: "Update the StagePodAutoscaler when Percent = 100",
 		targetRevs: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(12),
@@ -751,26 +819,25 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 		revision: &v1.TargetRevision{
 			RevisionName:     "r-001",
 			Direction:        "up",
+			TargetReplicas:   ptr.Int32(4),
 			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
+			Percent:          ptr.Int64(100),
+			MinScale:         ptr.Int32(5),
+			MaxScale:         ptr.Int32(8),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(100),
-				StageMaxScale: ptr.Int32(100),
+				StageMinScale: ptr.Int32(5),
+				StageMaxScale: ptr.Int32(8),
 			},
 		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := updateSPAForRevUp(test.targetRevs, test.revision)
+			result := UpdateSPAForRevUp(test.targetRevs, test.revision, true)
 			if !reflect.DeepEqual(result, test.expectedResult) {
-				fmt.Println(*result.Spec.StageMinScale)
-				fmt.Println(*result.Spec.StageMaxScale)
-				t.Fatalf("Result of updateSPAForRevUp() = %v, want %v", result, test.expectedResult)
+				t.Fatalf("Result of UpdateSPAForRevUp() = %v, want %v", result, test.expectedResult)
 			}
 		})
 	}
@@ -790,81 +857,13 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 		revision:       &v1.TargetRevision{},
 		expectedResult: &v1.StagePodAutoscaler{},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision with TargetReplicas",
-		targetRevs: &v1.StagePodAutoscaler{
-			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(1),
-				StageMaxScale: ptr.Int32(2),
-			},
-		},
-		scaleUpReady: true,
-		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
-		},
-		expectedResult: &v1.StagePodAutoscaler{
-			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(10),
-				StageMaxScale: ptr.Int32(10),
-			},
-		},
-	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision with TargetReplicas > MaxScale",
-		targetRevs: &v1.StagePodAutoscaler{
-			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(20),
-				StageMaxScale: ptr.Int32(40),
-			},
-		},
-		scaleUpReady: true,
-		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(101),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
-		},
-		expectedResult: &v1.StagePodAutoscaler{
-			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(100),
-				StageMaxScale: ptr.Int32(100),
-			},
-		},
-	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision without TargetReplicas",
-		targetRevs: &v1.StagePodAutoscaler{
-			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(12),
-				StageMaxScale: ptr.Int32(22),
-			},
-		},
-		scaleUpReady: true,
-		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
-		},
-		expectedResult: &v1.StagePodAutoscaler{
-			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(100),
-				StageMaxScale: ptr.Int32(100),
-			},
-		},
-	}, {
-		name:           "Test when StagePodAutoscaler is empty",
+		name:           "Test when StagePodAutoscaler is empty and scaleUpReady is false",
 		targetRevs:     &v1.StagePodAutoscaler{},
 		scaleUpReady:   false,
 		revision:       &v1.TargetRevision{},
 		expectedResult: &v1.StagePodAutoscaler{},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision with TargetReplicas",
+		name: "Update the StagePodAutoscaler when scaleUpReady is false",
 		targetRevs: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(1),
@@ -887,60 +886,139 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 			},
 		},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision with TargetReplicas > MaxScale",
+		name: "Update the StagePodAutoscaler when TargetReplicas is empty",
 		targetRevs: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(20),
 				StageMaxScale: ptr.Int32(40),
 			},
 		},
-		scaleUpReady: false,
+		scaleUpReady: true,
 		revision: &v1.TargetRevision{
 			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(101),
+			TargetReplicas:   nil,
 			IsLatestRevision: ptr.Bool(true),
 			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
+			MinScale:         ptr.Int32(21),
+			MaxScale:         ptr.Int32(41),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
-				StageMinScale: ptr.Int32(20),
-				StageMaxScale: ptr.Int32(40),
+				StageMinScale: ptr.Int32(21),
+				StageMaxScale: ptr.Int32(41),
 			},
 		},
 	}, {
-		name: "Update the StagePodAutoscaler with the values in the TargetRevision without TargetReplicas",
+		name: "Update the StagePodAutoscaler when TargetReplicas is not empty and TargetReplicas < min < max",
 		targetRevs: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(12),
 				StageMaxScale: ptr.Int32(22),
 			},
 		},
-		scaleUpReady: false,
+		scaleUpReady: true,
 		revision: &v1.TargetRevision{
 			RevisionName:     "r-001",
+			TargetReplicas:   ptr.Int32(18),
 			IsLatestRevision: ptr.Bool(true),
 			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
+			MinScale:         ptr.Int32(20),
+			MaxScale:         ptr.Int32(30),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(18),
+				StageMaxScale: ptr.Int32(18),
+			},
+		},
+	}, {
+		name: "Update the StagePodAutoscaler when TargetReplicas is not empty and min < TargetReplicas < max",
+		targetRevs: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
 				StageMinScale: ptr.Int32(12),
 				StageMaxScale: ptr.Int32(22),
+			},
+		},
+		scaleUpReady: true,
+		revision: &v1.TargetRevision{
+			RevisionName:     "r-001",
+			TargetReplicas:   ptr.Int32(18),
+			IsLatestRevision: ptr.Bool(true),
+			Percent:          ptr.Int64(20),
+			MinScale:         ptr.Int32(17),
+			MaxScale:         ptr.Int32(30),
+		},
+		expectedResult: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(17),
+				StageMaxScale: ptr.Int32(18),
+			},
+		},
+	}, {
+		name: "Update the StagePodAutoscaler when TargetReplicas is not empty and min < max < TargetReplicas",
+		targetRevs: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(12),
+				StageMaxScale: ptr.Int32(22),
+			},
+		},
+		scaleUpReady: true,
+		revision: &v1.TargetRevision{
+			RevisionName:     "r-001",
+			TargetReplicas:   ptr.Int32(31),
+			IsLatestRevision: ptr.Bool(true),
+			Percent:          ptr.Int64(20),
+			MinScale:         ptr.Int32(17),
+			MaxScale:         ptr.Int32(30),
+		},
+		expectedResult: &v1.StagePodAutoscaler{
+			Spec: v1.StagePodAutoscalerSpec{
+				StageMinScale: ptr.Int32(17),
+				StageMaxScale: ptr.Int32(30),
 			},
 		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := updateSPAForRevDown(test.targetRevs, test.revision, test.scaleUpReady)
+			result := UpdateSPAForRevDown(test.targetRevs, test.revision, test.scaleUpReady)
 			if !reflect.DeepEqual(result, test.expectedResult) {
-				fmt.Println(*result.Spec.StageMinScale)
-				fmt.Println(*result.Spec.StageMaxScale)
-				t.Fatalf("Result of updateSPAForRevDown() = %v, want %v", result, test.expectedResult)
+				t.Fatalf("Result of UpdateSPAForRevDown() = %v, want %v", result, test.expectedResult)
 			}
 		})
+	}
+}
+
+func TestCreateBaseStagePodAutoscaler(t *testing.T) {
+	revision := &v1.TargetRevision{
+		RevisionName: "test-001",
+		MinScale:     ptr.Int32(20),
+		MaxScale:     ptr.Int32(30),
+	}
+
+	ro := &v1.RolloutOrchestrator{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-ro",
+		},
+	}
+
+	expectedSPA := &v1.StagePodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      revision.RevisionName,
+			Namespace: ro.Namespace,
+			Labels:    map[string]string{serving.RevisionLabelKey: revision.RevisionName},
+			OwnerReferences: []metav1.OwnerReference{
+				*kmeta.NewControllerRef(ro),
+			},
+		},
+		Spec: v1.StagePodAutoscalerSpec{
+			StageMinScale: revision.MinScale,
+			StageMaxScale: revision.MaxScale,
+		},
+	}
+	spa := CreateBaseStagePodAutoscaler(ro, revision)
+	if !reflect.DeepEqual(spa, expectedSPA) {
+		t.Fatalf("Result of CreateBaseStagePodAutoscaler() = %v, want %v", spa, expectedSPA)
 	}
 }

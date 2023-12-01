@@ -95,8 +95,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		return err
 	}
 
-	// Create or update the StagePodAutoscaler for the revision to be scaled up
-	//_, err = c.createOrUpdateEachSPAForRev(ctx, ro, revScalingUp, false)
+	// Create or update the StagePodAutoscaler for the revision scale up
 	_, err = r.createOrUpdateSPARevUp(ctx, ro, revScalingUp)
 	if err != nil {
 		return err

@@ -39,7 +39,7 @@ type Reconciler struct {
 var _ spareconciler.Interface = (*Reconciler)(nil)
 
 // ReconcileKind implements Interface.ReconcileKind.
-func (c *Reconciler) ReconcileKind(ctx context.Context, spa *v1.StagePodAutoscaler) pkgreconciler.Event {
+func (c *Reconciler) ReconcileKind(_ context.Context, spa *v1.StagePodAutoscaler) pkgreconciler.Event {
 	pa, err := c.podAutoscalerLister.PodAutoscalers(spa.Namespace).Get(spa.Name)
 	if apierrs.IsNotFound(err) {
 		message := fmt.Sprintf("The PodAutoscaler %v/%v was not found.", spa.Namespace, spa.Name)

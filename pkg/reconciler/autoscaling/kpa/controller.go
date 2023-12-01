@@ -24,6 +24,7 @@ import (
 	sksinformer "knative.dev/networking/pkg/client/injection/informers/networking/v1alpha1/serverlessservice"
 	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
 	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	metricinformer "knative.dev/serving/pkg/client/injection/informers/autoscaling/v1alpha1/metric"
@@ -82,7 +83,7 @@ func NewController(
 		resync := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
 			impl.FilteredGlobalResync(onlyKPAClass, paInformer.Informer())
 		})
-		configStore := config.NewStore(logger.Named("config-store"), resync)
+		configStore := config.NewStore(logger.Named(common.ConfigStoreName), resync)
 		configStore.WatchConfigs(cmw)
 		return controller.Options{ConfigStore: configStore}
 	})

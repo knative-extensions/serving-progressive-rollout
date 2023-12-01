@@ -27,6 +27,7 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 	spareconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/stagepodautoscaler"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/serving"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -43,7 +44,7 @@ func NewController(
 	paInformer := painformer.Get(ctx)
 	stagePodAutoscalerInformer := spainformer.Get(ctx)
 
-	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
 
 	c := &Reconciler{
@@ -53,14 +54,29 @@ func NewController(
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
 	}
+
+	// Creat a controller.Impl that handles queuing and feeding work from
+	// the queue through an implementation of controller.Reconciler for the StagePodAutoscaler.
 	impl := spareconciler.NewImpl(ctx, c, opts)
 
+	// This reconciliation loop of the StagePodAutoscaler will watch the changes of stagePodAutoscaler itself.
 	stagePodAutoscalerInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
-	handleMatchingControllers := cache.FilteringResourceEventHandler{
+
+	// Create a FilteringResourceEventHandler, that will match the PodAutoscaler having the same
+	// value for the key serving.RevisionLabelKey as the StagePodAutoscaler. The purpose is to make sure
+	// StagePodAutoscaler's reconcile loop can watch the changes in the PodAutoscaler.
+
+	// The value for the key serving.RevisionLabelKey is set to the name of the revision.
+
+	// PodAutoscaler has a one-one-one mapping relation with the revision, sharing the same name.
+	// StagePodAutoscaler also has a one-one-one mapping relation with the revision, sharing the same name.
+	// PodAutoscaler and StagePodAutoscaler for the same revision share the same name and the same value for
+	// the key serving.RevisionLabelKey.
+	handleMatchingController := cache.FilteringResourceEventHandler{
 		FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
 		Handler: controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("",
 			serving.RevisionLabelKey)),
 	}
-	paInformer.Informer().AddEventHandler(handleMatchingControllers)
+	paInformer.Informer().AddEventHandler(handleMatchingController)
 	return impl
 }

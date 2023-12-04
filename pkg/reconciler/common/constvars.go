@@ -17,5 +17,6 @@ limitations under the License.
 package common
 
 const (
-	ConfigStoreName = "config-store"
+	ConfigStoreName     = "config-store"
+	DefaultStageTimeout = 2
 )

@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -36,203 +36,165 @@ var (
 	OverSubRatio = 100
 )
 
+// RevisionRecord is a struct that hosts the name, minScale and maxScale for the revision.
 type RevisionRecord struct {
 	MinScale *int32
 	MaxScale *int32
 	Name     string
-	Replicas *int32
 }
 
-// MakeServiceOrchestrator creates a ServiceOrchestrator from a Service object.
-func MakeServiceOrchestrator(service *servingv1.Service, route *servingv1.Route, records map[string]RevisionRecord,
-	logging *zap.SugaredLogger, so *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
-	// The ultimate revision target comes from the service.
+// ReadIntAnnotation reads the int value of a specific key in the annotation of the revision.
+func ReadIntAnnotation(revision *servingv1.Revision, key string) (result *int32) {
+	if val, ok := revision.Annotations[key]; ok {
+		i, err := strconv.ParseInt(val, 10, 32)
+		if err == nil {
+			result = ptr.Int32(int32(i))
+		}
+	}
+	return
+}
 
-	logging.Infof("check the service R")
-	logging.Info(service)
-	logging.Infof("check the service status")
-	logging.Info(service.Status)
-	var initialRevisionStatus, ultimateRevisionTarget []v1.TargetRevision
+// ReadIntServiceAnnotation reads the int value of a specific key in the annotation of the service.
+func ReadIntServiceAnnotation(service *servingv1.Service, key string) (result *int32) {
+	if val, ok := service.Annotations[key]; ok {
+		i, err := strconv.ParseInt(val, 10, 32)
+		if err == nil {
+			result = ptr.Int32(int32(i))
+		}
+	}
+	return
+}
 
-	lastRN := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", service.Generation))
+// ReadIntRevisionRecord reads the minScale and maxScale in the RevisionRecord.
+func ReadIntRevisionRecord(val RevisionRecord) (min *int32, max *int32) {
+	if val.MinScale != nil {
+		min = ptr.Int32(*val.MinScale)
+	}
+	if val.MaxScale != nil {
+		max = ptr.Int32(*val.MaxScale)
+	}
+	return min, max
+}
 
-	logging.Info("lastRN is")
-	logging.Info(lastRN)
-
-	logging.Info(len(records))
-	logging.Info(records)
-
-	if service.Spec.Traffic == nil || len(service.Spec.Traffic) == 0 {
-		ultimateRevisionTarget = make([]v1.TargetRevision, 1, 1)
-		target := v1.TargetRevision{}
+func initializeTargetRevisions(ultimateRevisionTarget *[]v1.TargetRevision, traffic *servingv1.TrafficTarget,
+	index int, lastRevName string, service *servingv1.Service, records map[string]RevisionRecord) {
+	target := v1.TargetRevision{}
+	if traffic.RevisionName == "" || traffic.RevisionName == lastRevName {
+		// (traffic.LatestRevision != nil && *traffic.LatestRevision)
 		target.IsLatestRevision = ptr.Bool(true)
-		target.RevisionName = lastRN
-		target.Percent = ptr.Int64(90)
-		target.MinScale = nil
-		target.MaxScale = nil
-		if val, ok := records[target.RevisionName]; ok {
-			if val.MinScale != nil {
-				target.MinScale = ptr.Int32(*val.MinScale)
-			}
-			if val.MaxScale != nil {
-				target.MaxScale = ptr.Int32(*val.MaxScale)
-			}
-		} else {
-			logging.Info("not found revision with service empty")
-			logging.Info("get lables from anno with service empty")
-			logging.Info(target.RevisionName)
-			// Get min and max scales from the service
-			if val, ok := service.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
-				i, err := strconv.ParseInt(val, 10, 32)
-				if err == nil {
-					target.MinScale = ptr.Int32(int32(i))
-				}
-			}
-
-			if val, ok := service.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
-				i, err := strconv.ParseInt(val, 10, 32)
-				if err == nil {
-					target.MaxScale = ptr.Int32(int32(i))
-				}
-			}
-		}
-		ultimateRevisionTarget[0] = target
+		target.RevisionName = lastRevName
 	} else {
-		logging.Infof("run this part to create for the first version run this part to create for the first version run this part to create for the first version run this part to create for the first version")
-
-		ultimateRevisionTarget = make([]v1.TargetRevision, len(service.Spec.Traffic), len(service.Spec.Traffic))
-		target := v1.TargetRevision{}
-		for i, traffic := range service.Spec.Traffic {
-			if traffic.RevisionName == lastRN || *traffic.LatestRevision {
-				logging.Infof("run this part to create for the first version run this part to create for the first version run this part to create for the first version run this part to create for the first version")
-				logging.Info(lastRN)
-
-				target.IsLatestRevision = ptr.Bool(true)
-				target.RevisionName = lastRN
-			} else {
-				target.IsLatestRevision = ptr.Bool(false)
-				target.RevisionName = traffic.RevisionName
-			}
-			target.Percent = ptr.Int64(*traffic.Percent)
-			target.MinScale = nil
-			target.MaxScale = nil
-			if val, ok := records[target.RevisionName]; ok {
-				logging.Info("found revision")
-				if val.MinScale != nil {
-					logging.Info("found set min")
-					target.MinScale = ptr.Int32(*val.MinScale)
-				}
-				if val.MaxScale != nil {
-					logging.Info("found set max")
-					target.MaxScale = ptr.Int32(*val.MaxScale)
-				}
-			} else {
-				logging.Info("not found revision")
-				logging.Info("get labels from anno")
-				logging.Info(target.RevisionName)
-				// Get min and max scales from the service
-				if val, ok := service.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]; ok {
-					i, err := strconv.ParseInt(val, 10, 32)
-					if err == nil {
-						logging.Info("set min scale")
-						target.MinScale = ptr.Int32(int32(i))
-					} else {
-						logging.Info("fail set min scale")
-					}
-
-				} else {
-					logging.Info("no min scale")
-				}
-
-				if val, ok := service.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]; ok {
-					i, err := strconv.ParseInt(val, 10, 32)
-					if err == nil {
-						logging.Info("set max scale")
-						target.MaxScale = ptr.Int32(int32(i))
-					} else {
-						logging.Info("fail set max scale")
-					}
-				} else {
-					logging.Info("no max scale")
-				}
-			}
-			ultimateRevisionTarget[i] = target
-		}
-
+		target.IsLatestRevision = ptr.Bool(false)
+		target.RevisionName = traffic.RevisionName
 	}
-
-	if route == nil || route.Status.Traffic == nil || len(route.Status.Traffic) == 0 {
-		initialRevisionStatus = nil
+	if traffic.Percent == nil {
+		target.Percent = ptr.Int64(100)
 	} else {
-		logging.Infof("run this part to create for the first version run this part to create for the first version run this part to create for the first version run this part to create for the first version")
-
-		initialRevisionStatus = make([]v1.TargetRevision, len(route.Status.Traffic), len(route.Status.Traffic))
-		target := v1.TargetRevision{}
-		for i, traffic := range route.Status.Traffic {
-			if traffic.RevisionName == lastRN || *traffic.LatestRevision {
-				target.IsLatestRevision = ptr.Bool(true)
-				target.RevisionName = lastRN
-			} else {
-				target.IsLatestRevision = ptr.Bool(false)
-				target.RevisionName = traffic.RevisionName
-			}
-			target.Percent = ptr.Int64(*traffic.Percent)
-			target.MinScale = nil
-			target.MaxScale = nil
-			if val, ok := records[target.RevisionName]; ok {
-				if val.MinScale != nil {
-					target.MinScale = ptr.Int32(*val.MinScale)
-				}
-				if val.MaxScale != nil {
-					target.MaxScale = ptr.Int32(*val.MaxScale)
-				}
-			}
-			initialRevisionStatus[i] = target
-		}
+		target.Percent = ptr.Int64(*traffic.Percent)
 	}
 
-	// The initial revision status comes from the route. We set the first stage revision status to the
-	// initial revision status as well.
-
-	if so == nil {
-		so = &v1.RolloutOrchestrator{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      service.Name,
-				Namespace: service.Namespace,
-				Labels:    map[string]string{serving.ServiceLabelKey: service.Name},
-				OwnerReferences: []metav1.OwnerReference{
-					*kmeta.NewControllerRef(service),
-				},
-			},
-			Spec: v1.RolloutOrchestratorSpec{
-				TargetRevisions:  ultimateRevisionTarget,
-				InitialRevisions: initialRevisionStatus,
-			},
-		}
-	} else if !trafficEqual(so.Spec.TargetRevisions, ultimateRevisionTarget) {
-		if so.Status.StageRevisionStatus != nil && len(so.Status.StageRevisionStatus) != 0 {
-			so.Spec.InitialRevisions = append([]v1.TargetRevision{}, so.Status.StageRevisionStatus...)
-		} else {
-			so.Spec.InitialRevisions = nil
-		}
-
-		so.Spec.TargetRevisions = ultimateRevisionTarget
-		so.Spec.StageTargetRevisions = nil
+	if val, ok := records[target.RevisionName]; ok {
+		target.MinScale, target.MaxScale = ReadIntRevisionRecord(val)
+	} else {
+		// Get min and max scales from the service
+		target.MinScale = ReadIntServiceAnnotation(service, autoscaling.MinScaleAnnotationKey)
+		target.MaxScale = ReadIntServiceAnnotation(service, autoscaling.MaxScaleAnnotationKey)
 	}
-
-	return so
+	(*ultimateRevisionTarget)[index] = target
 }
 
-func trafficEqual(target1, target2 []v1.TargetRevision) bool {
-	if len(target1) != len(target2) {
+// GetInitialFinalTargetRevision is used to generate the initialTargetRevision and ultimateRevisionTarget.
+// Both of them are needed for the RolloutOrchestrator creation.
+// Only ultimateRevisionTarget for the RolloutOrchestrator update.
+func GetInitialFinalTargetRevision(service *servingv1.Service, records map[string]RevisionRecord,
+	route *servingv1.Route) ([]v1.TargetRevision, []v1.TargetRevision) {
+	var initialTargetRevision, ultimateRevisionTarget []v1.TargetRevision
+	// This is how the last revision is named after the service generation.
+	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", service.Generation))
+	if len(service.Spec.Traffic) == 0 {
+		// If the Traffic information is empty in the service spec, no traffic split is defined. There is only
+		// one element in the TargetRevision list.
+		ultimateRevisionTarget = make([]v1.TargetRevision, 1, 1)
+		initializeTargetRevisions(&ultimateRevisionTarget, &servingv1.TrafficTarget{}, 0, lastRevName,
+			service, records)
+	} else {
+		// If the Traffic information is not empty in the service spec, the user has specified the traffic split
+		// information among multiple revisions. ultimateRevisionTarget is generated based these multiple revisions.
+		ultimateRevisionTarget = make([]v1.TargetRevision, len(service.Spec.Traffic), len(service.Spec.Traffic))
+		for i, traffic := range service.Spec.Traffic {
+			initializeTargetRevisions(&ultimateRevisionTarget, &traffic, i, lastRevName,
+				service, records)
+		}
+	}
+
+	if (route != nil) && len(route.Status.Traffic) > 0 {
+		// initialTargetRevision is only needed when this function is called to create the RolloutOrchestrator.
+		// If there is route and the route status contains the traffic information, initialTargetRevision will be
+		// generated based on the traffic.
+		initialTargetRevision = make([]v1.TargetRevision, len(route.Status.Traffic), len(route.Status.Traffic))
+		for i, traffic := range route.Status.Traffic {
+			initializeTargetRevisions(&initialTargetRevision, &traffic, i, lastRevName,
+				service, records)
+		}
+	}
+	return initialTargetRevision, ultimateRevisionTarget
+}
+
+// NewInitialFinalTargetRev creates a RolloutOrchestrator with InitialRevisions and TargetRevisions.
+func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1.TargetRevision,
+	service *servingv1.Service) *v1.RolloutOrchestrator {
+	return &v1.RolloutOrchestrator{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      service.Name,
+			Namespace: service.Namespace,
+			Labels:    map[string]string{serving.ServiceLabelKey: service.Name},
+			OwnerReferences: []metav1.OwnerReference{
+				*kmeta.NewControllerRef(service),
+			},
+		},
+		Spec: v1.RolloutOrchestratorSpec{
+			InitialRevisions: initialRevisionStatus,
+			TargetRevisions:  ultimateRevisionTarget,
+		},
+	}
+}
+
+// UpdateFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
+func UpdateFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
+	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
+		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the RolloutOrchestrator
+		// will start a new rollout, so we update the InitialRevisions, TargetRevisions and StageTargetRevisions
+		if len(ro.Status.StageRevisionStatus) != 0 {
+			// Set the current StageRevisionStatus in status to the InitialRevisions.
+			ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
+		} else {
+			// Reset the InitialRevisions, if StageRevisionStatus in the status is empty.
+			ro.Spec.InitialRevisions = nil
+		}
+
+		// Update the TargetRevisions
+		ro.Spec.TargetRevisions = ultimateRevisionTarget
+		// Reset the StageTargetRevisions
+		ro.Spec.StageTargetRevisions = nil
+		ro.Spec.TargetFinishTime = apis.VolatileTime{}
+	}
+
+	// If ultimateRevisionTarget is equal to the TargetRevisions in the spec, it means it is still in the progress of
+	// rolling out the new revision, so there is no change to the RolloutOrchestrator.
+	return ro
+}
+
+func trafficEqual(origin, target []v1.TargetRevision) bool {
+	// Currently, we consider two TargetRevision arrays are the same, when the length of the TargetRevision array
+	// is the same, the order of the TargetRevisions is the same, and per the same revision, the traffic percentage
+	// is the same.
+	if len(origin) != len(target) {
 		return false
 	}
-
-	for i, t := range target1 {
-		if t.RevisionName != target2[i].RevisionName || *t.Percent != *target2[i].Percent {
+	for i, t := range origin {
+		if t.RevisionName != target[i].RevisionName || *t.Percent != *target[i].Percent {
 			return false
 		}
-
 	}
 	return true
 }

@@ -20,12 +20,14 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/logging"
 	"knative.dev/serving-progressive-rollout/pkg/client/injection/client"
 	roinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	rolloutorchestratorinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
@@ -52,7 +54,7 @@ func NewController(
 	paInformer := painformer.Get(ctx)
 	roInformer := roinformer.Get(ctx)
 
-	configStore := cfgmap.NewStore(logger.Named("config-store"))
+	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
 
 	c := NewReconciler(
@@ -79,6 +81,8 @@ func NewController(
 	}
 	configurationInformer.Informer().AddEventHandler(handleControllerOf)
 	routeInformer.Informer().AddEventHandler(handleControllerOf)
+
+	// The reconciliation loop of the service listens to the changes on the CR RolloutOchestrator.
 	roInformer.Informer().AddEventHandler(handleControllerOf)
 
 	return impl

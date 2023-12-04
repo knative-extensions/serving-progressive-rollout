@@ -89,23 +89,10 @@ func (so *RolloutOrchestrator) IsStageScaleUpInProgress() bool {
 	return sos.GetCondition(SOStageScaleUpReady).IsUnknown()
 }
 
-func (so *RolloutOrchestrator) IsNoRouteConfigured() bool {
-	// There is no stage revision status, which indicates that no route is configured. We can directly set
-	// the ultimate revision target as the current stage revision target.
-	return len(so.Status.StageRevisionStatus) == 0 || len(so.Spec.InitialRevisions) == 0
-}
-
 func (so *RolloutOrchestrator) IsNotOneToOneUpgrade() bool {
-	// If the initial revision status contains more than one revision, or the ultimate revision target contains
+	// If the initial revision status contains more than one revision or 0 revision, or the ultimate revision target contains
 	// more than one revision, we will set the current stage target to the ultimate revision target.
-	return len(so.Spec.InitialRevisions) > 1 || len(so.Spec.TargetRevisions) > 1
-}
-
-func (so *RolloutOrchestrator) IsTransitionOutOfScope() bool {
-	// If the TargetRevisions has multiple revisions, there is no need to calculate the next StageRevisionStatus.
-	// If the current StageRevisionStatus has more than 2 revisions, there is no need to calculate the next StageRevisionStatus.
-	// The default way is to
-	return len(so.Status.StageRevisionStatus) > 2 || len(so.Spec.TargetRevisions) != 1
+	return len(so.Spec.InitialRevisions) != 1 || len(so.Spec.TargetRevisions) != 1
 }
 
 // InitializeConditions sets the initial values to the conditions.

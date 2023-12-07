@@ -612,14 +612,18 @@ func TestLastStageComplete(t *testing.T) {
 }
 
 func TestRetrieveRevsUpDown(t *testing.T) {
-	targetRevs := []v1.TargetRevision{
+	targetRevsNoUp := []v1.TargetRevision{
+		{
+			RevisionName: "r-001",
+			Direction:    "down",
+			Percent:      ptr.Int64(20),
+		},
+	}
+	targetRevsNoDown := []v1.TargetRevision{
 		{
 			RevisionName: "r-001",
 			Direction:    "up",
 			Percent:      ptr.Int64(20),
-		}, {
-			RevisionName: "r-002",
-			Percent:      ptr.Int64(80),
 		},
 	}
 	tests := []struct {
@@ -675,11 +679,21 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 		},
 		expectedErr: nil,
 	}, {
-		name:        "Test when stageRevisionStatus as input does not have revisions scaling up and down",
-		targetRevs:  targetRevs,
+		name:        "Test when stageRevisionStatus as input does not have revisions scaling up",
+		targetRevs:  targetRevsNoUp,
 		upRev:       nil,
 		downRev:     nil,
-		expectedErr: fmt.Errorf("unable to find the revision to scale up or down in the target revisions %v", targetRevs),
+		expectedErr: fmt.Errorf("unable to find the revision to scale up in the target revisions %v", targetRevsNoUp),
+	}, {
+		name:       "Test when stageRevisionStatus as input does not have revisions scaling down",
+		targetRevs: targetRevsNoDown,
+		upRev: &v1.TargetRevision{
+			RevisionName: "r-001",
+			Direction:    "up",
+			Percent:      ptr.Int64(20),
+		},
+		downRev:     nil,
+		expectedErr: nil,
 	}}
 
 	for _, test := range tests {

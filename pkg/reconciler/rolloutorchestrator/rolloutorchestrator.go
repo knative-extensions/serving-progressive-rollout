@@ -114,6 +114,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			// scale down the old revision.
 			// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
 			// phase is not over.
+			if revScalingDown == nil {
+				return nil
+			}
 			_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, false)
 			if err != nil {
 				return err
@@ -126,19 +129,20 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
 		// Create or update the stagePodAutoscaler for the revision to be scaled down.
-		_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, true)
-		if err != nil {
-			return err
-		}
+		if revScalingDown != nil {
+			_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, true)
+			if err != nil {
+				return err
+			}
 
-		spa, err = r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown.RevisionName)
-		if err != nil {
-			return err
+			spa, err = r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown.RevisionName)
+			if err != nil {
+				return err
+			}
+			if !IsStageScaleDownReady(spa, revScalingDown) {
+				return nil
+			}
 		}
-		if !IsStageScaleDownReady(spa, revScalingDown) {
-			return nil
-		}
-
 		ro.Status.MarkStageRevisionScaleDownReady()
 
 		// Clean up and set the status of the StageRevision. It means the orchestrator has accomplished this stage.
@@ -273,10 +277,16 @@ func RetrieveRevsUpDown(targetRevs []v1.TargetRevision) (*v1.TargetRevision, *v1
 			downIndex = i
 		}
 	}
-	if upIndex == -1 || downIndex == -1 {
-		return nil, nil, fmt.Errorf("unable to find the revision to scale up or down in the target revisions %v", targetRevs)
+	if upIndex == -1 {
+		return nil, nil, fmt.Errorf("unable to find the revision to scale up in the target revisions %v", targetRevs)
 	}
-	return &targetRevs[upIndex], &targetRevs[downIndex], nil
+	var targetRevsDown *v1.TargetRevision
+	if downIndex == -1 {
+		targetRevsDown = nil
+	} else {
+		targetRevsDown = &targetRevs[downIndex]
+	}
+	return &targetRevs[upIndex], targetRevsDown, nil
 }
 
 // LastStageComplete decides whether the last stage of the progressive upgrade is complete or not.

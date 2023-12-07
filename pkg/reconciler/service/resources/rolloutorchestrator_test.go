@@ -122,10 +122,16 @@ func TestReadIntServiceAnnotation(t *testing.T) {
 		name: "Test when both MinScaleAnnotationKey and MaxScaleAnnotationKey exist and valid",
 		key:  autoscaling.MinScaleAnnotationKey,
 		service: &servingv1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "10",
-					autoscaling.MaxScaleAnnotationKey: "12",
+			Spec: servingv1.ServiceSpec{
+				ConfigurationSpec: servingv1.ConfigurationSpec{
+					Template: servingv1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.MinScaleAnnotationKey: "10",
+								autoscaling.MaxScaleAnnotationKey: "12",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -134,10 +140,16 @@ func TestReadIntServiceAnnotation(t *testing.T) {
 		name: "Test when both MinScaleAnnotationKey and MaxScaleAnnotationKey exist and valid",
 		key:  autoscaling.MaxScaleAnnotationKey,
 		service: &servingv1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "10",
-					autoscaling.MaxScaleAnnotationKey: "12",
+			Spec: servingv1.ServiceSpec{
+				ConfigurationSpec: servingv1.ConfigurationSpec{
+					Template: servingv1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.MinScaleAnnotationKey: "10",
+								autoscaling.MaxScaleAnnotationKey: "12",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -146,9 +158,15 @@ func TestReadIntServiceAnnotation(t *testing.T) {
 		name: "Test when MinScaleAnnotationKey is missing",
 		key:  autoscaling.MinScaleAnnotationKey,
 		service: &servingv1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					autoscaling.MaxScaleAnnotationKey: "12",
+			Spec: servingv1.ServiceSpec{
+				ConfigurationSpec: servingv1.ConfigurationSpec{
+					Template: servingv1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.MaxScaleAnnotationKey: "12",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -157,9 +175,15 @@ func TestReadIntServiceAnnotation(t *testing.T) {
 		name: "Test when MinScaleAnnotationKey is invalid",
 		key:  autoscaling.MinScaleAnnotationKey,
 		service: &servingv1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					autoscaling.MinScaleAnnotationKey: "12-invalid",
+			Spec: servingv1.ServiceSpec{
+				ConfigurationSpec: servingv1.ConfigurationSpec{
+					Template: servingv1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.MinScaleAnnotationKey: "10-invalid",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -168,9 +192,15 @@ func TestReadIntServiceAnnotation(t *testing.T) {
 		name: "Test when MaxScaleAnnotationKey is invalid",
 		key:  autoscaling.MaxScaleAnnotationKey,
 		service: &servingv1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					autoscaling.MaxScaleAnnotationKey: "12-invalid",
+			Spec: servingv1.ServiceSpec{
+				ConfigurationSpec: servingv1.ConfigurationSpec{
+					Template: servingv1.RevisionTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								autoscaling.MaxScaleAnnotationKey: "10-invalid",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -381,6 +411,13 @@ func TestNewInitialFinalTargetRev(t *testing.T) {
 		})
 	}
 }
+
+// &{{ } {autoscale-go  default  ee04839d-bf8b-4a86-baff-508f0ef4878b 57177 1 2023-12-07 18:14:00 +0000 UTC <nil> <nil>
+//map[] map[kubectl.kubernetes.io/last-applied-configuration:{"apiVersion":"serving.knative.dev/v1","kind":"Service",
+//"metadata":{"annotations":{},"name":"autoscale-go","namespace":"default"},"spec":{"template":{"metadata":{"annotations":{"autoscaling.knative.dev/class":"kpa.autoscaling.knative.dev",
+//"autoscaling.knative.dev/max-scale":"5","autoscaling.knative.dev/metric":"concurrency",
+//"autoscaling.knative.dev/min-scale":"5","autoscaling.knative.dev/target":"10"}},
+//"spec":{"containers":[{"image":"ghcr.io/knative/autoscale-go:latest"}]}}}}
 
 func TestGetInitialFinalTargetRevision(t *testing.T) {
 	tests := []struct {
@@ -706,6 +743,64 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 				Percent:          ptr.Int64(70),
 			},
 		},
+	}, {
+		name: "Test the creation/update of RolloutOrchestrator with valid records, route, and one traffic in the service",
+		records: map[string]RevisionRecord{
+			"service-001-00002": {
+				MinScale: ptr.Int32(8),
+				MaxScale: ptr.Int32(10),
+				Name:     "service-001-00002",
+			},
+		},
+		route: &servingv1.Route{
+			Status: servingv1.RouteStatus{
+				RouteStatusFields: servingv1.RouteStatusFields{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName: "service-001-00002",
+							Percent:      ptr.Int64(100),
+						},
+					},
+				},
+			},
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					autoscaling.MinScaleAnnotationKey: "8",
+					autoscaling.MaxScaleAnnotationKey: "10",
+				},
+				Generation: 3,
+				Namespace:  "test-ns",
+				Name:       "service-001",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{{
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					}},
+				},
+			},
+		},
+		ExpectedInitialTarget: []v1.TargetRevision{
+			{
+				RevisionName:     "service-001-00002",
+				IsLatestRevision: ptr.Bool(false),
+				MinScale:         ptr.Int32(8),
+				MaxScale:         ptr.Int32(10),
+				Percent:          ptr.Int64(100),
+			},
+		},
+		ExpectedFinalTargetResult: []v1.TargetRevision{
+			{
+				RevisionName:     "service-001-00003",
+				IsLatestRevision: ptr.Bool(true),
+				MinScale:         ptr.Int32(8),
+				MaxScale:         ptr.Int32(10),
+				Percent:          ptr.Int64(100),
+			},
+		},
 	}}
 
 	for _, test := range tests {
@@ -715,6 +810,17 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 				t.Fatalf("Result of GetInitialFinalTargetRevision() = %v, want %v", initialTarget, test.ExpectedInitialTarget)
 			}
 			if !reflect.DeepEqual(finalTarget, test.ExpectedFinalTargetResult) {
+				//fmt.Println(finalTarget[0].RevisionName)
+				//fmt.Println(*finalTarget[0].IsLatestRevision)
+				//fmt.Println(*finalTarget[0].MinScale)
+				//fmt.Println(*finalTarget[0].MaxScale)
+				//fmt.Println(finalTarget[0].Percent)
+				//
+				//fmt.Println(test.ExpectedFinalTargetResult[0].RevisionName)
+				//fmt.Println(*test.ExpectedFinalTargetResult[0].IsLatestRevision)
+				//fmt.Println(*test.ExpectedFinalTargetResult[0].MinScale)
+				//fmt.Println(*test.ExpectedFinalTargetResult[0].MaxScale)
+				//fmt.Println(*test.ExpectedFinalTargetResult[0].Percent)
 				t.Fatalf("Result of GetInitialFinalTargetRevision() = %v, want %v", finalTarget, test.ExpectedFinalTargetResult)
 			}
 		})

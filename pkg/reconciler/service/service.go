@@ -100,7 +100,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 	recorder := controller.GetEventRecorder(ctx)
 	// The information in the CR Route is also leveraged as the input to the RolloutOrchestrator.
 	route, err := c.routeLister.Routes(service.Namespace).Get(resourcenames.Route(service))
-	if !apierrs.IsNotFound(err) {
+	if err != nil && !apierrs.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get the route: %w", err)
 	}
 
@@ -172,22 +172,89 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 		ctx, ro, metav1.CreateOptions{})
 }
 
+func PrintInfo(revision v1.TargetRevision) {
+	fmt.Println("RevisionName")
+	fmt.Println(revision.RevisionName)
+	fmt.Println("IsLatestRevision")
+	fmt.Println(revision.IsLatestRevision)
+	if revision.IsLatestRevision != nil {
+		fmt.Println(*revision.IsLatestRevision)
+	}
+	fmt.Println("percent")
+	fmt.Println(revision.Percent)
+	if revision.Percent != nil {
+		fmt.Println(*revision.Percent)
+	}
+	fmt.Println("minscale")
+	fmt.Println(revision.MinScale)
+	if revision.MinScale != nil {
+		fmt.Println(*revision.MinScale)
+	}
+	fmt.Println("maxscale")
+	fmt.Println(revision.MaxScale)
+	if revision.MaxScale != nil {
+		fmt.Println(*revision.MaxScale)
+	}
+	fmt.Println("direction")
+	fmt.Println(revision.Direction)
+
+	fmt.Println("target replicas")
+	fmt.Println(revision.TargetReplicas)
+	if revision.TargetReplicas != nil {
+		fmt.Println(*revision.TargetReplicas)
+	}
+}
+
 // updateRolloutOrchestrator updates the CR RolloutOrchestrator.
 func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
 	route *servingv1.Route, ro *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
 	records := c.getRecordsFromRevs(service)
 
+	fmt.Println("tell me the records records records records")
+	fmt.Println(records)
+	fmt.Println("tell me the route route route route")
+	fmt.Println(route)
+	fmt.Println("tell me the service service service service")
+	fmt.Println(service)
+
 	// Based on the knative service, the map of the revision records and the route, we can get the final target
 	// revisions. The final target revisions define the end for the upgrade.
 	_, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, records, route)
 
+	fmt.Println("check the ultimateRevisionTarget ultimateRevisionTarget ultimateRevisionTarget ultimateRevisionTarget")
+	PrintInfo(ultimateRevisionTarget[0])
+
+	fmt.Println("check the existing final target")
+	PrintInfo(ro.Spec.TargetRevisions[0])
 	// Assign the RolloutOrchestrator with the final target revision and reset StageTargetRevisions in the spec,
 	// if the final target revision is different from the existing final target revision.
 	ro = resources.UpdateFinalTargetRev(ultimateRevisionTarget, ro)
 
+	fmt.Println("check the updated final target")
+	PrintInfo(ro.Spec.TargetRevisions[0])
+
+	if len(ro.Spec.InitialRevisions) > 0 {
+		fmt.Println("check the initial target 0")
+		PrintInfo(ro.Spec.InitialRevisions[0])
+	}
+
+	if len(ro.Spec.InitialRevisions) == 2 {
+		fmt.Println("check the initial target 1")
+		PrintInfo(ro.Spec.InitialRevisions[1])
+	}
+
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
 	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace))
-	return c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
+
+	fmt.Println("check the stage target 0")
+	PrintInfo(ro.Spec.StageTargetRevisions[0])
+	if len(ro.Spec.StageTargetRevisions) == 2 {
+		fmt.Println("check the stage target 1")
+		PrintInfo(ro.Spec.StageTargetRevisions[1])
+	}
+
+	r, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
+	return r, err
 }
 
 // CreateRevRecordsFromRevList converts the revision list into a map of revision records.
@@ -782,7 +849,7 @@ func convertIntoTrafficTarget(name string, revisionTarget []v1.TargetRevision) [
 		target := servingv1.TrafficTarget{}
 		target.LatestRevision = revision.IsLatestRevision
 		target.Percent = revision.Percent
-		if *revision.IsLatestRevision {
+		if revision.IsLatestRevision != nil && *revision.IsLatestRevision {
 			target.ConfigurationName = name
 		} else {
 			target.RevisionName = revision.RevisionName

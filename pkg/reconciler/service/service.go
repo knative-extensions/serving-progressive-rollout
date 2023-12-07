@@ -651,7 +651,30 @@ func lowestLoad(rt []v1.TargetRevision, index int, rtF []v1.TargetRevision,
 	return stageRevisionTarget
 }
 
-func TransformService(service *servingv1.Service, so *v1.RolloutOrchestrator) *servingv1.Service {
+func TransformService1(service *servingv1.Service, so *v1.RolloutOrchestrator) *servingv1.Service {
 	// TODO Keep the the service the same. We will implement later.
 	return service
+}
+
+func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {
+	service.Spec.RouteSpec = servingv1.RouteSpec{
+		Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
+	}
+	return service
+}
+
+func convertIntoTrafficTarget(name string, revisionTarget []v1.TargetRevision) []servingv1.TrafficTarget {
+	trafficTarget := make([]servingv1.TrafficTarget, len(revisionTarget), len(revisionTarget))
+	for i, revision := range revisionTarget {
+		target := servingv1.TrafficTarget{}
+		target.LatestRevision = revision.IsLatestRevision
+		target.Percent = revision.Percent
+		if *revision.IsLatestRevision {
+			target.ConfigurationName = name
+		} else {
+			target.RevisionName = revision.RevisionName
+		}
+		trafficTarget[i] = target
+	}
+	return trafficTarget
 }

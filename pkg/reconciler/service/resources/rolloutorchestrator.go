@@ -56,7 +56,7 @@ func ReadIntAnnotation(revision *servingv1.Revision, key string) (result *int32)
 
 // ReadIntServiceAnnotation reads the int value of a specific key in the annotation of the service.
 func ReadIntServiceAnnotation(service *servingv1.Service, key string) (result *int32) {
-	if val, ok := service.Annotations[key]; ok {
+	if val, ok := service.Spec.Template.ObjectMeta.Annotations[key]; ok {
 		i, err := strconv.ParseInt(val, 10, 32)
 		if err == nil {
 			result = ptr.Int32(int32(i))
@@ -79,24 +79,33 @@ func ReadIntRevisionRecord(val RevisionRecord) (min *int32, max *int32) {
 func initializeTargetRevisions(ultimateRevisionTarget *[]v1.TargetRevision, traffic *servingv1.TrafficTarget,
 	index int, lastRevName string, service *servingv1.Service, records map[string]RevisionRecord) {
 	target := v1.TargetRevision{}
+	fmt.Println("called initializeTargetRevisions")
 	if traffic.RevisionName == "" || traffic.RevisionName == lastRevName {
 		// (traffic.LatestRevision != nil && *traffic.LatestRevision)
+		fmt.Println("the revision name is")
+		fmt.Println(traffic.RevisionName)
 		target.IsLatestRevision = ptr.Bool(true)
 		target.RevisionName = lastRevName
 	} else {
+		fmt.Println("other revision name is")
+		fmt.Println(traffic.RevisionName)
 		target.IsLatestRevision = ptr.Bool(false)
 		target.RevisionName = traffic.RevisionName
 	}
 	if traffic.Percent == nil {
+		fmt.Println("percentgage is nil")
 		target.Percent = ptr.Int64(100)
 	} else {
+		fmt.Println("percentgage is not nil")
 		target.Percent = ptr.Int64(*traffic.Percent)
 	}
 
 	if val, ok := records[target.RevisionName]; ok {
+		fmt.Println("revi exist in the map")
 		target.MinScale, target.MaxScale = ReadIntRevisionRecord(val)
 	} else {
 		// Get min and max scales from the service
+		fmt.Println("min max from service")
 		target.MinScale = ReadIntServiceAnnotation(service, autoscaling.MinScaleAnnotationKey)
 		target.MaxScale = ReadIntServiceAnnotation(service, autoscaling.MaxScaleAnnotationKey)
 	}
@@ -115,6 +124,7 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, records map[strin
 		// If the Traffic information is empty in the service spec, no traffic split is defined. There is only
 		// one element in the TargetRevision list.
 		ultimateRevisionTarget = make([]v1.TargetRevision, 1, 1)
+		fmt.Println("no traffic found in spec traffic")
 		initializeTargetRevisions(&ultimateRevisionTarget, &servingv1.TrafficTarget{}, 0, lastRevName,
 			service, records)
 	} else {
@@ -122,6 +132,8 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, records map[strin
 		// information among multiple revisions. ultimateRevisionTarget is generated based these multiple revisions.
 		ultimateRevisionTarget = make([]v1.TargetRevision, len(service.Spec.Traffic), len(service.Spec.Traffic))
 		for i, traffic := range service.Spec.Traffic {
+			fmt.Println("traffic found in spec traffic")
+			fmt.Println(i)
 			initializeTargetRevisions(&ultimateRevisionTarget, &traffic, i, lastRevName,
 				service, records)
 		}

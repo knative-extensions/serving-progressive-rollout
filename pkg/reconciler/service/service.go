@@ -863,9 +863,9 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 //}
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {
-	service.Spec.RouteSpec = servingv1.RouteSpec{
-		Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
-	}
+	//service.Spec.RouteSpec = servingv1.RouteSpec{
+	//	Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
+	//}
 	return service
 }
 

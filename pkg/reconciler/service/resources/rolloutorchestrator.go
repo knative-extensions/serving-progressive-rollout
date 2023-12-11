@@ -33,7 +33,7 @@ import (
 var (
 	// OverSubRatio is the parameter, that determines how much percentage of the traffic to shift
 	// from the old to the new revision during each stage in the progressive rollout.
-	OverSubRatio = 10
+	OverSubRatio = 100
 )
 
 // RevisionRecord is a struct that hosts the name, minScale and maxScale for the revision.

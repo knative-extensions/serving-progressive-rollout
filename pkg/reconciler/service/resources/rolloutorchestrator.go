@@ -33,7 +33,7 @@ import (
 var (
 	// OverSubRatio is the parameter, that determines how much percentage of the traffic to shift
 	// from the old to the new revision during each stage in the progressive rollout.
-	OverSubRatio = 100
+	OverSubRatio = 10
 )
 
 // RevisionRecord is a struct that hosts the name, minScale and maxScale for the revision.
@@ -173,18 +173,26 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 
 // UpdateFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
 func UpdateFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
+	fmt.Println("called the UpdateFinalTargetRev")
+	fmt.Println("UpdateFinalTargetRev")
+	fmt.Println(ultimateRevisionTarget)
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
 		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the RolloutOrchestrator
 		// will start a new rollout, so we update the InitialRevisions, TargetRevisions and StageTargetRevisions
 		if len(ro.Status.StageRevisionStatus) != 0 {
 			// Set the current StageRevisionStatus in status to the InitialRevisions.
+			fmt.Println("move StageRevisionStatus to InitialRevisions")
 			ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
+			fmt.Println(ro.Spec.InitialRevisions)
 		} else {
 			// Reset the InitialRevisions, if StageRevisionStatus in the status is empty.
+			fmt.Println("reset the InitialRevisions")
 			ro.Spec.InitialRevisions = nil
 		}
 
 		// Update the TargetRevisions
+		fmt.Println("set the spec.TargetRevisions")
+		fmt.Println(ultimateRevisionTarget)
 		ro.Spec.TargetRevisions = ultimateRevisionTarget
 		// Reset the StageTargetRevisions
 		ro.Spec.StageTargetRevisions = nil

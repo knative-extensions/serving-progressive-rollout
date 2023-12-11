@@ -66,7 +66,7 @@ type TargetRevision struct {
 
 	// IsLatestRevision indicates whether it is the last revision or not.
 	// +optional
-	IsLatestRevision *bool `json:"IslatestRevision,omitempty"`
+	IsLatestRevision *bool `json:"isLatestRevision,omitempty"`
 
 	// Percent indicates that percentage based routing should be used and
 	// the value indicates the percent of traffic that is routed to this

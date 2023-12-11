@@ -34,7 +34,7 @@ spec:
       - knative
       - serving
     shortNames:
-      - so
+      - ro
   scope: Namespaced
   versions:
     - name: v1
@@ -76,8 +76,8 @@ spec:
                       direction:
                         description: Direction indicates up or down.
                         type: string
-                      latestRevision:
-                        description: LatestRevision indicates whether it is the last revision or not.
+                      isLatestRevision:
+                        description: IsLatestRevision indicates whether it is the last revision or not.
                         type: boolean
                       maxScale:
                         description: MaxScale sets the upper bound for the number of the replicas.
@@ -108,8 +108,8 @@ spec:
                       direction:
                         description: Direction indicates up or down.
                         type: string
-                      latestRevision:
-                        description: LatestRevision indicates whether it is the last revision or not.
+                      isLatestRevision:
+                        description: IsLatestRevision indicates whether it is the last revision or not.
                         type: boolean
                       maxScale:
                         description: MaxScale sets the upper bound for the number of the replicas.
@@ -140,8 +140,8 @@ spec:
                       direction:
                         description: Direction indicates up or down.
                         type: string
-                      latestRevision:
-                        description: LatestRevision indicates whether it is the last revision or not.
+                      isLatestRevision:
+                        description: IsLatestRevision indicates whether it is the last revision or not.
                         type: boolean
                       maxScale:
                         description: MaxScale sets the upper bound for the number of the replicas.
@@ -216,8 +216,8 @@ spec:
                       direction:
                         description: Direction indicates up or down.
                         type: string
-                      latestRevision:
-                        description: LatestRevision indicates whether it is the last revision or not.
+                      isLatestRevision:
+                        description: IsLatestRevision indicates whether it is the last revision or not.
                         type: boolean
                       maxScale:
                         description: MaxScale sets the upper bound for the number of the replicas.

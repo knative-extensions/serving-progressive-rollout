@@ -160,16 +160,38 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	// 1. There is no revision records or the route, when it is the first time to create the knative service.
 	// 2. There are revision records and the route. The RolloutOrchestrator will be created on an existing old version
 	// of knative serving.
+
+	fmt.Println("new creation service check")
+	fmt.Println(service.Spec)
+	fmt.Println("new creation records check")
+	fmt.Println(len(records))
+	fmt.Println(records)
+	fmt.Println("new creation route check")
+	fmt.Println(route)
 	initialRevisionStatus, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, records, route)
 
 	// Assign the RolloutOrchestrator with the initial target revision, and final target revision.
 	// StageTargetRevisions in the spec is nil.
+	fmt.Println("create new rev target")
+	fmt.Println(ultimateRevisionTarget)
+	PrintInfo(ultimateRevisionTarget[0])
 	ro := resources.NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget, service)
 
+	fmt.Println("check the ro rev target")
+	fmt.Println(ro.Spec.TargetRevisions)
+	PrintInfo(ro.Spec.TargetRevisions[0])
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
 	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace))
-	return c.client.ServingV1().RolloutOrchestrators(service.Namespace).Create(
+	fmt.Println("check the ro rev target again")
+	fmt.Println(ro.Spec.TargetRevisions)
+	PrintInfo(ro.Spec.TargetRevisions[0])
+	r, e := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Create(
 		ctx, ro, metav1.CreateOptions{})
+
+	fmt.Println("check the ro rev target after creation again")
+	fmt.Println(r.Spec.TargetRevisions)
+	PrintInfo(r.Spec.TargetRevisions[0])
+	return r, e
 }
 
 func PrintInfo(revision v1.TargetRevision) {
@@ -252,6 +274,10 @@ func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *ser
 		fmt.Println("check the stage target 1")
 		PrintInfo(ro.Spec.StageTargetRevisions[1])
 	}
+
+	fmt.Println("check the ro rev target in update again")
+	fmt.Println(ro.Spec.TargetRevisions)
+	PrintInfo(ro.Spec.TargetRevisions[0])
 
 	r, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
 	return r, err
@@ -837,9 +863,9 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 //}
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {
-	//service.Spec.RouteSpec = servingv1.RouteSpec{
-	//	Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
-	//}
+	service.Spec.RouteSpec = servingv1.RouteSpec{
+		Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
+	}
 	return service
 }
 

@@ -863,6 +863,10 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 //}
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {
+	// If Knative Service defines more than one traffic, this feature tentatively does not cover this case.
+	if len(service.Spec.Traffic) > 1 {
+		return service
+	}
 	service.Spec.RouteSpec = servingv1.RouteSpec{
 		Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
 	}

@@ -26,7 +26,6 @@ import (
 	"knative.dev/pkg/logging"
 	"knative.dev/serving-progressive-rollout/pkg/client/injection/client"
 	roinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
-	rolloutorchestratorinformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -50,7 +49,6 @@ func NewController(
 	routeInformer := routeinformer.Get(ctx)
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
-	rolloutorchestratorInformer := rolloutorchestratorinformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
 	roInformer := roinformer.Get(ctx)
 
@@ -63,7 +61,7 @@ func NewController(
 		configurationInformer.Lister(),
 		revisionInformer.Lister(),
 		routeInformer.Lister(),
-		rolloutorchestratorInformer.Lister(),
+		roInformer.Lister(),
 		paInformer.Lister(),
 	)
 

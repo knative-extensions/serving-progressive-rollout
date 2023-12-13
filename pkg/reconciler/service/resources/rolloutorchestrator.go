@@ -79,33 +79,26 @@ func ReadIntRevisionRecord(val RevisionRecord) (min *int32, max *int32) {
 func initializeTargetRevisions(ultimateRevisionTarget *[]v1.TargetRevision, traffic *servingv1.TrafficTarget,
 	index int, lastRevName string, service *servingv1.Service, records map[string]RevisionRecord) {
 	target := v1.TargetRevision{}
-	fmt.Println("called initializeTargetRevisions")
 	if traffic.RevisionName == "" || traffic.RevisionName == lastRevName {
-		// (traffic.LatestRevision != nil && *traffic.LatestRevision)
-		fmt.Println("the revision name is")
-		fmt.Println(traffic.RevisionName)
-		target.IsLatestRevision = ptr.Bool(true)
+		target.LatestRevision = ptr.Bool(true)
 		target.RevisionName = lastRevName
 	} else {
-		fmt.Println("other revision name is")
-		fmt.Println(traffic.RevisionName)
-		target.IsLatestRevision = ptr.Bool(false)
+		target.LatestRevision = ptr.Bool(false)
 		target.RevisionName = traffic.RevisionName
 	}
 	if traffic.Percent == nil {
-		fmt.Println("percentgage is nil")
 		target.Percent = ptr.Int64(100)
 	} else {
-		fmt.Println("percentgage is not nil")
 		target.Percent = ptr.Int64(*traffic.Percent)
 	}
 
+	target.ConfigurationName = traffic.ConfigurationName
+	target.Tag = traffic.Tag
+	target.URL = traffic.URL
 	if val, ok := records[target.RevisionName]; ok {
-		fmt.Println("revi exist in the map")
 		target.MinScale, target.MaxScale = ReadIntRevisionRecord(val)
 	} else {
 		// Get min and max scales from the service
-		fmt.Println("min max from service")
 		target.MinScale = ReadIntServiceAnnotation(service, autoscaling.MinScaleAnnotationKey)
 		target.MaxScale = ReadIntServiceAnnotation(service, autoscaling.MaxScaleAnnotationKey)
 	}
@@ -123,18 +116,15 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, records map[strin
 	if len(service.Spec.Traffic) == 0 {
 		// If the Traffic information is empty in the service spec, no traffic split is defined. There is only
 		// one element in the TargetRevision list.
-		ultimateRevisionTarget = make([]v1.TargetRevision, 1, 1)
-		fmt.Println("no traffic found in spec traffic")
+		ultimateRevisionTarget = make([]v1.TargetRevision, 1)
 		initializeTargetRevisions(&ultimateRevisionTarget, &servingv1.TrafficTarget{}, 0, lastRevName,
 			service, records)
 	} else {
 		// If the Traffic information is not empty in the service spec, the user has specified the traffic split
 		// information among multiple revisions. ultimateRevisionTarget is generated based these multiple revisions.
-		ultimateRevisionTarget = make([]v1.TargetRevision, len(service.Spec.Traffic), len(service.Spec.Traffic))
-		for i, traffic := range service.Spec.Traffic {
-			fmt.Println("traffic found in spec traffic")
-			fmt.Println(i)
-			initializeTargetRevisions(&ultimateRevisionTarget, &traffic, i, lastRevName,
+		ultimateRevisionTarget = make([]v1.TargetRevision, len(service.Spec.Traffic))
+		for i := range service.Spec.Traffic {
+			initializeTargetRevisions(&ultimateRevisionTarget, &service.Spec.Traffic[i], i, lastRevName,
 				service, records)
 		}
 	}
@@ -143,9 +133,9 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, records map[strin
 		// initialTargetRevision is only needed when this function is called to create the RolloutOrchestrator.
 		// If there is route and the route status contains the traffic information, initialTargetRevision will be
 		// generated based on the traffic.
-		initialTargetRevision = make([]v1.TargetRevision, len(route.Status.Traffic), len(route.Status.Traffic))
-		for i, traffic := range route.Status.Traffic {
-			initializeTargetRevisions(&initialTargetRevision, &traffic, i, lastRevName,
+		initialTargetRevision = make([]v1.TargetRevision, len(route.Status.Traffic))
+		for i := range route.Status.Traffic {
+			initializeTargetRevisions(&initialTargetRevision, &route.Status.Traffic[i], i, lastRevName,
 				service, records)
 		}
 	}
@@ -173,26 +163,18 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 
 // UpdateFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
 func UpdateFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
-	fmt.Println("called the UpdateFinalTargetRev")
-	fmt.Println("UpdateFinalTargetRev")
-	fmt.Println(ultimateRevisionTarget)
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
 		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the RolloutOrchestrator
 		// will start a new rollout, so we update the InitialRevisions, TargetRevisions and StageTargetRevisions
 		if len(ro.Status.StageRevisionStatus) != 0 {
 			// Set the current StageRevisionStatus in status to the InitialRevisions.
-			fmt.Println("move StageRevisionStatus to InitialRevisions")
 			ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
-			fmt.Println(ro.Spec.InitialRevisions)
 		} else {
 			// Reset the InitialRevisions, if StageRevisionStatus in the status is empty.
-			fmt.Println("reset the InitialRevisions")
 			ro.Spec.InitialRevisions = nil
 		}
 
 		// Update the TargetRevisions
-		fmt.Println("set the spec.TargetRevisions")
-		fmt.Println(ultimateRevisionTarget)
 		ro.Spec.TargetRevisions = ultimateRevisionTarget
 		// Reset the StageTargetRevisions
 		ro.Spec.StageTargetRevisions = nil

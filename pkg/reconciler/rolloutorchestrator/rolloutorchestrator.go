@@ -126,34 +126,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			}
 		}
 
-		fmt.Println("scaled up ready. Look at the values.")
-		fmt.Println("desire replicas.")
-		fmt.Println(spa.Status.DesiredScale)
-		if spa.Status.DesiredScale != nil {
-			fmt.Println(*spa.Status.DesiredScale)
-		}
-		fmt.Println("actual replicas.")
-		fmt.Println(spa.Status.ActualScale)
-		if spa.Status.ActualScale != nil {
-			fmt.Println(*spa.Status.ActualScale)
-		}
-
-		fmt.Println("MinScale.")
-		fmt.Println(revScalingUp.MinScale)
-		if revScalingUp.MinScale != nil {
-			fmt.Println(*revScalingUp.MinScale)
-		}
-		fmt.Println("MaxScale.")
-		fmt.Println(revScalingUp.MaxScale)
-		if revScalingUp.MaxScale != nil {
-			fmt.Println(*revScalingUp.MaxScale)
-		}
-		fmt.Println("check TargetReplicas.")
-		fmt.Println(revScalingUp.TargetReplicas)
-		if revScalingUp.TargetReplicas != nil {
-			fmt.Println(*revScalingUp.TargetReplicas)
-		}
-
 		ro.Status.MarkStageRevisionScaleUpReady()
 
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined

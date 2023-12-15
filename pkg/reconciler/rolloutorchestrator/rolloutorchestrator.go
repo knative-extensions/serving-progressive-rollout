@@ -96,29 +96,37 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	}
 
 	// Create or update the StagePodAutoscaler for the revision scale up
-	_, err = r.createOrUpdateSPARevUp(ctx, ro, revScalingUp)
-	if err != nil {
-		return err
+	for i := range revScalingUp {
+		if _, err = r.createOrUpdateSPARevUp(ctx, ro, revScalingUp[i]); err != nil {
+			return err
+		}
 	}
 
 	// If spec.StageRevisionStatus is nil, check on if the number of replicas meets the conditions.
 	if ro.IsStageInProgress() {
-		spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingUp.RevisionName)
-		if err != nil {
-			return err
-		}
-		// spa.IsStageScaleInReady() returns true, as long as both DesireScale and ActualScale are available.
-		if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revScalingUp) {
-			// Create the stage pod autoscaler with the new maxScale set to
-			// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
-			// scale down the old revision.
-			// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
-			// phase is not over.
-			_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, false)
+		for i := range revScalingUp {
+			spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingUp[i].RevisionName)
 			if err != nil {
 				return err
 			}
-			return nil
+
+			// spa.IsStageScaleInReady() returns true, as long as both DesireScale and ActualScale are available.
+			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revScalingUp[i]) {
+				// Create the stage pod autoscaler with the new maxScale set to
+				// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
+				// scale down the old revision.
+				// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
+				// phase is not over.
+				if len(revScalingDown) == 0 {
+					return nil
+				}
+				for i := range revScalingDown {
+					if _, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown[i], false); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 		}
 
 		ro.Status.MarkStageRevisionScaleUpReady()
@@ -126,24 +134,32 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
 		// Create or update the stagePodAutoscaler for the revision to be scaled down.
-		_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown, true)
-		if err != nil {
-			return err
-		}
+		if len(revScalingDown) != 0 {
+			for i := range revScalingDown {
+				_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown[i], true)
+				if err != nil {
+					return err
+				}
 
-		spa, err = r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown.RevisionName)
-		if err != nil {
-			return err
+				spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown[i].RevisionName)
+				if err != nil {
+					return err
+				}
+				if !IsStageScaleDownReady(spa, revScalingDown[i]) {
+					return nil
+				}
+			}
 		}
-		if !IsStageScaleDownReady(spa, revScalingDown) {
-			return nil
-		}
-
 		ro.Status.MarkStageRevisionScaleDownReady()
 
 		// Clean up and set the status of the StageRevision. It means the orchestrator has accomplished this stage.
-		stageCleaned := RemoveNonTrafficRev(stageTargetRevisions)
-		ro.Status.SetStageRevisionStatus(stageCleaned)
+		if len(ro.Spec.TargetRevisions) < len(stageTargetRevisions) {
+			stageCleaned := RemoveNonTrafficRev(stageTargetRevisions)
+			ro.Status.SetStageRevisionStatus(stageCleaned)
+		} else {
+			ro.Status.SetStageRevisionStatus(stageTargetRevisions)
+		}
+
 		ro.Status.MarkStageRevisionReady()
 
 		if LastStageComplete(ro.Status.StageRevisionStatus, ro.Spec.TargetRevisions) {
@@ -176,7 +192,7 @@ func (r *Reconciler) createStagePA(ctx context.Context, ro *v1.RolloutOrchestrat
 func RemoveNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
 	result := make([]v1.TargetRevision, 0)
 	for _, r := range ts {
-		if r.Percent != nil && *r.Percent != 0 {
+		if r.Percent != nil && (*r.Percent != 0 || (*r.Percent == 0 && r.LatestRevision != nil && *r.LatestRevision)) {
 			result = append(result, r)
 		}
 	}
@@ -263,20 +279,21 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	return spa
 }
 
-// RetrieveRevsUpDown returns the old and the new revision in the list of the TargetRevisions.
-func RetrieveRevsUpDown(targetRevs []v1.TargetRevision) (*v1.TargetRevision, *v1.TargetRevision, error) {
-	upIndex, downIndex := -1, -1
+// RetrieveRevsUpDown returns two list of revisions scaling up and down based on the input TargetRevisions.
+func RetrieveRevsUpDown(targetRevs []v1.TargetRevision) ([]*v1.TargetRevision, []*v1.TargetRevision, error) {
+	targetRevsUp, targetRevsDown := make([]*v1.TargetRevision, 0), make([]*v1.TargetRevision, 0)
 	for i, rev := range targetRevs {
 		if rev.IsRevScalingUp() {
-			upIndex = i
+			targetRevsUp = append(targetRevsUp, &targetRevs[i])
 		} else if rev.IsRevScalingDown() {
-			downIndex = i
+			targetRevsDown = append(targetRevsDown, &targetRevs[i])
 		}
 	}
-	if upIndex == -1 || downIndex == -1 {
-		return nil, nil, fmt.Errorf("unable to find the revision to scale up or down in the target revisions %v", targetRevs)
+	if len(targetRevsUp) == 0 {
+		return targetRevsUp, targetRevsDown, fmt.Errorf("unable to find the revision to scale up in the target revisions %v", targetRevs)
 	}
-	return &targetRevs[upIndex], &targetRevs[downIndex], nil
+
+	return targetRevsUp, targetRevsDown, nil
 }
 
 // LastStageComplete decides whether the last stage of the progressive upgrade is complete or not.

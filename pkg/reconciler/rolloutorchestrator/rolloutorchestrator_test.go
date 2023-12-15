@@ -22,10 +22,12 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/apis/serving"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 func TestIsStageScaleUpReady(t *testing.T) {
@@ -45,13 +47,17 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			Status: v1.StagePodAutoscalerStatus{},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+
+			MinScale: ptr.Int32(8),
+			MaxScale: ptr.Int32(15),
 		},
 		ExpectedResult: false,
 	}, {
@@ -63,13 +69,15 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: true,
 	}, {
@@ -81,13 +89,15 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: false,
 	}, {
@@ -99,13 +109,15 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: false,
 	}, {
@@ -117,13 +129,15 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: true,
 	}, {
@@ -135,13 +149,15 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(11),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(11),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: true,
 	}, {
@@ -153,13 +169,15 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(7),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(7),
-			MaxScale:         ptr.Int32(7),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(7),
+			MinScale:       ptr.Int32(7),
+			MaxScale:       ptr.Int32(7),
 		},
 		ExpectedResult: false,
 	}, {
@@ -171,12 +189,14 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(7),
-			MaxScale:         ptr.Int32(7),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(7),
+			MaxScale:  ptr.Int32(7),
 		},
 		ExpectedResult: true,
 	}, {
@@ -188,12 +208,14 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(10),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(10),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: false,
 	}, {
@@ -205,12 +227,14 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(10),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(10),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: false,
 	}, {
@@ -222,12 +246,14 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(8),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: true,
 	}, {
@@ -239,12 +265,14 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(8),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: true,
 	}, {
@@ -256,12 +284,14 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(9),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(8),
+			MaxScale:  ptr.Int32(9),
 		},
 		ExpectedResult: false,
 	}}
@@ -293,13 +323,15 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			Status: v1.StagePodAutoscalerStatus{},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: false,
 	}, {
@@ -311,13 +343,15 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: true,
 	}, {
@@ -329,13 +363,15 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: true,
 	}, {
@@ -347,13 +383,15 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(15),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(8),
+			MaxScale:       ptr.Int32(15),
 		},
 		ExpectedResult: false,
 	}, {
@@ -365,13 +403,15 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			TargetReplicas:   ptr.Int32(7),
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(7),
-			MaxScale:         ptr.Int32(7),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction:      "down",
+			TargetReplicas: ptr.Int32(7),
+			MinScale:       ptr.Int32(7),
+			MaxScale:       ptr.Int32(7),
 		},
 		ExpectedResult: false,
 	}, {
@@ -383,12 +423,14 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(7),
-			MaxScale:         ptr.Int32(7),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(7),
+			MaxScale:  ptr.Int32(7),
 		},
 		ExpectedResult: false,
 	}, {
@@ -400,12 +442,14 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(10),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(10),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: true,
 	}, {
@@ -417,12 +461,14 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(10),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(10),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: true,
 	}, {
@@ -434,12 +480,14 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(8),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: true,
 	}, {
@@ -451,12 +499,14 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(10),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(8),
+			MaxScale:  ptr.Int32(10),
 		},
 		ExpectedResult: true,
 	}, {
@@ -468,12 +518,14 @@ func TestIsStageScaleDownReady(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "rev-0001",
-			Direction:        "down",
-			IsLatestRevision: ptr.Bool(false),
-			Percent:          ptr.Int64(50),
-			MinScale:         ptr.Int32(8),
-			MaxScale:         ptr.Int32(9),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "rev-0001",
+				LatestRevision: ptr.Bool(false),
+				Percent:        ptr.Int64(50),
+			},
+			Direction: "down",
+			MinScale:  ptr.Int32(8),
+			MaxScale:  ptr.Int32(9),
 		},
 		ExpectedResult: false,
 	}}
@@ -501,34 +553,48 @@ func TestRemoveNonTrafficRev(t *testing.T) {
 		name: "Test when TargetRevision as input has traffic with 0",
 		input: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-0001",
+					Percent:      ptr.Int64(100),
+				},
 			}, {
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(0),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-0002",
+					Percent:      ptr.Int64(0),
+				},
 			}},
 		ExpectedResult: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-0001",
+					Percent:      ptr.Int64(100),
+				},
 			}},
 	}, {
 		name: "Test when TargetRevision as input has traffic without 0",
 		input: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(50),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(50),
+				},
 			}, {
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(50),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(50),
+				},
 			}},
 		ExpectedResult: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(50),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(50),
+				},
 			}, {
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(50),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(50),
+				},
 			}},
 	}}
 
@@ -552,17 +618,23 @@ func TestLastStageComplete(t *testing.T) {
 		name: "Test when stageRevisionStatus as input has traffic 0, equal",
 		stageRevisionStatus: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(0),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(0),
+				},
 			}, {
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(100),
+				},
 			},
 		},
 		finalTargetRevs: []v1.TargetRevision{
 			{
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(100),
+				},
 			},
 		},
 		expectedResult: true,
@@ -570,17 +642,23 @@ func TestLastStageComplete(t *testing.T) {
 		name: "Test when stageRevisionStatus as input does not have traffic 0, not equal",
 		stageRevisionStatus: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(20),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
 			}, {
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(80),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(80),
+				},
 			},
 		},
 		finalTargetRevs: []v1.TargetRevision{
 			{
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(100),
+				},
 			},
 		},
 		expectedResult: false,
@@ -588,14 +666,18 @@ func TestLastStageComplete(t *testing.T) {
 		name: "Test when stageRevisionStatus as input does not have traffic 0, equal",
 		stageRevisionStatus: []v1.TargetRevision{
 			{
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(100),
+				},
 			},
 		},
 		finalTargetRevs: []v1.TargetRevision{
 			{
-				RevisionName: "r-002",
-				Percent:      ptr.Int64(100),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(100),
+				},
 			},
 		},
 		expectedResult: true,
@@ -612,74 +694,128 @@ func TestLastStageComplete(t *testing.T) {
 }
 
 func TestRetrieveRevsUpDown(t *testing.T) {
-	targetRevs := []v1.TargetRevision{
+	targetRevsNoUp := []v1.TargetRevision{
 		{
-			RevisionName: "r-001",
-			Direction:    "up",
-			Percent:      ptr.Int64(20),
-		}, {
-			RevisionName: "r-002",
-			Percent:      ptr.Int64(80),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName: "r-001",
+				Percent:      ptr.Int64(20),
+			},
+			Direction: "down",
+		},
+	}
+	targetRevsNoDown := []v1.TargetRevision{
+		{
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName: "r-001",
+				Percent:      ptr.Int64(20),
+			},
+			Direction: "up",
 		},
 	}
 	tests := []struct {
 		name        string
 		targetRevs  []v1.TargetRevision
-		upRev       *v1.TargetRevision
-		downRev     *v1.TargetRevision
+		upRev       []*v1.TargetRevision
+		downRev     []*v1.TargetRevision
 		expectedErr error
 	}{{
 		name: "Test when stageRevisionStatus as input has revisions scaling up and down",
 		targetRevs: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Percent:      ptr.Int64(20),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
 			}, {
-				RevisionName: "r-002",
-				Direction:    "down",
-				Percent:      ptr.Int64(80),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(80),
+				},
+				Direction: "down",
 			},
 		},
-		upRev: &v1.TargetRevision{
-			RevisionName: "r-001",
-			Percent:      ptr.Int64(20),
+		upRev: []*v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
+			},
 		},
-		downRev: &v1.TargetRevision{
-			RevisionName: "r-002",
-			Direction:    "down",
-			Percent:      ptr.Int64(80),
+		downRev: []*v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(80),
+				},
+				Direction: "down",
+			},
 		},
 		expectedErr: nil,
 	}, {
 		name: "Test when stageRevisionStatus as input has revisions scaling up specified and down",
 		targetRevs: []v1.TargetRevision{
 			{
-				RevisionName: "r-001",
-				Direction:    "up",
-				Percent:      ptr.Int64(20),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
+				Direction: "up",
 			}, {
-				RevisionName: "r-002",
-				Direction:    "down",
-				Percent:      ptr.Int64(80),
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(80),
+				},
+				Direction: "down",
 			},
 		},
-		upRev: &v1.TargetRevision{
-			RevisionName: "r-001",
-			Direction:    "up",
-			Percent:      ptr.Int64(20),
+		upRev: []*v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
+				Direction: "up",
+			},
 		},
-		downRev: &v1.TargetRevision{
-			RevisionName: "r-002",
-			Direction:    "down",
-			Percent:      ptr.Int64(80),
+		downRev: []*v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-002",
+					Percent:      ptr.Int64(80),
+				},
+				Direction: "down",
+			},
 		},
 		expectedErr: nil,
 	}, {
-		name:        "Test when stageRevisionStatus as input does not have revisions scaling up and down",
-		targetRevs:  targetRevs,
-		upRev:       nil,
-		downRev:     nil,
-		expectedErr: fmt.Errorf("unable to find the revision to scale up or down in the target revisions %v", targetRevs),
+		name:       "Test when stageRevisionStatus as input does not have revisions scaling up",
+		targetRevs: targetRevsNoUp,
+		upRev:      []*v1.TargetRevision{},
+		downRev: []*v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
+				Direction: "down",
+			},
+		},
+		expectedErr: fmt.Errorf("unable to find the revision to scale up in the target revisions %v", targetRevsNoUp),
+	}, {
+		name:       "Test when stageRevisionStatus as input does not have revisions scaling down",
+		targetRevs: targetRevsNoDown,
+		upRev: []*v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName: "r-001",
+					Percent:      ptr.Int64(20),
+				},
+				Direction: "up",
+			},
+		},
+		downRev:     []*v1.TargetRevision{},
+		expectedErr: nil,
 	}}
 
 	for _, test := range tests {
@@ -725,13 +861,15 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			Direction:        "up",
-			TargetReplicas:   ptr.Int32(2),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         nil,
-			MaxScale:         nil,
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			Direction:      "up",
+			TargetReplicas: ptr.Int32(2),
+			MinScale:       nil,
+			MaxScale:       nil,
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -748,13 +886,15 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			Direction:        "up",
-			TargetReplicas:   nil,
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(3),
-			MaxScale:         ptr.Int32(5),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			Direction:      "up",
+			TargetReplicas: nil,
+			MinScale:       ptr.Int32(3),
+			MaxScale:       ptr.Int32(5),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -771,13 +911,15 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			Direction:        "up",
-			TargetReplicas:   ptr.Int32(11),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(10),
-			MaxScale:         ptr.Int32(11),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			Direction:      "up",
+			TargetReplicas: ptr.Int32(11),
+			MinScale:       ptr.Int32(10),
+			MaxScale:       ptr.Int32(11),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -794,13 +936,15 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			Direction:        "up",
-			TargetReplicas:   ptr.Int32(5),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(10),
-			MaxScale:         ptr.Int32(11),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			Direction:      "up",
+			TargetReplicas: ptr.Int32(5),
+			MinScale:       ptr.Int32(10),
+			MaxScale:       ptr.Int32(11),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -817,13 +961,15 @@ func TestUpdateWithTargetReplicasRevUp(t *testing.T) {
 			},
 		},
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			Direction:        "up",
-			TargetReplicas:   ptr.Int32(4),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(100),
-			MinScale:         ptr.Int32(5),
-			MaxScale:         ptr.Int32(8),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(100),
+			},
+			Direction:      "up",
+			TargetReplicas: ptr.Int32(4),
+			MinScale:       ptr.Int32(5),
+			MaxScale:       ptr.Int32(8),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -872,12 +1018,14 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 		},
 		scaleUpReady: false,
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(10),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(100),
-			MaxScale:         ptr.Int32(100),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			TargetReplicas: ptr.Int32(10),
+			MinScale:       ptr.Int32(100),
+			MaxScale:       ptr.Int32(100),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -895,12 +1043,14 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 		},
 		scaleUpReady: true,
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   nil,
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(21),
-			MaxScale:         ptr.Int32(41),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			TargetReplicas: nil,
+			MinScale:       ptr.Int32(21),
+			MaxScale:       ptr.Int32(41),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -918,12 +1068,14 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 		},
 		scaleUpReady: true,
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(18),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(20),
-			MaxScale:         ptr.Int32(30),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			TargetReplicas: ptr.Int32(18),
+			MinScale:       ptr.Int32(20),
+			MaxScale:       ptr.Int32(30),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -941,12 +1093,14 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 		},
 		scaleUpReady: true,
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(18),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(17),
-			MaxScale:         ptr.Int32(30),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			TargetReplicas: ptr.Int32(18),
+			MinScale:       ptr.Int32(17),
+			MaxScale:       ptr.Int32(30),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -964,12 +1118,14 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 		},
 		scaleUpReady: true,
 		revision: &v1.TargetRevision{
-			RevisionName:     "r-001",
-			TargetReplicas:   ptr.Int32(31),
-			IsLatestRevision: ptr.Bool(true),
-			Percent:          ptr.Int64(20),
-			MinScale:         ptr.Int32(17),
-			MaxScale:         ptr.Int32(30),
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "r-001",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(20),
+			},
+			TargetReplicas: ptr.Int32(31),
+			MinScale:       ptr.Int32(17),
+			MaxScale:       ptr.Int32(30),
 		},
 		expectedResult: &v1.StagePodAutoscaler{
 			Spec: v1.StagePodAutoscalerSpec{
@@ -991,9 +1147,13 @@ func TestUpdateWithTargetReplicasRevDown(t *testing.T) {
 
 func TestCreateBaseStagePodAutoscaler(t *testing.T) {
 	revision := &v1.TargetRevision{
-		RevisionName: "test-001",
-		MinScale:     ptr.Int32(20),
-		MaxScale:     ptr.Int32(30),
+		TrafficTarget: servingv1.TrafficTarget{
+			RevisionName:   "test-001",
+			LatestRevision: ptr.Bool(true),
+			Percent:        ptr.Int64(20),
+		},
+		MinScale: ptr.Int32(20),
+		MaxScale: ptr.Int32(30),
 	}
 
 	ro := &v1.RolloutOrchestrator{

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2021 The Knative Authors
+# Copyright 2023 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,33 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Documentation about this script and how to use it can be found
+# at https://github.com/knative/test-infra/tree/main/ci
 
 source $(dirname $0)/../vendor/knative.dev/hack/release.sh
 
-declare -A COMPONENTS
-COMPONENTS=(
-  ["sample.yaml"]="config"
-)
-readonly COMPONENTS
-
 function build_release() {
-   # Update release labels if this is a tagged release
-  if [[ -n "${TAG}" ]]; then
-    echo "Tagged release, updating release labels to samples.knative.dev/release: \"${TAG}\""
-    LABEL_YAML_CMD=(sed -e "s|samples.knative.dev/release: devel|samples.knative.dev/release: \"${TAG}\"|")
-  else
-    echo "Untagged release, will NOT update release labels"
-    LABEL_YAML_CMD=(cat)
+  # Run `generate-yamls.sh`, which should be versioned with the
+  # branch since the detail of building may change over time.
+  local YAML_LIST="$(mktemp)"
+  export TAG
+  $(dirname $0)/generate-yamls.sh "${REPO_ROOT_DIR}" "${YAML_LIST}"
+  ARTIFACTS_TO_PUBLISH=$(cat "${YAML_LIST}" | tr '\n' ' ')
+  if (( ! PUBLISH_RELEASE )); then
+    # Copy the generated YAML files to the repo root dir if not publishing.
+    cp ${ARTIFACTS_TO_PUBLISH} ${REPO_ROOT_DIR}
   fi
-
-  local all_yamls=()
-  for yaml in "${!COMPONENTS[@]}"; do
-    local config="${COMPONENTS[${yaml}]}"
-    echo "Building Knative Sample Controller - ${config}"
-    ko resolve ${KO_FLAGS} -f ${config}/ | "${LABEL_YAML_CMD[@]}" > ${yaml}
-    all_yamls+=(${yaml})
-  done
-  ARTIFACTS_TO_PUBLISH="${all_yamls[@]}"
 }
 
 main $@

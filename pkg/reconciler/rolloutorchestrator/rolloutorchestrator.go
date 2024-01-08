@@ -117,9 +117,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				// scale down the old revision.
 				// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
 				// phase is not over.
-				if len(revScalingDown) == 0 {
-					return nil
-				}
 				for i := range revScalingDown {
 					if _, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown[i], false); err != nil {
 						return err
@@ -171,7 +168,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	}
 
 	if ro.IsStageReady() && ro.IsInProgress() && !LastStageComplete(ro.Status.StageRevisionStatus,
-		stageTargetRevisions) {
+		ro.Spec.TargetRevisions) {
 		// Start to move to the next stage.
 		ro.Status.LaunchNewStage()
 	}

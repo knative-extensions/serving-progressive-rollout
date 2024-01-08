@@ -17,14 +17,22 @@ limitations under the License.
 package v1
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"knative.dev/pkg/apis"
 )
 
-var rolloutOrchestratorCondSet = apis.NewLivingConditionSet(
-	SOStageReady,
-	SOLastStageComplete,
+var (
+	rolloutOrchestratorCondSet = apis.NewLivingConditionSet(
+		SOStageReady,
+		SOLastStageComplete,
+	)
+	RevisionRollingInProgress = "RevisionRollingInProgress"
+	LastStageNotReached       = "Still in the progress of rolling the new revision."
+	StageRevisionStart        = "StageRevisionStart"
+	RolloutNewStage           = "Rolling out a new stage."
 )
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
@@ -81,6 +89,12 @@ func (so *RolloutOrchestrator) IsStageScaleUpInProgress() bool {
 	return sos.GetCondition(SOStageScaleUpReady).IsUnknown()
 }
 
+func (so *RolloutOrchestrator) IsNotOneToOneUpgrade() bool {
+	// If the initial revision status contains more than one revision or 0 revision, or the ultimate revision target contains
+	// more than one revision, we will set the current stage target to the ultimate revision target.
+	return len(so.Spec.InitialRevisions) != 1 || len(so.Spec.TargetRevisions) != 1
+}
+
 // InitializeConditions sets the initial values to the conditions.
 func (sos *RolloutOrchestratorStatus) InitializeConditions() {
 	rolloutOrchestratorCondSet.Manage(sos).InitializeConditions()
@@ -119,8 +133,8 @@ func (sos *RolloutOrchestratorStatus) MarkLastStageRevisionComplete() {
 	rolloutOrchestratorCondSet.Manage(sos).MarkTrue(SOLastStageComplete)
 }
 
-func (sos *RolloutOrchestratorStatus) MarkLastStageRevisionInComplete(reason, message string) {
-	rolloutOrchestratorCondSet.Manage(sos).MarkUnknown(SOLastStageComplete, reason, message)
+func (sos *RolloutOrchestratorStatus) MarkLastStageRevisionInComplete() {
+	rolloutOrchestratorCondSet.Manage(sos).MarkUnknown(SOLastStageComplete, RevisionRollingInProgress, LastStageNotReached)
 }
 
 func (sos *RolloutOrchestratorStatus) MarkStageRevisionInProgress(reason, message string) {
@@ -133,4 +147,21 @@ func (sos *RolloutOrchestratorStatus) MarkStageRevisionScaleDownInProgress(reaso
 
 func (sos *RolloutOrchestratorStatus) MarkStageRevisionScaleUpInProgress(reason, message string) {
 	rolloutOrchestratorCondSet.Manage(sos).MarkUnknown(SOStageScaleUpReady, reason, message)
+}
+
+func (sos *RolloutOrchestratorStatus) LaunchNewStage() {
+	sos.MarkStageRevisionScaleUpInProgress(StageRevisionStart, RolloutNewStage)
+	sos.MarkStageRevisionScaleDownInProgress(StageRevisionStart, RolloutNewStage)
+	sos.MarkStageRevisionInProgress(StageRevisionStart, RolloutNewStage)
+	sos.MarkLastStageRevisionInComplete()
+}
+
+func (tR *TargetRevision) IsRevScalingUp() bool {
+	d := strings.TrimSpace(tR.Direction)
+	return len(d) == 0 || strings.ToLower(d) == "up"
+}
+
+func (tR *TargetRevision) IsRevScalingDown() bool {
+	d := strings.TrimSpace(tR.Direction)
+	return strings.ToLower(d) == "down"
 }

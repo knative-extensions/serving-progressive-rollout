@@ -23,6 +23,7 @@ import (
 	certificate "knative.dev/networking/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -57,6 +58,7 @@ var ctors = []injection.ControllerConstructor{
 	nscert.NewController,
 	certificate.NewControllerFactory(networking.ServingCertName),
 	domainmapping.NewController,
+	rolloutorchestrator.NewController,
 }
 
 func main() {

@@ -185,7 +185,7 @@ func rolloutOrchestratorWithLastStageIncomplete() *RolloutOrchestrator {
 	so.Status.MarkStageRevisionScaleUpReady()
 	so.Status.MarkStageRevisionScaleDownReady()
 	so.Status.MarkStageRevisionReady()
-	so.Status.MarkLastStageRevisionInComplete("", "")
+	so.Status.MarkLastStageRevisionInComplete()
 	return so
 }
 

@@ -21,6 +21,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
 // +genclient
@@ -52,9 +53,8 @@ var (
 
 // TargetRevision holds the information of the revision for the current stage.
 type TargetRevision struct {
-	// RevisionName indicates RevisionName.
-	// +optional
-	RevisionName string `json:"revisionName,omitempty"`
+	// TrafficTarget includes the information of the traffic for the revision.
+	servingv1.TrafficTarget `json:",inline"`
 
 	// Direction indicates up or down.
 	// +optional
@@ -63,21 +63,6 @@ type TargetRevision struct {
 	// TargetReplicas indicates an estimated number of replicas.
 	// +optional
 	TargetReplicas *int32 `json:"targetReplicas,omitempty"`
-
-	// IsLatestRevision indicates whether it is the last revision or not.
-	// +optional
-	IsLatestRevision *bool `json:"IslatestRevision,omitempty"`
-
-	// Percent indicates that percentage based routing should be used and
-	// the value indicates the percent of traffic that is routed to this
-	// Revision. `0` (zero) mean no traffic, `100` means all
-	// traffic.
-	// When percentage based routing is being used the follow rules apply:
-	// - the sum of all percent values must equal 100
-	// - when not specified, the implied value for `percent` is zero for
-	//   that particular Revision
-	// +optional
-	Percent *int64 `json:"percent,omitempty"`
 
 	// MinScale sets the lower bound for the number of the replicas.
 	// +optional

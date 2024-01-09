@@ -23,6 +23,7 @@ import (
 	certificate "knative.dev/networking/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
 	"knative.dev/serving/pkg/reconciler/configuration"
 	"knative.dev/serving/pkg/reconciler/gc"
 	"knative.dev/serving/pkg/reconciler/labeler"
@@ -30,7 +31,6 @@ import (
 	"knative.dev/serving/pkg/reconciler/revision"
 	"knative.dev/serving/pkg/reconciler/route"
 	"knative.dev/serving/pkg/reconciler/serverlessservice"
-	"knative.dev/serving/pkg/reconciler/service"
 
 	// This defines the shared main for injected controllers.
 	filteredFactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
@@ -39,6 +39,8 @@ import (
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/stagepodautoscaler"
 	"knative.dev/serving/pkg/networking"
 	"knative.dev/serving/pkg/reconciler/domainmapping"
+
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/service"
 )
 
 const (
@@ -57,6 +59,7 @@ var ctors = []injection.ControllerConstructor{
 	nscert.NewController,
 	certificate.NewControllerFactory(networking.ServingCertName),
 	domainmapping.NewController,
+	rolloutorchestrator.NewController,
 }
 
 func main() {

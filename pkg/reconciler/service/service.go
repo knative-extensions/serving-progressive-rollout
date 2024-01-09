@@ -172,6 +172,7 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	// StageTargetRevisions in the spec is nil.
 	ro := resources.NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget, service)
 
+	fmt.Println("Create the RO.")
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
 	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace))
 	r, e := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Create(
@@ -193,6 +194,7 @@ func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *ser
 	// if the final target revision is different from the existing final target revision.
 	ro = resources.UpdateFinalTargetRev(ultimateRevisionTarget, ro)
 
+	fmt.Println("Update the RO.")
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
 	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace))
 	r, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
@@ -220,16 +222,20 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade. We do not cover this use case in the implementation.
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
+		fmt.Println("Set TargetRevisions directly to StageTargetRevisions.")
 		return ro
 	}
 	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsReady()) {
-		// 1. If so.Spec.StageRevisionTarget is empty, we need to calculate the stage revision target as the new(next)
-		// target.
+		// 1. If so.Spec.StageRevisionTarget is empty, it means we either newly create the RO(User created the ksvc),
+		// or the final target revision is changed(User updated the ksvc). We need to calculate the stage revision
+		// target as the new(next) target.
 		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
+		fmt.Println("Calculate the new StageTargetRevisions.")
 		ro = updateStageTargetRevisions(ro, resources.OverSubRatio, podAutoscalerLister, time.Now())
 		return ro
 	}
+	fmt.Println("No need to update the StageTargetRevisions.")
 	return ro
 }
 

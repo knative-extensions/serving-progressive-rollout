@@ -117,6 +117,12 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				// scale down the old revision.
 				// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
 				// phase is not over.
+				fmt.Println("Current Stage scale up NOT reached.")
+				if len(revScalingDown) == 0 {
+					fmt.Println("There is no rev scaling down as defined.")
+				} else {
+					fmt.Println("There are revs scaling down as defined.")
+				}
 				for i := range revScalingDown {
 					if _, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown[i], false); err != nil {
 						return err
@@ -125,7 +131,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				return nil
 			}
 		}
-
+		fmt.Println("Current Stage scale up reached.")
 		ro.Status.MarkStageRevisionScaleUpReady()
 
 		// Create the stage pod autoscaler with the new maxScale set to targetScale defined
@@ -143,26 +149,34 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 					return err
 				}
 				if !IsStageScaleDownReady(spa, revScalingDown[i]) {
+					fmt.Println("Current Stage scale down NOT reached.")
 					return nil
 				}
 			}
 		}
+		fmt.Println("Current Stage scale down reached.")
 		ro.Status.MarkStageRevisionScaleDownReady()
 
 		// Clean up and set the status of the StageRevision. It means the orchestrator has accomplished this stage.
 		if len(ro.Spec.TargetRevisions) < len(stageTargetRevisions) {
 			stageCleaned := RemoveNonTrafficRev(stageTargetRevisions)
+			fmt.Println("StageRevisionStatus Updated.")
 			ro.Status.SetStageRevisionStatus(stageCleaned)
 		} else {
+			fmt.Println("StageRevisionStatus Updated.")
 			ro.Status.SetStageRevisionStatus(stageTargetRevisions)
 		}
 
+		fmt.Println("Current Stage reached.")
 		ro.Status.MarkStageRevisionReady()
 
 		if LastStageComplete(ro.Status.StageRevisionStatus, ro.Spec.TargetRevisions) {
+			fmt.Println("Final Stage reached.")
 			ro.Status.MarkLastStageRevisionComplete()
 			return nil
 		}
+
+		fmt.Println("Final Stage NOT reached.")
 		ro.Status.MarkLastStageRevisionInComplete()
 		return nil
 	}
@@ -170,6 +184,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	if ro.IsStageReady() && ro.IsInProgress() && !LastStageComplete(ro.Status.StageRevisionStatus,
 		ro.Spec.TargetRevisions) {
 		// Start to move to the next stage.
+		fmt.Println("current StageTargetRevisions reached.")
+		fmt.Println("Need to calculate the new StageTargetRevisions.")
 		ro.Status.LaunchNewStage()
 	}
 
@@ -311,10 +327,31 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	}
 	min := getMinScale(revision)
 	max := getMaxScale(revision)
+
+	fmt.Println("The rev name is")
+	fmt.Println(revision.RevisionName)
+	fmt.Println("The min is")
+	fmt.Println(min)
+	fmt.Println("The max is")
+	fmt.Println(max)
 	if revision.TargetReplicas == nil {
+		fmt.Println("The TargetReplicas is empty.")
+		fmt.Println("The stage DesiredScale is")
+		fmt.Println(*spa.Status.DesiredScale)
+		fmt.Println("The stage ActualScale is")
+		fmt.Println(*spa.Status.ActualScale)
 		// For revision scaling up without TargetReplicas, it means this revision will be assigned 100% of the traffic.
 		return actualScaleBetweenMinMax(spa, min, max)
 	}
+
+	fmt.Println("The TargetReplicas is not empty.")
+	fmt.Println("the TargetReplicas is")
+	fmt.Println(*revision.TargetReplicas)
+
+	fmt.Println("The stage DesiredScale is")
+	fmt.Println(*spa.Status.DesiredScale)
+	fmt.Println("The stage ActualScale is")
+	fmt.Println(*spa.Status.ActualScale)
 
 	// There are two modes to scale up and down the replicas of the revisions:
 	// 1. No traffic. Knative Service specifies both min and max scales for the revision. We need to control the
@@ -326,16 +363,13 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	// 2. Traffic driven. In this case, TargetReplicas is larger than minScale and lower than or equal to maxScale
 	// for the revision. We need to change the number of the replicas by shifting the traffic. As long as we know the
 	// new revision is on the way of scaling up, we are able to start the scaling down phase as well.
-	if *spa.Status.DesiredScale >= *revision.TargetReplicas && *spa.Status.ActualScale >= *revision.TargetReplicas {
+	if min >= *revision.TargetReplicas {
 		// This is for the first mode.
-		return true
-	}
-	if *spa.Status.DesiredScale >= min && *spa.Status.DesiredScale == *spa.Status.ActualScale {
-		// This is for the second mode.
-		return true
+		return *spa.Status.DesiredScale >= *revision.TargetReplicas && *spa.Status.ActualScale >= *revision.TargetReplicas
 	}
 
-	return false
+	// This is for the second mode.
+	return *spa.Status.DesiredScale >= min+1 && *spa.Status.ActualScale >= min+1 && *spa.Status.DesiredScale == *spa.Status.ActualScale
 }
 
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based

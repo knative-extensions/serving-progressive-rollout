@@ -164,8 +164,9 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 // UpdateFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
 func UpdateFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
-		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the RolloutOrchestrator
-		// will start a new rollout, so we update the InitialRevisions, TargetRevisions and StageTargetRevisions
+		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the user updated the ksvc,
+		// leading to the new rollout, and the RolloutOrchestrator will start a new rollout, so we need to update
+		// the InitialRevisions, TargetRevisions and StageTargetRevisions.
 		if len(ro.Status.StageRevisionStatus) != 0 {
 			// Set the current StageRevisionStatus in status to the InitialRevisions.
 			ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
@@ -181,8 +182,8 @@ func UpdateFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.Rol
 		ro.Spec.TargetFinishTime = apis.VolatileTime{}
 	}
 
-	// If ultimateRevisionTarget is equal to the TargetRevisions in the spec, it means it is still in the progress of
-	// rolling out the new revision, so there is no change to the RolloutOrchestrator.
+	// If ultimateRevisionTarget is equal to the TargetRevisions in the spec(), it means no update happened on the ksvc,
+	// and it is still in the progress of rolling out the new revision. No need to change the RolloutOrchestrator.
 	return ro
 }
 

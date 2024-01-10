@@ -326,16 +326,13 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	// 2. Traffic driven. In this case, TargetReplicas is larger than minScale and lower than or equal to maxScale
 	// for the revision. We need to change the number of the replicas by shifting the traffic. As long as we know the
 	// new revision is on the way of scaling up, we are able to start the scaling down phase as well.
-	if *spa.Status.DesiredScale >= *revision.TargetReplicas && *spa.Status.ActualScale >= *revision.TargetReplicas {
+	if min >= *revision.TargetReplicas {
 		// This is for the first mode.
-		return true
-	}
-	if *spa.Status.DesiredScale >= min && *spa.Status.DesiredScale == *spa.Status.ActualScale {
-		// This is for the second mode.
-		return true
+		return *spa.Status.DesiredScale >= *revision.TargetReplicas && *spa.Status.ActualScale >= *revision.TargetReplicas
 	}
 
-	return false
+	// This is for the second mode.
+	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min && *spa.Status.DesiredScale == *spa.Status.ActualScale
 }
 
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based

@@ -95,6 +95,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	// Read the configuration in the configMap config-rolloutorchestrator.
 	cm, err := c.configmapLister.ConfigMaps(system.Namespace()).Get(resources.ConfigMapName)
 	if err != nil {
+		fmt.Println("the ns is")
+		fmt.Println("the ns is")
 		return err
 	}
 

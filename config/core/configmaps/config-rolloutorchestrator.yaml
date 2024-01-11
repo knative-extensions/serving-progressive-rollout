@@ -32,11 +32,9 @@ data:
     # allow the total maximum number of pods to reach 8+Ceiling(8*10%)=9 pods. Each stage, we roll out 10% more,
     # adding one more pod to the new revision and reducing one pod of the existing revision.
     over-consumption-ratio: "10"
-
     # progressive-rollout-enabled is boolean value that determines whether progressive rollout feature is enabled or not.
     # The default value is true.
     progressive-rollout-enabled: "true"
-    
     # stage-rollout-timeout-minutes contains the timeout value of minutes to use for each stage to accomplish in the
     # rollout process. If each stage is not accomplished during this timeout period, we will move on to the next stage,
     # by shifting more percentage of the traffic onto the new revision.

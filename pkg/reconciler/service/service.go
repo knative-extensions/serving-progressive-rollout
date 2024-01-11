@@ -94,9 +94,7 @@ func NewReconciler(prclient clientset.Interface, client servingclientset.Interfa
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Service) pkgreconciler.Event {
 	// Read the configuration in the configMap config-rolloutorchestrator.
 	cm, err := c.configmapLister.ConfigMaps(system.Namespace()).Get(resources.ConfigMapName)
-	if err != nil {
-		fmt.Println("the ns is")
-		fmt.Println("the ns is")
+	if err != nil && !apierrs.IsNotFound(err) {
 		return err
 	}
 

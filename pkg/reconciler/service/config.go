@@ -46,6 +46,10 @@ func NewConfigFromConfigMapFunc() func(configMap *corev1.ConfigMap) (*RolloutCon
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		}
 
+		if configMap == nil || len(configMap.Data) == 0 {
+			return rolloutConfig, nil
+		}
+
 		if err := cm.Parse(configMap.Data,
 			cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
 			cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),

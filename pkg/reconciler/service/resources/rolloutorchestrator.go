@@ -34,6 +34,21 @@ var (
 	// OverSubRatio is the parameter, that determines how much percentage of the traffic to shift
 	// from the old to the new revision during each stage in the progressive rollout.
 	OverSubRatio = 10
+
+	// DefaultStageRolloutTimeout is the default timeout for stage to accomplish during the rollout.
+	DefaultStageRolloutTimeout = 2
+
+	// GroupName is the group name.
+	GroupName = "rollout.knative.dev"
+
+	// OverConsumptionRatioKey is the annotation key Knative Service can use to specify the over consumption ratio.
+	OverConsumptionRatioKey = GroupName + "/over-consumption-ratio"
+
+	// StageRolloutTimeout is the annotation key Knative Service can use to specify the stage rollout timeout.
+	StageRolloutTimeout = GroupName + "/stage-rollout-timeout"
+
+	// ConfigMapName is the name of the ConfigMap, that saves the configuration information about the rollout orchestrator.
+	ConfigMapName = "config-rolloutorchestrator"
 )
 
 // RevisionRecord is a struct that hosts the name, minScale and maxScale for the revision.

@@ -27,6 +27,8 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/system"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
@@ -56,7 +58,10 @@ type Reconciler struct {
 	revisionLister            servinglisters.RevisionLister
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
+	configmapLister           corev1listers.ConfigMapLister
 	enqueueAfter              func(interface{}, time.Duration)
+
+	rolloutConfig *RolloutConfig
 }
 
 // Check that our Reconciler implements ksvcreconciler.Interface
@@ -68,7 +73,7 @@ var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 func NewReconciler(prclient clientset.Interface, client servingclientset.Interface, configurationLister servinglisters.ConfigurationLister,
 	revisionLister servinglisters.RevisionLister, routeLister servinglisters.RouteLister,
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister,
-	podAutoscalerLister palisters.PodAutoscalerLister) *Reconciler {
+	podAutoscalerLister palisters.PodAutoscalerLister, configmapLister corev1listers.ConfigMapLister) *Reconciler {
 	return &Reconciler{
 		baseReconciler: servingService.NewReconciler(
 			client,
@@ -81,23 +86,44 @@ func NewReconciler(prclient clientset.Interface, client servingclientset.Interfa
 		revisionLister:            revisionLister,
 		rolloutOrchestratorLister: rolloutOrchestratorLister,
 		podAutoscalerLister:       podAutoscalerLister,
+		configmapLister:           configmapLister,
 	}
 }
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Service) pkgreconciler.Event {
-	// Based ont eh information in the CR service, we create or update the content of the CR RolloutOrchestrator.
-	rolloutOrchestrator, err := c.rolloutOrchestrator(ctx, service)
+	// Read the configuration in the configMap config-rolloutorchestrator.
+	cm, err := c.configmapLister.ConfigMaps(system.Namespace()).Get(resources.ConfigMapName)
 	if err != nil {
 		return err
 	}
 
-	// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
-	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator))
-	if err != nil {
+	// Load the configuration into the struct.
+	if c.rolloutConfig, err = NewConfigFromConfigMapFunc()(cm); err != nil {
 		return err
 	}
-	return c.checkServiceOrchestratorsReady(ctx, rolloutOrchestrator, service)
+
+	// Check configuration in the service's annotation for possible overriding.
+	LoadConfigFromService(service.Annotations, c.rolloutConfig)
+
+	// If the progressive rollout is enabled, create the rollout orchestrator before and check the rollout orchestrator
+	// after calling the default ReconcileKind of knative service.
+	if c.rolloutConfig.ProgressiveRolloutEnabled {
+		// Based on the information in the CR service, we create or update the content of the CR RolloutOrchestrator.
+		rolloutOrchestrator, err := c.rolloutOrchestrator(ctx, service)
+		if err != nil {
+			return err
+		}
+		// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
+		err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator))
+		if err != nil {
+			return err
+		}
+		return c.checkServiceOrchestratorsReady(ctx, rolloutOrchestrator, service)
+	}
+
+	// If the progressive rollout is disabled, call the default ReconcileKind of knative service.
+	return c.baseReconciler.ReconcileKind(ctx, service)
 }
 
 // rolloutOrchestrator implements logic to create or update the CR RolloutOrchestrator.
@@ -173,7 +199,7 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	ro := resources.NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget, service)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
-	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace))
+	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
 	r, e := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Create(
 		ctx, ro, metav1.CreateOptions{})
 
@@ -194,7 +220,7 @@ func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *ser
 	ro = resources.UpdateFinalTargetRev(ultimateRevisionTarget, ro)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
-	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace))
+	ro = updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
 	r, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
 	return r, err
 }
@@ -215,7 +241,7 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 // updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target, if it is the start of the upgrade,
 // or during the upgrade transition, one stage has finished but the last stage not reached.
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) *v1.RolloutOrchestrator {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) *v1.RolloutOrchestrator {
 	if ro.IsNotOneToOneUpgrade() {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade. We do not cover this use case in the implementation.
@@ -227,7 +253,7 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// target.
 		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
-		ro = updateStageTargetRevisions(ro, resources.OverSubRatio, podAutoscalerLister, time.Now())
+		ro = updateStageTargetRevisions(ro, config.OverConsumptionRatio, podAutoscalerLister, time.Now())
 		return ro
 	}
 	return ro
@@ -347,23 +373,23 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	now := metav1.NewTime(time.Now())
 	if targetTime.Inner.Before(&now) {
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
-		so.Spec.StageTargetRevisions = shiftTrafficNextStage(so.Spec.StageTargetRevisions)
+		so.Spec.StageTargetRevisions = shiftTrafficNextStage(so.Spec.StageTargetRevisions, c.rolloutConfig.OverConsumptionRatio)
 		t := time.Now()
-		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Minute * 2))
+		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Duration(float64(c.rolloutConfig.OverConsumptionRatio) * float64(time.Minute))))
 		_, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
-		c.enqueueAfter(service, time.Duration(60*float64(time.Second)))
+		c.enqueueAfter(service, time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes)*float64(time.Minute)))
 		return nil
 	}
 	// If not, continue to wait.
-	c.enqueueAfter(service, time.Duration(60*float64(time.Second)))
+	c.enqueueAfter(service, time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes)*float64(time.Minute)))
 	return nil
 }
 
-func shiftTrafficNextStage(revisionTarget []v1.TargetRevision) []v1.TargetRevision {
-	stageTrafficDeltaInt := int64(resources.OverSubRatio)
+func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, overSubRatio int) []v1.TargetRevision {
+	stageTrafficDeltaInt := int64(overSubRatio)
 	for i := range revisionTarget {
 		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
 			if *revisionTarget[i].Percent+stageTrafficDeltaInt >= 100 {

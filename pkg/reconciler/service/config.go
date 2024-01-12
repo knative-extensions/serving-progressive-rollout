@@ -38,28 +38,27 @@ type RolloutConfig struct {
 	StageRolloutTimeoutMinutes int
 }
 
-func NewConfigFromConfigMapFunc() func(configMap *corev1.ConfigMap) (*RolloutConfig, error) {
-	return func(configMap *corev1.ConfigMap) (*RolloutConfig, error) {
-		rolloutConfig := &RolloutConfig{
-			OverConsumptionRatio:       resources.OverSubRatio,
-			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
-		}
+func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap) (*RolloutConfig, error) {
+	rolloutConfig := &RolloutConfig{
+		OverConsumptionRatio:       resources.OverSubRatio,
+		ProgressiveRolloutEnabled:  true,
+		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+	}
 
-		if configMap == nil || len(configMap.Data) == 0 {
-			return rolloutConfig, nil
-		}
-
-		if err := cm.Parse(configMap.Data,
-			cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
-			cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
-			cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
-		); err != nil {
-			return nil, fmt.Errorf("failed to parse data: %w", err)
-		}
-
+	if configMap == nil || len(configMap.Data) == 0 {
 		return rolloutConfig, nil
 	}
+
+	if err := cm.Parse(configMap.Data,
+		cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
+		cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
+		cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
+	); err != nil {
+		return nil, fmt.Errorf("failed to parse data: %w", err)
+	}
+
+	return rolloutConfig, nil
+
 }
 
 func LoadConfigFromService(annotation map[string]string, rolloutConfig *RolloutConfig) {

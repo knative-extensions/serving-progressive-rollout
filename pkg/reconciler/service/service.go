@@ -99,7 +99,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	}
 
 	// Load the configuration into the struct.
-	if c.rolloutConfig, err = NewConfigFromConfigMapFunc()(cm); err != nil {
+	if c.rolloutConfig, err = NewConfigFromConfigMapFunc(cm); err != nil {
 		return err
 	}
 

@@ -104,26 +104,19 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	}
 
 	// Check configuration in the service's annotation for possible overriding.
-	LoadConfigFromService(service.Annotations, c.rolloutConfig)
+	LoadConfigFromService(service.Spec.Template.Annotations, c.rolloutConfig)
 
-	// If the progressive rollout is enabled, create the rollout orchestrator before and check the rollout orchestrator
-	// after calling the default ReconcileKind of knative service.
-	if c.rolloutConfig.ProgressiveRolloutEnabled {
-		// Based on the information in the CR service, we create or update the content of the CR RolloutOrchestrator.
-		rolloutOrchestrator, err := c.rolloutOrchestrator(ctx, service)
-		if err != nil {
-			return err
-		}
-		// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
-		err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator))
-		if err != nil {
-			return err
-		}
-		return c.checkServiceOrchestratorsReady(ctx, rolloutOrchestrator, service)
+	// Based on the information in the CR service, we create or update the content of the CR RolloutOrchestrator.
+	rolloutOrchestrator, err := c.rolloutOrchestrator(ctx, service)
+	if err != nil {
+		return err
 	}
-
-	// If the progressive rollout is disabled, call the default ReconcileKind of knative service.
-	return c.baseReconciler.ReconcileKind(ctx, service)
+	// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
+	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator))
+	if err != nil {
+		return err
+	}
+	return c.checkServiceOrchestratorsReady(ctx, rolloutOrchestrator, service)
 }
 
 // rolloutOrchestrator implements logic to create or update the CR RolloutOrchestrator.
@@ -242,9 +235,10 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 // or during the upgrade transition, one stage has finished but the last stage not reached.
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) *v1.RolloutOrchestrator {
-	if ro.IsNotOneToOneUpgrade() {
+	if ro.IsNotOneToOneUpgrade() || !config.ProgressiveRolloutEnabled {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
-		// one-to-one revision upgrade. We do not cover this use case in the implementation.
+		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
+		// in the implementation.
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 		return ro
 	}

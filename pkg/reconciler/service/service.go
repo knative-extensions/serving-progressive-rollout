@@ -287,9 +287,9 @@ func getGauge(targetRevs []v1.TargetRevision, index int,
 	currentTraffic := *revisionStatus.Percent
 
 	// We do not need to run any validation here, since we can make sure there
-	// is podAutoscaler for the specific revision and there is DesiredScale in the status.
+	// is podAutoscaler for the specific revision and there is ActualScale in the status.
 	pa, _ := podAutoscalerLister.Get(revisionStatus.RevisionName)
-	currentReplicas := *pa.Status.DesiredScale
+	currentReplicas := *pa.Status.ActualScale
 	return currentReplicas, currentTraffic
 }
 
@@ -435,7 +435,7 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 		pa, _ := podAutoscalerLister.Get(target.RevisionName)
 		oldRevReplicas := int32(0)
 		if pa != nil {
-			oldRevReplicas = *pa.Status.DesiredScale
+			oldRevReplicas = *pa.Status.ActualScale
 		}
 		if oldRevReplicas < 0 {
 			oldRevReplicas = 0

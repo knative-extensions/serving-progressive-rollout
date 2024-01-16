@@ -300,7 +300,7 @@ func LastStageComplete(stageRevisionStatus, finalTargetRevs []v1.TargetRevision)
 }
 
 func actualScaleBetweenMinMax(spa *v1.StagePodAutoscaler, min, max int32) bool {
-	return *spa.Status.DesiredScale == *spa.Status.ActualScale && *spa.Status.ActualScale >= min && *spa.Status.ActualScale <= max
+	return *spa.Status.ActualScale >= min && *spa.Status.ActualScale <= max
 }
 
 // IsStageScaleUpReady decides whether the scaling up has completed or on the way for the current stage, based
@@ -332,7 +332,7 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	}
 
 	// This is for the second mode.
-	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min && *spa.Status.DesiredScale == *spa.Status.ActualScale
+	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min
 }
 
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based

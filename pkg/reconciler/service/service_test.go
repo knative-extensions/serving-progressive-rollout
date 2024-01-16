@@ -800,7 +800,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res := updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister, test.time)
+			res := updateStageTargetRevisions(getStartRevisions(test.ro), test.ro, test.ratio, test.podAutoscalerLister, test.time)
 			if !reflect.DeepEqual(res, test.ExpectedR) {
 				t.Fatalf("Result of updateStageTargetRevisions() = %v, want %v", res, test.ExpectedR)
 			}

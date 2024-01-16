@@ -246,7 +246,7 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// target.
 		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
-		ro = updateStageTargetRevisions(ro, config, podAutoscalerLister, time.Now())
+		ro = updateStageTargetRevisions(getStartRevisions(ro), ro, config, podAutoscalerLister, time.Now())
 		return ro
 	}
 	return ro
@@ -301,11 +301,10 @@ func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio 
 
 // updateStageTargetRevisions updates the StageTargetRevisions based on the existing StageTargetRevisions,
 // Initial target Revisions, Final target revisions, and the current PodAutoscaler.
-func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfig,
+func updateStageTargetRevisions(startRevisions []v1.TargetRevision, ro *v1.RolloutOrchestrator, config *RolloutConfig,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, t time.Time) *v1.RolloutOrchestrator {
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
-	startRevisions := getStartRevisions(ro)
 	index := getGaugeIndex(startRevisions)
 	if index == -1 {
 		// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
@@ -361,14 +360,12 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 		return nil
 	}
 
-	targetTime := so.Spec.TargetFinishTime
-
 	now := metav1.NewTime(time.Now())
-	if targetTime.Inner.Before(&now) {
+	if so.Spec.TargetFinishTime.Inner.Before(&now) {
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
-		so.Spec.StageTargetRevisions = shiftTrafficNextStage(so.Spec.StageTargetRevisions, c.rolloutConfig.OverConsumptionRatio)
-		t := time.Now()
-		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes) * float64(time.Minute))))
+		so.Spec.StageTargetRevisions = shiftTrafficNextStage(so.Spec.StageTargetRevisions, c.rolloutConfig.OverConsumptionRatio,
+			c.podAutoscalerLister.PodAutoscalers(so.Namespace))
+		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes) * float64(time.Minute))))
 		_, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 		if err != nil {
 			return err
@@ -381,20 +378,24 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	return nil
 }
 
-func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, overSubRatio int) []v1.TargetRevision {
+func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, overSubRatio int,
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) []v1.TargetRevision {
 	stageTrafficDeltaInt := int64(overSubRatio)
+	currentReplicas, currentTraffic := getGauge(revisionTarget, 1, podAutoscalerLister)
 	for i := range revisionTarget {
 		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
 			if *revisionTarget[i].Percent+stageTrafficDeltaInt >= 100 {
 				revisionTarget[i].Percent = ptr.Int64(100)
 			} else {
 				revisionTarget[i].Percent = ptr.Int64(*revisionTarget[i].Percent + stageTrafficDeltaInt)
+				revisionTarget[i].TargetReplicas = ptr.Int32(int32(math.Round(float64(currentReplicas) * float64(*revisionTarget[i].Percent) / float64(currentTraffic))))
 			}
 		} else if revisionTarget[i].Direction == "down" {
 			if *revisionTarget[i].Percent-stageTrafficDeltaInt <= 0 {
 				revisionTarget[i].Percent = ptr.Int64(0)
 			} else {
 				revisionTarget[i].Percent = ptr.Int64(*revisionTarget[i].Percent - stageTrafficDeltaInt)
+				revisionTarget[i].TargetReplicas = ptr.Int32(int32(math.Ceil(float64(currentReplicas) * float64(*revisionTarget[i].Percent) / float64(currentTraffic))))
 			}
 		}
 	}

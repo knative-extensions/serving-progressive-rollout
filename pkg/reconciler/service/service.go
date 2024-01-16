@@ -36,7 +36,6 @@ import (
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
-	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -247,7 +246,7 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// target.
 		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
-		ro = updateStageTargetRevisions(ro, config.OverConsumptionRatio, podAutoscalerLister, time.Now())
+		ro = updateStageTargetRevisions(ro, config, podAutoscalerLister, time.Now())
 		return ro
 	}
 	return ro
@@ -302,7 +301,7 @@ func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio 
 
 // updateStageTargetRevisions updates the StageTargetRevisions based on the existing StageTargetRevisions,
 // Initial target Revisions, Final target revisions, and the current PodAutoscaler.
-func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, ratio int,
+func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfig,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, t time.Time) *v1.RolloutOrchestrator {
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
@@ -321,7 +320,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, ratio int,
 	// The deltaReplicas will be the number of replicas the new revision will increase by. The deltaTrafficPercent
 	// will be the traffic percentage that will be shifted to the new revision.
 	// For the old revision, just do the opposite.
-	deltaReplicas, deltaTrafficPercent := getDeltaReplicasTraffic(currentReplicas, currentTraffic, ratio)
+	deltaReplicas, deltaTrafficPercent := getDeltaReplicasTraffic(currentReplicas, currentTraffic, config.OverConsumptionRatio)
 
 	// Based on the min, max and currentReplicas, we can decide the number of replicas for the revisions
 	// are either traffic driven or non-traffic driven.
@@ -336,7 +335,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, ratio int,
 	}
 
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
-	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Minute * common.DefaultStageTimeout))
+	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
 	return ro
 }
 
@@ -369,7 +368,7 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
 		so.Spec.StageTargetRevisions = shiftTrafficNextStage(so.Spec.StageTargetRevisions, c.rolloutConfig.OverConsumptionRatio)
 		t := time.Now()
-		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Duration(float64(c.rolloutConfig.OverConsumptionRatio) * float64(time.Minute))))
+		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes) * float64(time.Minute))))
 		_, err := c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 		if err != nil {
 			return err

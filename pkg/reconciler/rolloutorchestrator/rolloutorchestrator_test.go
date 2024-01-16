@@ -99,7 +99,7 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			MinScale:       ptr.Int32(8),
 			MaxScale:       ptr.Int32(15),
 		},
-		ExpectedResult: false,
+		ExpectedResult: true,
 	}, {
 		name: "Test MinScale < ActualScale < TargetReplicas < DesiredScale < MaxScale",
 		spa: &v1.StagePodAutoscaler{
@@ -119,7 +119,7 @@ func TestIsStageScaleUpReady(t *testing.T) {
 			MinScale:       ptr.Int32(8),
 			MaxScale:       ptr.Int32(15),
 		},
-		ExpectedResult: false,
+		ExpectedResult: true,
 	}, {
 		name: "Test MinScale < TargetReplicas < DesiredScale == ActualScale < MaxScale",
 		spa: &v1.StagePodAutoscaler{

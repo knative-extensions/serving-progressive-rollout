@@ -438,7 +438,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 	tests := []struct {
 		name                string
 		ro                  *v1.RolloutOrchestrator
-		ratio               int
+		ratio               *RolloutConfig
 		podAutoscalerLister palisters.PodAutoscalerNamespaceLister
 		time                time.Time
 		ExpectedR           *v1.RolloutOrchestrator
@@ -470,11 +470,16 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 				},
 				StageTarget: v1.StageTarget{
 					StageTargetRevisions: nil,
-					TargetFinishTime:     apis.VolatileTime{},
+					TargetFinishTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
+					},
 				},
 			},
 		},
-		ratio:               30,
+		ratio: &RolloutConfig{
+			OverConsumptionRatio:       30,
+			StageRolloutTimeoutMinutes: 2,
+		},
 		podAutoscalerLister: &MockPodAutoscalerLister{},
 		time:                now,
 		ExpectedR: &v1.RolloutOrchestrator{
@@ -583,7 +588,9 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 							TargetReplicas: ptr.Int32(2),
 						},
 					},
-					TargetFinishTime: apis.VolatileTime{},
+					TargetFinishTime: apis.VolatileTime{
+						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
+					},
 				},
 			},
 			Status: v1.RolloutOrchestratorStatus{
@@ -615,7 +622,10 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 				},
 			},
 		},
-		ratio:               20,
+		ratio: &RolloutConfig{
+			OverConsumptionRatio:       20,
+			StageRolloutTimeoutMinutes: 2,
+		},
 		podAutoscalerLister: &MockPodAutoscalerDoubleRevs{},
 		time:                now,
 		ExpectedR: &v1.RolloutOrchestrator{
@@ -736,7 +746,10 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 				RolloutOrchestratorStatusFields: v1.RolloutOrchestratorStatusFields{},
 			},
 		},
-		ratio:               100,
+		ratio: &RolloutConfig{
+			OverConsumptionRatio:       100,
+			StageRolloutTimeoutMinutes: 2,
+		},
 		podAutoscalerLister: &MockPodAutoscalerDoubleRevs{},
 		time:                now,
 		ExpectedR: &v1.RolloutOrchestrator{

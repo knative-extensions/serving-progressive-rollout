@@ -38,6 +38,8 @@ type RolloutConfig struct {
 	StageRolloutTimeoutMinutes int
 }
 
+// NewConfigFromConfigMapFunc reads the configurations: OverConsumptionRatio, ProgressiveRolloutEnabled and
+// StageRolloutTimeoutMinutes available in the configmap.
 func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap) (*RolloutConfig, error) {
 	rolloutConfig := &RolloutConfig{
 		OverConsumptionRatio:       resources.OverSubRatio,
@@ -61,6 +63,8 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap) (*RolloutConfig, er
 
 }
 
+// LoadConfigFromService reads the configurations: OverConsumptionRatio and
+// StageRolloutTimeoutMinutes available in the annotation of the knative service.
 func LoadConfigFromService(annotation map[string]string, rolloutConfig *RolloutConfig) {
 	if val, ok := annotation[resources.OverConsumptionRatioKey]; ok {
 		ratio, err := strconv.Atoi(val)

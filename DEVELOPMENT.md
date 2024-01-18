@@ -1,72 +1,52 @@
-# Development
+Most users are expected to use a released version of the serving-progressive-rollout, but if you're
+testing or want to use a pre-released version of the release yamls, you may want to build your own
+copy of the operator.
 
-This doc explains how to setup a development environment so you can get started
-[contributing](https://www.knative.dev/contributing/) to Knative
-`sample-controller`. Also take a look at:
+## Installing from source
 
-- [The pull request workflow](https://knative.dev/community/contributing/reviewing/)
+You can install the Knative Operator from the source code using the
+[ko](https://github.com/google/ko) build tool.
 
-## Getting started
+1. [Install Knative Serving](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/):
 
-1. Create [a GitHub account](https://github.com/join)
-1. Setup
-   [GitHub access via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
-1. Install [requirements](#requirements)
-1. Set up your [shell environment](#environment-setup)
-1. [Create and checkout a repo fork](#checkout-your-fork)
+1. Download the source code:
 
-Before submitting a PR, see also [CONTRIBUTING.md](./CONTRIBUTING.md).
+   ```
+   git clone https://github.com/knative-extensions/serving-progressive-rollout.git
+   ```
 
-### Requirements
+1. Install the CRDs and the ConfigMaps:
 
-You must install these tools:
+   ```
+   kubectl apply -f config/core/300-resources
+   kubectl apply -f config/core/configmaps
+   ```
 
-1. [`go`](https://golang.org/doc/install): The language Knative
-   `sample-controller` is built in
-1. [`git`](https://help.github.com/articles/set-up-git/): For source control
+1. Install the serving progressive rollout:
 
-### Environment setup
+   ```
+   ko apply -f config/core/deployments/autoscaler.yaml
+   ko apply -f config/core/deployments/controller.yaml
+   ```
 
-To get started you'll need to set these environment variables (we recommend
-adding them to your `.bashrc`):
+1. To verify the installation:
 
-1. `GOPATH`: If you don't have one, simply pick a directory and add
-   `export GOPATH=...`
+   ```
+   kubectl get deployment -n knative-serving
+   ```
 
-1. `$GOPATH/bin` on `PATH`: This is so that tooling installed via `go get` will
-   work properly.
+   Make sure that the deployment resources named controller and autoscaler, are up and running as below:
 
-`.bashrc` example:
+   ```
+   NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
+   activator              1/1     1            1           26h
+   autoscaler             1/1     1            1           26h
+   autoscaler-hpa         1/1     1            1           26h
+   controller             1/1     1            1           17h
+   net-istio-controller   1/1     1            1           26h
+   net-istio-webhook      1/1     1            1           26h
+   webhook                1/1     1            1           26h
+   ```
 
-```shell
-export GOPATH="$HOME/go"
-export PATH="${PATH}:${GOPATH}/bin"
-```
-
-### Checkout your fork
-
-The Go tools require that you clone the repository to the
-`src/knative.dev/sample-controller` directory in your
-[`GOPATH`](https://github.com/golang/go/wiki/SettingGOPATH).
-
-To check out this repository:
-
-1. Create your own
-   [fork of this repo](https://help.github.com/articles/fork-a-repo/)
-
-1. Clone it to your machine:
-
-```shell
-mkdir -p ${GOPATH}/src/knative.dev
-cd ${GOPATH}/src/knative.dev
-git clone git@github.com:${YOUR_GITHUB_USERNAME}/sample-controller.git
-cd sample-controller
-git remote add upstream https://github.com/knative-sandbox/sample-controller.git
-git remote set-url --push upstream no_push
-```
-
-_Adding the `upstream` remote sets you up nicely for regularly
-[syncing your fork](https://help.github.com/articles/syncing-a-fork/)._
-
-Once you reach this point you are ready to do a full build and deploy as
-described below.
+The serving progressive rollout does not change the way how you use Knative Serving. Everything happens underneath
+with the user's awareness, when a new version of Knative Service is launched to replace the old one.

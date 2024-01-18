@@ -91,7 +91,7 @@ func ReadIntRevisionRecord(val RevisionRecord) (min *int32, max *int32) {
 	return min, max
 }
 
-func initializeTargetRevisions(ultimateRevisionTarget *[]v1.TargetRevision, traffic *servingv1.TrafficTarget,
+func initializeTargetRevisions(revisionTarget *[]v1.TargetRevision, traffic *servingv1.TrafficTarget,
 	index int, lastRevName string, service *servingv1.Service, records map[string]RevisionRecord) {
 	target := v1.TargetRevision{}
 	if traffic.RevisionName == "" || traffic.RevisionName == lastRevName {
@@ -117,7 +117,7 @@ func initializeTargetRevisions(ultimateRevisionTarget *[]v1.TargetRevision, traf
 		target.MinScale = ReadIntServiceAnnotation(service, autoscaling.MinScaleAnnotationKey)
 		target.MaxScale = ReadIntServiceAnnotation(service, autoscaling.MaxScaleAnnotationKey)
 	}
-	(*ultimateRevisionTarget)[index] = target
+	(*revisionTarget)[index] = target
 }
 
 // GetInitialFinalTargetRevision is used to generate the initialTargetRevision and ultimateRevisionTarget.

@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/system"
+	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
@@ -210,7 +211,7 @@ func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *ser
 
 	// Assign the RolloutOrchestrator with the final target revision and reset StageTargetRevisions in the spec,
 	// if the final target revision is different from the existing final target revision.
-	ro = resources.UpdateFinalTargetRev(ultimateRevisionTarget, ro)
+	ro = resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
 	ro, err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
@@ -436,6 +437,17 @@ func getInitialStageRevisionTarget(ftr v1.TargetRevision) v1.TargetRevision {
 	return targetNewRollout
 }
 
+func getActualReplicas(pa *v1alpha1.PodAutoscaler) int32 {
+	revReplicas := int32(0)
+	if pa != nil {
+		revReplicas = *pa.Status.ActualScale
+	}
+	if revReplicas < 0 {
+		revReplicas = 0
+	}
+	return revReplicas
+}
+
 func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.TargetRevision,
 	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) ([]v1.TargetRevision, error) {
@@ -459,19 +471,18 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 			return stageRevisionTarget, err
 		}
 
-		oldRevReplicas := int32(0)
-		if pa != nil {
-			oldRevReplicas = *pa.Status.ActualScale
-		}
-		if oldRevReplicas < 0 {
-			oldRevReplicas = 0
-		}
+		oldRevReplicas := getActualReplicas(pa)
 
 		target.TargetReplicas = ptr.Int32(oldRevReplicas - stageReplicasInt)
 		target.Percent = ptr.Int64(*target.Percent - stageTrafficDeltaInt)
 		stageRevisionTarget[0] = *target
 
 		targetN := initialTargetRev[1].DeepCopy()
+		pa, err = podAutoscalerLister.Get(targetN.RevisionName)
+		if err != nil {
+			return stageRevisionTarget, err
+		}
+		currentReplicas = getActualReplicas(pa)
 		targetN.TargetReplicas = ptr.Int32(currentReplicas + stageReplicasInt)
 		targetN.Percent = ptr.Int64(currentTraffic + stageTrafficDeltaInt)
 		stageRevisionTarget[1] = *targetN

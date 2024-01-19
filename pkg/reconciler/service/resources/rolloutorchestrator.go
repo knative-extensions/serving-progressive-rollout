@@ -176,8 +176,8 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 	}
 }
 
-// UpdateFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
-func UpdateFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
+// UpdateInitialFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
+func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
 		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the user updated the ksvc,
 		// leading to the new rollout, and the RolloutOrchestrator will start a new rollout, so we need to update

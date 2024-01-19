@@ -902,7 +902,7 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 	}
 }
 
-func TestUpdateFinalTargetRev(t *testing.T) {
+func TestUpdateInitialFinalTargetRev(t *testing.T) {
 	testTime := apis.VolatileTime{
 		Inner: metav1.NewTime(time.Now()),
 	}
@@ -1309,7 +1309,7 @@ func TestUpdateFinalTargetRev(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r := UpdateFinalTargetRev(test.ultimateTarget, test.ro)
+			r := UpdateInitialFinalTargetRev(test.ultimateTarget, test.ro)
 			if !reflect.DeepEqual(r, test.ExpectedResult) {
 				t.Fatalf("Result of UpdateFinalTargetRev() = %v, want %v", r, test.ExpectedResult)
 			}

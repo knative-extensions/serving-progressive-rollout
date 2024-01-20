@@ -492,6 +492,11 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 
 		target.TargetReplicas = ptr.Int32(oldRevReplicas - stageReplicasInt)
 		target.Percent = ptr.Int64(*target.Percent - stageTrafficDeltaInt)
+
+		replicas := float64(currentReplicas) * float64(*target.Percent) / float64(currentTraffic)
+		if *target.TargetReplicas < 0 || *target.TargetReplicas < int32(replicas) {
+			target.TargetReplicas = ptr.Int32(int32(math.Ceil(replicas)))
+		}
 		stageRevisionTarget[0] = *target
 
 		targetN := initialTargetRev[1].DeepCopy()

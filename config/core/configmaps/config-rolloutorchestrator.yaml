@@ -26,9 +26,17 @@ data:
     # over-consumption-ratio sets the percentage about how much resource more than the requested can be used
     # to accomplish the rolling upgrade.
     #
-    # By default, the number is 25, meaning 25% more of the resources we can allocate to roll out a new revision,
+    # By default, the number is 10, meaning 10% more of the resources we can allocate to roll out a new revision,
     # based on an existing revision. For example, the existing revision has 8 pods running, and we create a new
     # revision to replace it. During the transitional phase from the existing revision to this new revision, we
-    # allow the total maximum number of pods to reach 8+8*25%=10 pods. Each stage, we roll out 25% more, adding
-    # two more pods to the new revision and reducing two pods of the existing revision.
-    over-consumption-ratio: "25"
+    # allow the total maximum number of pods to reach 8+Ceiling(8*10%)=9 pods. Each stage, we roll out 10% more,
+    # adding one more pod to the new revision and reducing one pod of the existing revision.
+    over-consumption-ratio: "10"
+    # progressive-rollout-enabled is boolean value that determines whether progressive rollout feature is enabled or not.
+    # The default value is true.
+    progressive-rollout-enabled: "true"
+    # stage-rollout-timeout-minutes contains the timeout value of minutes to use for each stage to accomplish in the
+    # rollout process. If each stage is not accomplished during this timeout period, we will move on to the next stage,
+    # by shifting more percentage of the traffic onto the new revision.
+    # The default value is 2 minutes.
+    stage-rollout-timeout-minutes: "2"

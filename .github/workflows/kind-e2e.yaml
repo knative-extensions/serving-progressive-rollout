@@ -227,6 +227,10 @@ jobs:
         # Install the CRDs of the serving-progressive-rollout
         cd ${KNATIVE_DIR}/serving-progressive-rollout
         kubectl apply -f config/core/300-resources
+        
+        # Install the ConfigMap
+        sed -i "s/namespace: knative-serving/namespace: $SYSTEM_NAMESPACE/" config/core/configmaps/config-rolloutorchestrator.yaml
+        kubectl apply -f config/core/configmaps/config-rolloutorchestrator.yaml
 
         # Replace the images of the controller and the autoscaler with the ones built from the extension  
         export CONTROLLER_IMAGE=$(cat $HOME/artifacts/build-extension/controller | tr -d ' \t\n\r')

@@ -284,7 +284,24 @@ func getGaugeIndex(targetRevs []v1.TargetRevision) int {
 // defined by the knative service.
 // These values are used to calculate the target number of replicas for the new and
 // the old revision.
-func getGauge(targetRevs []v1.TargetRevision, index int,
+func getGauge(targetRevs []v1.TargetRevision, podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, error) {
+	currentReplicas, currentTraffic, err := getGaugeWithIndex(targetRevs, 0, podAutoscalerLister)
+	if err != nil {
+		return currentReplicas, currentTraffic, err
+	}
+	if len(targetRevs) > 1 {
+		currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, 1, podAutoscalerLister)
+		if errN != nil {
+			return currentReplicasN, currentTrafficN, errN
+		}
+		if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
+			return currentReplicasN, currentTrafficN, nil
+		}
+	}
+	return currentReplicas, currentTraffic, nil
+}
+
+func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, error) {
 	revisionStatus := targetRevs[index]
 	currentTraffic := *revisionStatus.Percent
@@ -324,7 +341,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 	// The currentReplicas and currentTraffic will be used as the standard values to calculate
 	// the further target number of replicas for each revision.
-	currentReplicas, currentTraffic, err := getGauge(startRevisions, index, podAutoscalerLister)
+	currentReplicas, currentTraffic, err := getGauge(startRevisions, podAutoscalerLister)
 	if err != nil {
 		return ro, err
 	}
@@ -398,7 +415,7 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision,
 	// The TargetRevision at the index 0 will always be the revision that is about to scale down.
 	// We get the number of replicas and how much traffic dispatched to this revision, and use them as the gauge
 	// to calculate the number of replicas for any other traffic percentage.
-	currentReplicas, currentTraffic, err := getGauge(revisionTarget, 0, podAutoscalerLister)
+	currentReplicas, currentTraffic, err := getGauge(revisionTarget, podAutoscalerLister)
 	if err != nil {
 		return revisionTarget, err
 	}
@@ -484,7 +501,7 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 		}
 		currentReplicas = getActualReplicas(pa)
 		targetN.TargetReplicas = ptr.Int32(currentReplicas + stageReplicasInt)
-		targetN.Percent = ptr.Int64(currentTraffic + stageTrafficDeltaInt)
+		targetN.Percent = ptr.Int64(*targetN.Percent + stageTrafficDeltaInt)
 		stageRevisionTarget[1] = *targetN
 	} else {
 		// Update the old revision record in the stageRevisionTarget.

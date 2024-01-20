@@ -386,7 +386,7 @@ func TestGetGauge(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			replicas, traffic, _ := getGauge(test.targetRevs, test.index, test.podAutoscalerLister)
+			replicas, traffic, _ := getGauge(test.targetRevs, test.podAutoscalerLister)
 			if !reflect.DeepEqual(replicas, test.ExpectedReplicas) {
 				t.Fatalf("Result of getGauge() = %v, want %v", replicas, test.ExpectedReplicas)
 			}

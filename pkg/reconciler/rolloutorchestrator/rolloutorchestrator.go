@@ -267,7 +267,7 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	// If targetReplicas is equal to or greater than maxScale, StageMinScale and StageMaxScale are set to the final
 	// MinScale and MaxScale.
 
-	if targetReplicas >= max || revision.Percent == nil {
+	if targetReplicas >= max {
 		spa.Spec.StageMaxScale = revision.MaxScale
 		spa.Spec.StageMinScale = revision.MinScale
 		return spa

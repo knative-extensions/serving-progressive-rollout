@@ -393,7 +393,7 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
 		var err error
 		so.Spec.StageTargetRevisions, err = shiftTrafficNextStage(so.Spec.StageTargetRevisions,
-			c.podAutoscalerLister.PodAutoscalers(so.Namespace))
+			float64(c.rolloutConfig.OverConsumptionRatio), c.podAutoscalerLister.PodAutoscalers(so.Namespace))
 		if err != nil {
 			return err
 		}
@@ -409,7 +409,7 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	return nil
 }
 
-func shiftTrafficNextStage(revisionTarget []v1.TargetRevision,
+func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) ([]v1.TargetRevision, error) {
 	// There are always two TargetRevisions in revisionTarget, since they come from the StageTargetRevisions.
 	// The TargetRevision at the index 0 will always be the revision that is about to scale down.
@@ -419,7 +419,14 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision,
 	if err != nil {
 		return revisionTarget, err
 	}
-	stageTrafficDeltaInt := math.Ceil(float64(currentTraffic) - float64(*revisionTarget[0].TargetReplicas)*float64(currentTraffic)/float64(currentReplicas))
+	oldReplica, _, err := getGaugeWithIndex(revisionTarget, 0, podAutoscalerLister)
+	if err != nil {
+		return revisionTarget, err
+	}
+	stageTrafficDeltaInt := math.Ceil((float64(oldReplica) - float64(*revisionTarget[0].TargetReplicas)) * float64(currentTraffic) / float64(currentReplicas))
+	if stageTrafficDeltaInt > ratio {
+		stageTrafficDeltaInt = ratio
+	}
 
 	for i := range revisionTarget {
 		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
@@ -504,9 +511,14 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 		if err != nil {
 			return stageRevisionTarget, err
 		}
-		currentReplicas = getActualReplicas(pa)
-		targetN.TargetReplicas = ptr.Int32(currentReplicas + stageReplicasInt)
+		newReplicas := getActualReplicas(pa)
+		targetN.TargetReplicas = ptr.Int32(newReplicas + stageReplicasInt)
 		targetN.Percent = ptr.Int64(*targetN.Percent + stageTrafficDeltaInt)
+
+		replicas = float64(currentReplicas) * float64(*targetN.Percent) / float64(currentTraffic)
+		if *targetN.TargetReplicas < int32(replicas) {
+			targetN.TargetReplicas = ptr.Int32(int32(math.Ceil(replicas)))
+		}
 		stageRevisionTarget[1] = *targetN
 	} else {
 		// Update the old revision record in the stageRevisionTarget.

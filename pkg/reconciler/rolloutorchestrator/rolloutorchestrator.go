@@ -147,6 +147,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				}
 			}
 		} else if len(ro.Spec.InitialRevisions) != 0 {
+			fmt.Println("scale down none, but have InitialRevisions")
+			fmt.Println(ro.Spec.InitialRevisions[0].RevisionName)
 			// Reset the stagePodAutoscaler for the initial target revision, since it has scaled down to 0, without
 			// taking any traffic.
 			// Min and Max scale in stagePodAutoscaler will be set to the same value as in the revision.
@@ -156,6 +158,8 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			if err != nil {
 				return err
 			}
+		} else {
+			fmt.Println("scale down none, have no InitialRevisions")
 		}
 		ro.Status.MarkStageRevisionScaleDownReady()
 
@@ -257,26 +261,25 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	min := getMinScale(revision)
 	max := getMaxScale(revision)
 
+	// If Percent is empty, it means the old revision has reduced the traffic down to 0%.
+	if revision.Percent == nil {
+		spa.Spec.StageMaxScale = ptr.Int32(0)
+		spa.Spec.StageMinScale = ptr.Int32(0)
+		return spa
+	}
+
 	if revision.TargetReplicas == nil {
 		spa.Spec.StageMinScale = revision.MinScale
 		spa.Spec.StageMaxScale = revision.MaxScale
 		return spa
 	}
-	targetReplicas := *revision.TargetReplicas
 
+	targetReplicas := *revision.TargetReplicas
 	// If targetReplicas is equal to or greater than maxScale, StageMinScale and StageMaxScale are set to the final
 	// MinScale and MaxScale.
-
 	if targetReplicas >= max {
 		spa.Spec.StageMaxScale = revision.MaxScale
 		spa.Spec.StageMinScale = revision.MinScale
-		return spa
-	}
-
-	// If Percent is empty, it means the old revision has reduced the traffic down to 0%.
-	if revision.Percent == nil {
-		spa.Spec.StageMaxScale = ptr.Int32(0)
-		spa.Spec.StageMinScale = ptr.Int32(0)
 		return spa
 	}
 

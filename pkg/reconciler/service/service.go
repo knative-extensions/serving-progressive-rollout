@@ -423,7 +423,12 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 	if err != nil {
 		return revisionTarget, err
 	}
+
+	// Calculate how much traffic percentage we need to reduce for the old revision to reach the target replicas.
 	stageTrafficDeltaInt := math.Ceil((float64(oldReplica) - float64(*revisionTarget[0].TargetReplicas)) * float64(currentTraffic) / float64(currentReplicas))
+
+	// We will choose the smaller value between the ratio and the stageTrafficDeltaInt as the traffic percentage
+	// to reduce.
 	if stageTrafficDeltaInt > ratio {
 		stageTrafficDeltaInt = ratio
 	}
@@ -517,7 +522,7 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 
 		replicas = float64(currentReplicas) * float64(*targetN.Percent) / float64(currentTraffic)
 		if *targetN.TargetReplicas < int32(replicas) {
-			targetN.TargetReplicas = ptr.Int32(int32(math.Ceil(replicas)))
+			targetN.TargetReplicas = ptr.Int32(int32(math.Round(replicas)))
 		}
 		stageRevisionTarget[1] = *targetN
 	} else {

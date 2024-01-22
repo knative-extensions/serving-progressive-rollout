@@ -424,25 +424,26 @@ func TestNewInitialFinalTargetRev(t *testing.T) {
 	}
 }
 
-// &{{ } {autoscale-go  default  ee04839d-bf8b-4a86-baff-508f0ef4878b 57177 1 2023-12-07 18:14:00 +0000 UTC <nil> <nil>
-//map[] map[kubectl.kubernetes.io/last-applied-configuration:{"apiVersion":"serving.knative.dev/v1","kind":"Service",
-//"metadata":{"annotations":{},"name":"autoscale-go","namespace":"default"},"spec":{"template":{"metadata":{"annotations":{"autoscaling.knative.dev/class":"kpa.autoscaling.knative.dev",
-//"autoscaling.knative.dev/max-scale":"5","autoscaling.knative.dev/metric":"concurrency",
-//"autoscaling.knative.dev/min-scale":"5","autoscaling.knative.dev/target":"10"}},
-//"spec":{"containers":[{"image":"ghcr.io/knative/autoscale-go:latest"}]}}}}
-
 func TestGetInitialFinalTargetRevision(t *testing.T) {
 	tests := []struct {
 		name                      string
 		records                   map[string]RevisionRecord
 		route                     *servingv1.Route
 		service                   *servingv1.Service
+		config                    *servingv1.Configuration
 		ExpectedInitialTarget     []v1.TargetRevision
 		ExpectedFinalTargetResult []v1.TargetRevision
 	}{{
 		name:    "Test the creation/update of RolloutOrchestrator with empty records and route",
 		records: map[string]RevisionRecord{},
 		route:   &servingv1.Route{},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 2,
+				Namespace:  "test-ns",
+				Name:       "service-001",
+			},
+		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Generation: 2,
@@ -489,6 +490,13 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 			},
 		},
 		route: &servingv1.Route{},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 2,
+				Namespace:  "test-ns",
+				Name:       "service-001",
+			},
+		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Generation: 2,
@@ -538,6 +546,13 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 2,
+				Namespace:  "test-ns",
+				Name:       "service-001",
 			},
 		},
 		service: &servingv1.Service{
@@ -611,6 +626,13 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 				},
 			},
 		},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 2,
+				Namespace:  "test-ns",
+				Name:       "service-001",
+			},
+		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
@@ -681,6 +703,13 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 3,
+				Namespace:  "test-ns",
+				Name:       "service-001",
 			},
 		},
 		service: &servingv1.Service{
@@ -757,6 +786,13 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 3,
+				Namespace:  "test-ns",
+				Name:       "service-001",
 			},
 		},
 		service: &servingv1.Service{
@@ -840,6 +876,13 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 				},
 			},
 		},
+		config: &servingv1.Configuration{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 3,
+				Namespace:  "test-ns",
+				Name:       "service-001",
+			},
+		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Generation: 3,
@@ -891,7 +934,7 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			initialTarget, finalTarget := GetInitialFinalTargetRevision(test.service, test.records, test.route)
+			initialTarget, finalTarget := GetInitialFinalTargetRevision(test.service, test.config, test.records, test.route)
 			if !reflect.DeepEqual(initialTarget, test.ExpectedInitialTarget) {
 				t.Fatalf("Result of GetInitialFinalTargetRevision() = %v, want %v", initialTarget, test.ExpectedInitialTarget)
 			}

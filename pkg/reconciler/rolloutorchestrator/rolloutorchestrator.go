@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -258,6 +259,11 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	if !scaleUpReady {
 		return spa
 	}
+
+	if len(strings.TrimSpace(revision.RevisionName)) == 0 {
+		return spa
+	}
+
 	min := getMinScale(revision)
 	max := getMaxScale(revision)
 

@@ -23,11 +23,15 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/kmp"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 
@@ -47,12 +51,15 @@ import (
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 	servingService "knative.dev/serving/pkg/reconciler/service"
+	servingreources "knative.dev/serving/pkg/reconciler/service/resources"
 	resourcenames "knative.dev/serving/pkg/reconciler/service/resources/names"
 )
 
 // Reconciler implements controller.Reconciler for Service resources.
 type Reconciler struct {
 	client                    clientset.Interface
+	servingclient             servingclientset.Interface
+	configurationLister       servinglisters.ConfigurationLister
 	baseReconciler            *servingService.Reconciler
 	routeLister               servinglisters.RouteLister
 	revisionLister            servinglisters.RevisionLister
@@ -82,6 +89,8 @@ func NewReconciler(prclient clientset.Interface, client servingclientset.Interfa
 			routeLister,
 		),
 		client:                    prclient,
+		servingclient:             client,
+		configurationLister:       configurationLister,
 		routeLister:               routeLister,
 		revisionLister:            revisionLister,
 		rolloutOrchestratorLister: rolloutOrchestratorLister,
@@ -106,8 +115,35 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	// Check configuration in the service's annotation for possible overriding.
 	LoadConfigFromService(service.Spec.Template.Annotations, c.rolloutConfig)
 
+	// Initialize the configuration first.
+	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
+	defer cancel()
+
+	logger := logging.FromContext(ctx)
+
+	config, err := c.config(ctx, service)
+	if err != nil {
+		return err
+	}
+
+	if config.Generation != config.Status.ObservedGeneration {
+		// The Configuration hasn't yet reconciled our latest changes to
+		// its desired state, so its conditions are outdated.
+		service.Status.MarkConfigurationNotReconciled()
+
+		// If BYO-Revision name is used we must serialize reconciling the Configuration
+		// and Route. Wait for observed generation to match before continuing.
+		if config.Spec.GetTemplate().Name != "" {
+			return nil
+		}
+	} else {
+		logger.Debugf("Configuration Conditions = %#v", config.Status.Conditions)
+		// Update our Status based on the state of our underlying Configuration.
+		service.Status.PropagateConfigurationStatus(&config.Status)
+	}
+
 	// Based on the information in the CR service, we create or update the content of the CR RolloutOrchestrator.
-	rolloutOrchestrator, err := c.rolloutOrchestrator(ctx, service)
+	rolloutOrchestrator, err := c.rolloutOrchestrator(ctx, service, config)
 	if err != nil {
 		return err
 	}
@@ -120,8 +156,78 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	return c.checkServiceOrchestratorsReady(ctx, rolloutOrchestrator, service)
 }
 
+func (c *Reconciler) config(ctx context.Context, service *servingv1.Service) (*servingv1.Configuration, error) {
+	recorder := controller.GetEventRecorder(ctx)
+	configName := resourcenames.Configuration(service)
+	config, err := c.configurationLister.Configurations(service.Namespace).Get(configName)
+	if apierrs.IsNotFound(err) {
+		config, err = c.createConfiguration(ctx, service)
+		if err != nil {
+			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed", "Failed to create Configuration %q: %v", configName, err)
+			return nil, fmt.Errorf("failed to create Configuration: %w", err)
+		}
+		recorder.Eventf(service, corev1.EventTypeNormal, "Created", "Created Configuration %q", configName)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get Configuration: %w", err)
+	} else if !metav1.IsControlledBy(config, service) {
+		// Surface an error in the service's status,and return an error.
+		service.Status.MarkConfigurationNotOwned(configName)
+		return nil, fmt.Errorf("service: %q does not own configuration: %q", service.Name, configName)
+	} else if config, err = c.reconcileConfiguration(ctx, service, config); err != nil {
+		return nil, fmt.Errorf("failed to reconcile Configuration: %w", err)
+	}
+	return config, nil
+}
+
+func (c *Reconciler) createConfiguration(ctx context.Context, service *servingv1.Service) (*servingv1.Configuration, error) {
+	return c.servingclient.ServingV1().Configurations(service.Namespace).Create(
+		ctx, servingreources.MakeConfiguration(service), metav1.CreateOptions{})
+}
+
+func configSemanticEquals(ctx context.Context, desiredConfig, config *servingv1.Configuration) (bool, error) {
+	logger := logging.FromContext(ctx)
+	specDiff, err := kmp.SafeDiff(desiredConfig.Spec, config.Spec)
+	if err != nil {
+		logger.Warnw("Error diffing config spec", zap.Error(err))
+		return false, fmt.Errorf("failed to diff Configuration: %w", err)
+	} else if specDiff != "" {
+		logger.Info("Reconciling configuration diff (-desired, +observed):\n", specDiff)
+	}
+	return equality.Semantic.DeepEqual(desiredConfig.Spec, config.Spec) &&
+		equality.Semantic.DeepEqual(desiredConfig.Labels, config.Labels) &&
+		equality.Semantic.DeepEqual(desiredConfig.Annotations, config.Annotations) &&
+		specDiff == "", nil
+}
+
+func (c *Reconciler) reconcileConfiguration(ctx context.Context, service *servingv1.Service,
+	config *servingv1.Configuration) (*servingv1.Configuration, error) {
+	existing := config.DeepCopy()
+	// In the case of an upgrade, there can be default values set that don't exist pre-upgrade.
+	// We are setting the up-to-date default values here so an update won't be triggered if the only
+	// diff is the new default values.
+	existing.SetDefaults(ctx)
+
+	desiredConfig := servingreources.MakeConfigurationFromExisting(service, existing)
+	equals, err := configSemanticEquals(ctx, desiredConfig, existing)
+	if err != nil {
+		return nil, err
+	}
+	if equals {
+		return config, nil
+	}
+
+	logger := logging.FromContext(ctx)
+	logger.Warnf("Service-delegated Configuration %q diff found. Clobbering.", existing.Name)
+
+	// Preserve the rest of the object (e.g. ObjectMeta except for labels).
+	existing.Spec = desiredConfig.Spec
+	existing.Labels = desiredConfig.Labels
+	existing.Annotations = desiredConfig.Annotations
+	return c.servingclient.ServingV1().Configurations(service.Namespace).Update(ctx, existing, metav1.UpdateOptions{})
+}
+
 // rolloutOrchestrator implements logic to create or update the CR RolloutOrchestrator.
-func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1.Service) (*v1.RolloutOrchestrator, error) {
+func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1.Service, config *servingv1.Configuration) (*v1.RolloutOrchestrator, error) {
 	recorder := controller.GetEventRecorder(ctx)
 	// The information in the CR Route is also leveraged as the input to the RolloutOrchestrator.
 	route, err := c.routeLister.Routes(service.Namespace).Get(resourcenames.Route(service))
@@ -134,7 +240,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 	rolloutOrchestrator, err := c.rolloutOrchestratorLister.RolloutOrchestrators(service.Namespace).Get(roName)
 	if apierrs.IsNotFound(err) {
 		// Create the CR RolloutOrchestrator.
-		rolloutOrchestrator, err = c.createRolloutOrchestrator(ctx, service, route)
+		rolloutOrchestrator, err = c.createRolloutOrchestrator(ctx, service, config, route)
 		if err != nil {
 			recorder.Eventf(service, corev1.EventTypeWarning, "CreationFailed",
 				"failed to create RolloutOrchestrator %q: %v", roName, err)
@@ -147,7 +253,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 	} else if !metav1.IsControlledBy(rolloutOrchestrator, service) {
 		// TODO Surface an error in the service's status, and return an error.
 		return nil, fmt.Errorf("service: %q does not own the RolloutOrchestrator: %q", service.Name, roName)
-	} else if rolloutOrchestrator, err = c.reconcileRolloutOrchestrator(ctx, service, route,
+	} else if rolloutOrchestrator, err = c.reconcileRolloutOrchestrator(ctx, service, config, route,
 		rolloutOrchestrator); err != nil {
 		return nil, fmt.Errorf("failed to reconcile RolloutOrchestrator: %w", err)
 	}
@@ -174,7 +280,7 @@ func (c *Reconciler) getRecordsFromRevs(service *servingv1.Service) map[string]r
 
 // createRolloutOrchestrator creates the CR RolloutOrchestrator.
 func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	route *servingv1.Route) (*v1.RolloutOrchestrator, error) {
+	config *servingv1.Configuration, route *servingv1.Route) (*v1.RolloutOrchestrator, error) {
 	records := c.getRecordsFromRevs(service)
 
 	// Based on the knative service, the map of the revision records and the route, we can get the initial target
@@ -185,7 +291,8 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	// 1. There is no revision records or the route, when it is the first time to create the knative service.
 	// 2. There are revision records and the route. The RolloutOrchestrator will be created on an existing old version
 	// of knative serving.
-	initialRevisionStatus, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, records, route)
+	initialRevisionStatus, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config,
+		records, route)
 
 	// Assign the RolloutOrchestrator with the initial target revision, and final target revision.
 	// StageTargetRevisions in the spec is nil.
@@ -202,12 +309,12 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 
 // updateRolloutOrchestrator updates the CR RolloutOrchestrator.
 func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	route *servingv1.Route, ro *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
+	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
 	records := c.getRecordsFromRevs(service)
 
 	// Based on the knative service, the map of the revision records and the route, we can get the final target
 	// revisions. The final target revisions define the end for the upgrade.
-	_, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, records, route)
+	_, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config, records, route)
 
 	// Assign the RolloutOrchestrator with the final target revision and reset StageTargetRevisions in the spec,
 	// if the final target revision is different from the existing final target revision.
@@ -374,8 +481,8 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 // reconcileRolloutOrchestrator updates the RolloutOrchestrator based on the service and route.
 func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	route *servingv1.Route, so *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
-	return c.updateRolloutOrchestrator(ctx, service, route, so)
+	config *servingv1.Configuration, route *servingv1.Route, so *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
+	return c.updateRolloutOrchestrator(ctx, service, config, route, so)
 }
 
 func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.RolloutOrchestrator,
@@ -506,9 +613,13 @@ func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.Target
 		target.Percent = ptr.Int64(*target.Percent - stageTrafficDeltaInt)
 
 		replicas := float64(currentReplicas) * float64(*target.Percent) / float64(currentTraffic)
-		if *target.TargetReplicas < 0 || *target.TargetReplicas < int32(replicas) {
+		if *target.TargetReplicas <= 0 || *target.TargetReplicas < int32(replicas) {
 			target.TargetReplicas = ptr.Int32(int32(math.Ceil(replicas)))
 		}
+		if *target.TargetReplicas == 0 {
+			target.TargetReplicas = ptr.Int32(1)
+		}
+
 		stageRevisionTarget[0] = *target
 
 		targetN := initialTargetRev[1].DeepCopy()

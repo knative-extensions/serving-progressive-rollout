@@ -421,8 +421,17 @@ func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
 	return currentReplicas, currentTraffic, nil
 }
 
+// getDeltaReplicasTraffic returns how many replicas the revision will increase or decrease by in each stage, and
+// the traffic percentage it can receive.
 func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio int) (int32, int64) {
-	stageReplicas := math.Ceil(float64(int(currentReplicas)) * float64(ratio) / float64(int(currentTraffic)))
+	// Pick the round value, unless it is 0.
+	stageReplicas := math.Round(float64(int(currentReplicas)) * float64(ratio) / float64(int(currentTraffic)))
+	if stageReplicas == 0 {
+		// The min value we choose fo the number of replicas to increase is 1.
+		stageReplicas = 1
+	}
+	// The actual traffic percentage can use the ceil value. Even if it is slightly more than the stageReplicas
+	// occupy, we can afford it.
 	stageTrafficDelta := math.Ceil(stageReplicas * float64(int(currentTraffic)) / float64(int(currentReplicas)))
 	return int32(stageReplicas), int64(stageTrafficDelta)
 }

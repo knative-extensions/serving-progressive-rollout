@@ -148,8 +148,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				}
 			}
 		} else if len(ro.Spec.InitialRevisions) != 0 {
-			fmt.Println("scale down none, but have InitialRevisions")
-			fmt.Println(ro.Spec.InitialRevisions[0].RevisionName)
 			// Reset the stagePodAutoscaler for the initial target revision, since it has scaled down to 0, without
 			// taking any traffic.
 			// Min and Max scale in stagePodAutoscaler will be set to the same value as in the revision.
@@ -159,8 +157,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			if err != nil {
 				return err
 			}
-		} else {
-			fmt.Println("scale down none, have no InitialRevisions")
 		}
 		ro.Status.MarkStageRevisionScaleDownReady()
 

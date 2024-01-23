@@ -417,8 +417,8 @@ func TestGetDeltaReplicasTraffic(t *testing.T) {
 		CurrentReplicas: 6,
 		CurrentTraffic:  100,
 		ratio:           40,
-		ExpectedR:       3,
-		ExpectedTraffic: 50,
+		ExpectedR:       2,
+		ExpectedTraffic: 34,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -512,23 +512,23 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 							TrafficTarget: servingv1.TrafficTarget{
 								RevisionName:   "rev-001",
 								LatestRevision: ptr.Bool(false),
-								Percent:        ptr.Int64(50),
+								Percent:        ptr.Int64(75),
 							},
 							MinScale:       ptr.Int32(4),
 							MaxScale:       ptr.Int32(4),
-							TargetReplicas: ptr.Int32(2),
+							TargetReplicas: ptr.Int32(3),
 							Direction:      "down",
 						},
 						{
 							TrafficTarget: servingv1.TrafficTarget{
 								RevisionName:   "rev-002",
 								LatestRevision: ptr.Bool(true),
-								Percent:        ptr.Int64(50),
+								Percent:        ptr.Int64(25),
 							},
 							MinScale:       ptr.Int32(6),
 							MaxScale:       ptr.Int32(6),
 							Direction:      "up",
-							TargetReplicas: ptr.Int32(2),
+							TargetReplicas: ptr.Int32(1),
 						},
 					},
 					TargetFinishTime: apis.VolatileTime{

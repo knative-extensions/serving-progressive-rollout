@@ -24,11 +24,13 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -65,6 +67,7 @@ type Reconciler struct {
 	revisionLister            servinglisters.RevisionLister
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
+	deploymentLister          appsv1listers.DeploymentLister
 	configmapLister           corev1listers.ConfigMapLister
 	enqueueAfter              func(interface{}, time.Duration)
 
@@ -80,7 +83,8 @@ var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 func NewReconciler(prclient clientset.Interface, client servingclientset.Interface, configurationLister servinglisters.ConfigurationLister,
 	revisionLister servinglisters.RevisionLister, routeLister servinglisters.RouteLister,
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister,
-	podAutoscalerLister palisters.PodAutoscalerLister, configmapLister corev1listers.ConfigMapLister) *Reconciler {
+	podAutoscalerLister palisters.PodAutoscalerLister, configmapLister corev1listers.ConfigMapLister,
+	deploymentLister appsv1listers.DeploymentLister) *Reconciler {
 	return &Reconciler{
 		baseReconciler: servingService.NewReconciler(
 			client,
@@ -96,6 +100,7 @@ func NewReconciler(prclient clientset.Interface, client servingclientset.Interfa
 		rolloutOrchestratorLister: rolloutOrchestratorLister,
 		podAutoscalerLister:       podAutoscalerLister,
 		configmapLister:           configmapLister,
+		deploymentLister:          deploymentLister,
 	}
 }
 
@@ -509,6 +514,13 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	if so.Spec.TargetFinishTime.Inner.Before(&now) {
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
 		var err error
+
+		// Check if the deployment for the revisions are in available status.
+		// If not, we consider the stage is unable to finish due to an error and return the error.
+		err = checkDeploymentsAvailable(so.Namespace, so.Spec.StageTargetRevisions, c.deploymentLister)
+		if err != nil {
+			return err
+		}
 		so.Spec.StageTargetRevisions, err = shiftTrafficNextStage(so.Spec.StageTargetRevisions,
 			float64(c.rolloutConfig.OverConsumptionRatio), c.podAutoscalerLister.PodAutoscalers(so.Namespace))
 		if err != nil {
@@ -524,6 +536,32 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 
 	c.enqueueAfter(service, time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes)*float64(time.Minute)))
 	return nil
+}
+
+func checkDeploymentsAvailable(namespace string, revisionTarget []v1.TargetRevision,
+	deploymentLister appsv1listers.DeploymentLister) error {
+	for _, rev := range revisionTarget {
+		deployName := fmt.Sprintf("%s-deployment", rev.RevisionName)
+		dep, err := deploymentLister.Deployments(namespace).Get(deployName)
+		if apierrs.IsNotFound(err) {
+			return fmt.Errorf("error the revision's deployment %s was not found", deployName)
+		} else if err != nil {
+			return err
+		}
+		if !isDeploymentAvailable(dep) {
+			return fmt.Errorf("error the revision's deployment %s was not ready, when the timeout limit hit", deployName)
+		}
+	}
+	return nil
+}
+
+func isDeploymentAvailable(d *appsv1.Deployment) bool {
+	for _, c := range d.Status.Conditions {
+		if c.Type == appsv1.DeploymentAvailable && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,

@@ -89,10 +89,10 @@ func (so *RolloutOrchestrator) IsStageScaleUpInProgress() bool {
 	return sos.GetCondition(SOStageScaleUpReady).IsUnknown()
 }
 
-func (so *RolloutOrchestrator) IsNotOneToOneUpgrade() bool {
-	// If the initial revision status contains more than one revision or 0 revision, or the ultimate revision target contains
-	// more than one revision, we will set the current stage target to the ultimate revision target.
-	return len(so.Spec.InitialRevisions) != 1 || len(so.Spec.TargetRevisions) != 1
+func (so *RolloutOrchestrator) IsNotConvertToOneUpgrade() bool {
+	// If the ultimate revision target contains more than one revision, we will set the current stage
+	// target to the ultimate revision target.
+	return len(so.Spec.TargetRevisions) != 1
 }
 
 // InitializeConditions sets the initial values to the conditions.

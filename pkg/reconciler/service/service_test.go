@@ -256,65 +256,6 @@ func TestGetStartRevisions(t *testing.T) {
 	}
 }
 
-func TestGetGaugeIndex(t *testing.T) {
-	tests := []struct {
-		name           string
-		targetRevs     []v1.TargetRevision
-		ExpectedResult int
-	}{{
-		name: "Test with two TargetRevisions",
-		targetRevs: []v1.TargetRevision{
-			{
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName: "rev-001",
-				},
-			}, {
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName: "rev-002",
-				},
-			}},
-		ExpectedResult: 1,
-	}, {
-		name: "Test with one TargetRevision",
-		targetRevs: []v1.TargetRevision{
-			{
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName: "rev-001",
-				},
-			}},
-		ExpectedResult: 0,
-	}, {
-		name:           "Test with empty TargetRevision",
-		targetRevs:     []v1.TargetRevision{},
-		ExpectedResult: -1,
-	}, {
-		name: "Test with empty TargetRevision",
-		targetRevs: []v1.TargetRevision{
-			{
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName: "rev-001",
-				},
-			}, {
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName: "rev-002",
-				},
-			}, {
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName: "rev-003",
-				},
-			}},
-		ExpectedResult: -1,
-	}}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			r := getGaugeIndex(test.targetRevs)
-			if !reflect.DeepEqual(r, test.ExpectedResult) {
-				t.Fatalf("Result of getGaugeIndex() = %v, want %v", r, test.ExpectedResult)
-			}
-		})
-	}
-}
-
 type MockPodAutoscalerLister struct{}
 
 func (lister MockPodAutoscalerLister) List(_ labels.Selector) (ret []*v1alpha1.PodAutoscaler, err error) {

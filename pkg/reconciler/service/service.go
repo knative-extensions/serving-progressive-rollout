@@ -350,7 +350,7 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 // or during the upgrade transition, one stage has finished but the last stage not reached.
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) (*v1.RolloutOrchestrator, error) {
-	if ro.IsNotOneToOneUpgrade() || !config.ProgressiveRolloutEnabled {
+	if ro.IsNotConvertToOneUpgrade() || !config.ProgressiveRolloutEnabled {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
 		// in the implementation.
@@ -377,40 +377,33 @@ func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
 	return startRevisions
 }
 
-func getGaugeIndex(targetRevs []v1.TargetRevision) int {
-	if len(targetRevs) == 1 {
-		// If there is only one element/revision in the list of TargetRevision,
-		// 0 is the only index we used to get the revision and calculate the target number of replicas.
-		return 0
-	}
-
-	if len(targetRevs) == 2 {
-		// The length is either 1 or 2. If it is 2, we will use 1 as the index to get the
-		// revision and calculate the target number of the replica.
-		return 1
-	}
-	return -1
-}
-
 // getGauge returns the number of replicas and the traffic percentage it occupies, plus the minScale and maxScale
 // defined by the knative service.
 // These values are used to calculate the target number of replicas for the new and
 // the old revision.
-func getGauge(targetRevs []v1.TargetRevision, podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, error) {
+func getGauge(targetRevs []v1.TargetRevision,
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, map[string]int32, error) {
+	replicasMap := make(map[string]int32)
 	currentReplicas, currentTraffic, err := getGaugeWithIndex(targetRevs, 0, podAutoscalerLister)
 	if err != nil {
-		return currentReplicas, currentTraffic, err
+		return currentReplicas, currentTraffic, replicasMap, err
 	}
+	replicasMap[targetRevs[0].RevisionName] = currentReplicas
+
 	if len(targetRevs) > 1 {
-		currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, 1, podAutoscalerLister)
-		if errN != nil {
-			return currentReplicasN, currentTrafficN, errN
-		}
-		if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
-			return currentReplicasN, currentTrafficN, nil
+		for i := 1; i < len(targetRevs); i++ {
+			currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, i, podAutoscalerLister)
+			if errN != nil {
+				return currentReplicas, currentTraffic, replicasMap, errN
+			}
+			replicasMap[targetRevs[i].RevisionName] = currentReplicasN
+			if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
+				currentReplicas = currentReplicasN
+				currentTraffic = currentTrafficN
+			}
 		}
 	}
-	return currentReplicas, currentTraffic, nil
+	return currentReplicas, currentTraffic, replicasMap, nil
 }
 
 func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
@@ -454,8 +447,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	// to scale up.
 	// The revision at 0th is always the one scaling down, and the one at 1st is always the one scaling up.
 	startRevisions := getStartRevisions(ro)
-	index := getGaugeIndex(startRevisions)
-	if index == -1 {
+	if len(startRevisions) == 0 {
 		// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 		return ro, nil
@@ -463,7 +455,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 	// The currentReplicas and currentTraffic will be used as the standard values to calculate
 	// the further target number of replicas for each revision.
-	currentReplicas, currentTraffic, err := getGauge(startRevisions, podAutoscalerLister)
+	currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
 	if err != nil {
 		return ro, err
 	}
@@ -482,7 +474,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 		stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
 	} else {
 		var err error
-		stageRevisionTarget, err = calculateStageTargetRevisions(startRevisions, ro.Spec.TargetRevisions, deltaReplicas,
+		stageRevisionTarget, err = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions, deltaReplicas,
 			deltaTrafficPercent, currentReplicas, currentTraffic, podAutoscalerLister)
 		if err != nil {
 			return ro, err
@@ -570,7 +562,7 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 	// The TargetRevision at the index 0 will always be the revision that is about to scale down.
 	// We get the number of replicas and how much traffic dispatched to this revision, and use them as the gauge
 	// to calculate the number of replicas for any other traffic percentage.
-	currentReplicas, currentTraffic, err := getGauge(revisionTarget, podAutoscalerLister)
+	currentReplicas, currentTraffic, _, err := getGauge(revisionTarget, podAutoscalerLister)
 	if err != nil {
 		return revisionTarget, err
 	}
@@ -632,7 +624,7 @@ func getActualReplicas(pa *v1alpha1.PodAutoscaler) int32 {
 	return revReplicas
 }
 
-func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.TargetRevision,
+func calculateStageTargetRevisions(replicasMap map[string]int32, initialTargetRev, finalTargetRevs []v1.TargetRevision,
 	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) ([]v1.TargetRevision, error) {
 	stageRevisionTarget := make([]v1.TargetRevision, 0)

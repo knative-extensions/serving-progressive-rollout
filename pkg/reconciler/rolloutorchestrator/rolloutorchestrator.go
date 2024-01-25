@@ -204,10 +204,24 @@ func (r *Reconciler) createStagePA(ctx context.Context, ro *v1.RolloutOrchestrat
 
 // RemoveNonTrafficRev removes the redundant TargetRevision from the list of TargetRevisions.
 func RemoveNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
-	result := make([]v1.TargetRevision, 0)
+	result := make([]v1.TargetRevision, 0, len(ts))
 	for _, r := range ts {
+		fmt.Println("RemoveNonTrafficRev check name")
+		fmt.Println(r.RevisionName)
+		fmt.Println("check percentage")
+		fmt.Println(r.Direction)
 		if r.Percent != nil && (*r.Percent != 0 || (*r.Percent == 0 && r.LatestRevision != nil && *r.LatestRevision)) {
+			fmt.Println("adding this rev into status rev")
 			result = append(result, r)
+		}
+	}
+	if len(result) < len(ts) {
+		// We need to find out the revision to scale down, since we remove the revision previously scaling down.
+		for i := len(result) - 1; i >= 0; i-- {
+			if result[i].Direction == "stay" {
+				result[i].Direction = "down"
+				break
+			}
 		}
 	}
 	return result
@@ -218,7 +232,7 @@ func targetRevisionEqual(currentStatusRevisions, finalTargetRevisions []v1.Targe
 		return false
 	}
 	for _, r := range currentStatusRevisions {
-		if *r.Percent == 100 && r.RevisionName == finalTargetRevisions[0].RevisionName {
+		if r.Percent != nil && *r.Percent == 100 && r.RevisionName == finalTargetRevisions[0].RevisionName {
 			return true
 		}
 	}
@@ -373,7 +387,8 @@ func IsStageScaleDownReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevisi
 		return false
 	}
 	if revision.TargetReplicas == nil {
-		// For revision scaling up without TargetReplicas, it means this revision will be assigned 0% of the traffic.
+		// For revision scaling down without TargetReplicas, it means this revision will be assigned the same
+		// traffic percentage as the previous stage.
 		max := getMaxScale(revision)
 		return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, max)
 	}

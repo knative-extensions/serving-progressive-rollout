@@ -327,7 +327,7 @@ func TestGetGauge(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			replicas, traffic, _ := getGauge(test.targetRevs, test.podAutoscalerLister)
+			replicas, traffic, _, _ := getGauge(test.targetRevs, test.podAutoscalerLister)
 			if !reflect.DeepEqual(replicas, test.ExpectedReplicas) {
 				t.Fatalf("Result of getGauge() = %v, want %v", replicas, test.ExpectedReplicas)
 			}
@@ -741,9 +741,18 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res, _ := updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister, test.time)
-			if !reflect.DeepEqual(res, test.ExpectedR) {
-				t.Fatalf("Result of updateStageTargetRevisions() = %v, want %v", res, test.ExpectedR)
+			res, _ := updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister)
+			if !reflect.DeepEqual(res.Status, test.ExpectedR.Status) {
+				t.Fatalf("Result Status of updateStageTargetRevisions() = %v, want %v", res.Status, test.ExpectedR.Status)
+			}
+			if !reflect.DeepEqual(res.Spec.InitialRevisions, test.ExpectedR.Spec.InitialRevisions) {
+				t.Fatalf("Result Spec.InitialRevisions of updateStageTargetRevisions() = %v, want %v", res.Spec.InitialRevisions, test.ExpectedR.Spec.InitialRevisions)
+			}
+			if !reflect.DeepEqual(res.Spec.TargetRevisions, test.ExpectedR.Spec.TargetRevisions) {
+				t.Fatalf("Result Spec.TargetRevisions of updateStageTargetRevisions() = %v, want %v", res.Spec.TargetRevisions, test.ExpectedR.Spec.TargetRevisions)
+			}
+			if !reflect.DeepEqual(res.Spec.StageTargetRevisions, test.ExpectedR.Spec.StageTargetRevisions) {
+				t.Fatalf("Result Spec.StageTargetRevisions of updateStageTargetRevisions() = %v, want %v", res.Spec.StageTargetRevisions, test.ExpectedR.Spec.StageTargetRevisions)
 			}
 		})
 	}

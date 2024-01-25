@@ -715,8 +715,8 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 	tests := []struct {
 		name        string
 		targetRevs  []v1.TargetRevision
-		upRev       []*v1.TargetRevision
-		downRev     []*v1.TargetRevision
+		upRev       map[string]*v1.TargetRevision
+		downRev     map[string]*v1.TargetRevision
 		expectedErr error
 	}{{
 		name: "Test when stageRevisionStatus as input has revisions scaling up and down",
@@ -734,16 +734,16 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 				Direction: "down",
 			},
 		},
-		upRev: []*v1.TargetRevision{
-			{
+		upRev: map[string]*v1.TargetRevision{
+			"r-001": {
 				TrafficTarget: servingv1.TrafficTarget{
 					RevisionName: "r-001",
 					Percent:      ptr.Int64(20),
 				},
 			},
 		},
-		downRev: []*v1.TargetRevision{
-			{
+		downRev: map[string]*v1.TargetRevision{
+			"r-002": {
 				TrafficTarget: servingv1.TrafficTarget{
 					RevisionName: "r-002",
 					Percent:      ptr.Int64(80),
@@ -769,8 +769,8 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 				Direction: "down",
 			},
 		},
-		upRev: []*v1.TargetRevision{
-			{
+		upRev: map[string]*v1.TargetRevision{
+			"r-001": {
 				TrafficTarget: servingv1.TrafficTarget{
 					RevisionName: "r-001",
 					Percent:      ptr.Int64(20),
@@ -778,8 +778,8 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 				Direction: "up",
 			},
 		},
-		downRev: []*v1.TargetRevision{
-			{
+		downRev: map[string]*v1.TargetRevision{
+			"r-002": {
 				TrafficTarget: servingv1.TrafficTarget{
 					RevisionName: "r-002",
 					Percent:      ptr.Int64(80),
@@ -791,9 +791,9 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 	}, {
 		name:       "Test when stageRevisionStatus as input does not have revisions scaling up",
 		targetRevs: targetRevsNoUp,
-		upRev:      []*v1.TargetRevision{},
-		downRev: []*v1.TargetRevision{
-			{
+		upRev:      map[string]*v1.TargetRevision{},
+		downRev: map[string]*v1.TargetRevision{
+			"r-001": {
 				TrafficTarget: servingv1.TrafficTarget{
 					RevisionName: "r-001",
 					Percent:      ptr.Int64(20),
@@ -805,8 +805,8 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 	}, {
 		name:       "Test when stageRevisionStatus as input does not have revisions scaling down",
 		targetRevs: targetRevsNoDown,
-		upRev: []*v1.TargetRevision{
-			{
+		upRev: map[string]*v1.TargetRevision{
+			"r-001": {
 				TrafficTarget: servingv1.TrafficTarget{
 					RevisionName: "r-001",
 					Percent:      ptr.Int64(20),
@@ -814,7 +814,7 @@ func TestRetrieveRevsUpDown(t *testing.T) {
 				Direction: "up",
 			},
 		},
-		downRev:     []*v1.TargetRevision{},
+		downRev:     map[string]*v1.TargetRevision{},
 		expectedErr: nil,
 	}}
 

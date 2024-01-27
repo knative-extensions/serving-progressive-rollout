@@ -123,11 +123,11 @@ func initializeTargetRevisions(revisionTarget *[]v1.TargetRevision, traffic *ser
 // GetInitialFinalTargetRevision is used to generate the initialTargetRevision and ultimateRevisionTarget.
 // Both of them are needed for the RolloutOrchestrator creation.
 // Only ultimateRevisionTarget for the RolloutOrchestrator update.
-func GetInitialFinalTargetRevision(service *servingv1.Service, records map[string]RevisionRecord,
-	route *servingv1.Route) ([]v1.TargetRevision, []v1.TargetRevision) {
+func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
+	records map[string]RevisionRecord, route *servingv1.Route) ([]v1.TargetRevision, []v1.TargetRevision) {
 	var initialTargetRevision, ultimateRevisionTarget []v1.TargetRevision
 	// This is how the last revision is named after the service generation.
-	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", service.Generation))
+	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", config.Generation))
 	if len(service.Spec.Traffic) == 0 {
 		// If the Traffic information is empty in the service spec, no traffic split is defined. There is only
 		// one element in the TargetRevision list.

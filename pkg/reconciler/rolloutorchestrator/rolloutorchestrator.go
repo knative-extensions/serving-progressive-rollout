@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -254,32 +255,38 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	if !scaleUpReady {
 		return spa
 	}
+
+	if len(strings.TrimSpace(revision.RevisionName)) == 0 {
+		return spa
+	}
+
 	min := getMinScale(revision)
 	max := getMaxScale(revision)
 
-	if revision.TargetReplicas == nil {
-		spa.Spec.StageMinScale = revision.MinScale
-		spa.Spec.StageMaxScale = revision.MaxScale
-		return spa
-	}
-	targetReplicas := *revision.TargetReplicas
-
-	// If targetReplicas is equal to or greater than maxScale, StageMinScale and StageMaxScale are set to the final
-	// MinScale and MaxScale.
-
-	if targetReplicas >= max || revision.Percent == nil {
-		spa.Spec.StageMaxScale = revision.MaxScale
-		spa.Spec.StageMinScale = revision.MinScale
-		return spa
-	}
-
 	// If Percent is empty, it means the old revision has reduced the traffic down to 0%.
 	if revision.Percent == nil {
-		spa.Spec.StageMaxScale = ptr.Int32(0)
+		// We need to set a limit for the max scale, because 0 mean no limit.
+		spa.Spec.StageMaxScale = ptr.Int32(1)
 		spa.Spec.StageMinScale = ptr.Int32(0)
 		return spa
 	}
 
+	// If targetReplicas is equal to or greater than maxScale, StageMinScale and StageMaxScale are set to the final
+	// MinScale and MaxScale.
+	if revision.TargetReplicas == nil || *revision.TargetReplicas >= max {
+		spa.Spec.StageMinScale = revision.MinScale
+		spa.Spec.StageMaxScale = revision.MaxScale
+		return spa
+	}
+
+	// We need to set a limit for the max scale, because 0 mean no limit.
+	if *revision.TargetReplicas == 0 {
+		spa.Spec.StageMaxScale = ptr.Int32(1)
+		spa.Spec.StageMinScale = ptr.Int32(0)
+		return spa
+	}
+
+	targetReplicas := *revision.TargetReplicas
 	// If targetReplicas is less than maxScale, StageMaxScale is set to targetReplicas.
 	spa.Spec.StageMaxScale = ptr.Int32(targetReplicas)
 

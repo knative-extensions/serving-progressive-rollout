@@ -21,6 +21,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -53,6 +54,7 @@ func NewController(
 	paInformer := painformer.Get(ctx)
 	roInformer := roinformer.Get(ctx)
 	configmapInformer := configmapinformer.Get(ctx)
+	deploymentInformer := deploymentinformer.Get(ctx)
 
 	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
@@ -66,6 +68,7 @@ func NewController(
 		roInformer.Lister(),
 		paInformer.Lister(),
 		configmapInformer.Lister(),
+		deploymentInformer.Lister(),
 	)
 
 	opts := func(*controller.Impl) controller.Options {

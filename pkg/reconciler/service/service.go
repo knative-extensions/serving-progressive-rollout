@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +40,7 @@ import (
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -480,12 +480,8 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 		// We can set the stage revision target to final revision target.
 		stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
 	} else {
-		var err error
-		stageRevisionTarget, err = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions,
+		stageRevisionTarget = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions,
 			deltaReplicas, deltaTrafficPercent, currentReplicas, currentTraffic)
-		if err != nil {
-			return ro, err
-		}
 	}
 
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
@@ -549,20 +545,11 @@ func checkDeploymentsAvailable(namespace string, revisionTarget []v1.TargetRevis
 		} else if err != nil {
 			return err
 		}
-		if !isDeploymentAvailable(dep) {
+		if !common.IsDeploymentAvailable(dep) {
 			return fmt.Errorf("error the revision's deployment %s was not ready, when the timeout limit hit", deployName)
 		}
 	}
 	return nil
-}
-
-func isDeploymentAvailable(d *appsv1.Deployment) bool {
-	for _, c := range d.Status.Conditions {
-		if c.Type == appsv1.DeploymentAvailable && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
 }
 
 func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
@@ -708,11 +695,10 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 }
 
 func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions, finalTargetRevs []v1.TargetRevision,
-	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64) ([]v1.TargetRevision, error) {
+	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64) []v1.TargetRevision {
 	// The length of startRevisions will be 1 or greater, if we can reach this function.
 	// First, we need to check if the revision in the finalTargetRevs exists in the startRevisions.
 	var stageRevisionTarget []v1.TargetRevision
-	var tempTarget v1.TargetRevision
 	targetRevName := finalTargetRevs[0].RevisionName
 	if _, found := replicasMap[targetRevName]; found {
 		// Check if it is the last one or not.
@@ -743,7 +729,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 	} else {
 		// The target revision will be added into the stageRevisionTarget.
 		stageRevisionTarget = make([]v1.TargetRevision, len(startRevisions)+1)
-		tempTarget = getInitialStageRevisionTarget(finalTargetRevs[0])
+		tempTarget := getInitialStageRevisionTarget(finalTargetRevs[0])
 
 		// Check the last one in the startRevisions to see if this revision have enough percentage to reduce.
 		lastRev := *startRevisions[len(startRevisions)-1].DeepCopy()
@@ -808,7 +794,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			stageRevisionTarget[i] = clonedRev
 		}
 	}
-	return stageRevisionTarget, nil
+	return stageRevisionTarget
 }
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {

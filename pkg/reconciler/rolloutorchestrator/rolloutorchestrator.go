@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -42,6 +44,7 @@ type Reconciler struct {
 
 	// lister indexes properties about StagePodAutoscaler
 	stagePodAutoscalerLister listers.StagePodAutoscalerLister
+	deploymentLister         appsv1listers.DeploymentLister
 }
 
 // Check that our Reconciler implements roreconciler.Interface
@@ -113,7 +116,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			}
 
 			// spa.IsStageScaleInReady() returns true, as long as both DesireScale and ActualScale are available.
-			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revUp) {
+			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revUp) || !IsDeploymentAvailable(spa, revUp, r.deploymentLister) {
 				// Create the stage pod autoscaler with the new maxScale set to
 				// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 				// scale down the old revision.
@@ -373,6 +376,19 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 
 	// This is for the second mode.
 	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min
+}
+
+func IsDeploymentAvailable(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision,
+	deploymentLister appsv1listers.DeploymentLister) bool {
+	deployName := fmt.Sprintf("%s-deployment", revision.RevisionName)
+	dep, err := deploymentLister.Deployments(spa.Namespace).Get(deployName)
+	if err != nil {
+		return false
+	}
+	if !common.IsDeploymentAvailable(dep) {
+		return false
+	}
+	return true
 }
 
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based

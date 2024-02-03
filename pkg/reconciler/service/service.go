@@ -428,12 +428,6 @@ func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
 		return 0, 0, err
 	}
 	currentReplicas := *pa.Status.ActualScale
-	fmt.Println("check rev")
-	fmt.Println(revisionStatus.RevisionName)
-	fmt.Println("check actual replicas")
-	fmt.Println(currentReplicas)
-	fmt.Println("check desired replicas")
-	fmt.Println(*pa.Status.DesiredScale)
 	return currentReplicas, currentTraffic, nil
 }
 
@@ -652,7 +646,6 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 	revDown := startRevisions[scaleDownIndex].DeepCopy()
 
 	if *revDown.Percent <= stageTrafficDeltaInt {
-		fmt.Println("scaling down can NOT afford the percentage")
 		// This means we need to reduce the traffic down to 0 for this revision to make the current stage's move.
 		// Adjust the target traffic percentage for this stage.
 		stageTrafficDelta := *revDown.Percent
@@ -666,11 +659,6 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
 		revUp.Direction = "up"
-		fmt.Println("update the new rev")
-		fmt.Println("replicas num")
-		fmt.Println(*revUp.TargetReplicas)
-		fmt.Println("replicas percentage")
-		fmt.Println(*revUp.Percent)
 		stageRevisionTarget[scaleUpIndex] = *revUp
 
 		// Still keep one in the list, but set the percentage to empty, target replicas into 0.
@@ -678,64 +666,31 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		revDown.TargetReplicas = ptr.Int32(0)
 		revDown.Direction = "down"
 		revDown.Tag = ""
-		fmt.Println("rest 0 for old rev")
-		fmt.Println(*revDown.TargetReplicas)
-		fmt.Println("replicas percentage")
-		fmt.Println(revDown.Percent)
 		stageRevisionTarget[scaleDownIndex] = *revDown
 
 	} else {
-		fmt.Println("scaling down can afford the percentage")
 		stageTrafficDelta := stageTrafficDeltaInt
 		revUp.Percent = ptr.Int64(stageTrafficDelta + *revUp.Percent)
 		num, _ := replicasMap[revUp.RevisionName]
-		fmt.Println("num in the cache for new")
-		fmt.Println(num)
-		fmt.Println("stageReplicasInt to increase")
-		fmt.Println(stageReplicasInt)
 		revUp.TargetReplicas = ptr.Int32(num + stageReplicasInt)
 
 		// Calculate the adjusted number of delta for this stage.
 		adjustedReplicas := math.Floor(float64(currentReplicas) * float64(*revUp.Percent) / float64(currentTraffic))
-		fmt.Println("the new rev adjustedReplicas")
-		fmt.Println(adjustedReplicas)
 		if *revUp.TargetReplicas > int32(adjustedReplicas) {
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
 		revUp.Direction = "up"
-		fmt.Println("currentReplicas cal is ")
-		fmt.Println(currentReplicas)
-		fmt.Println("currentTraffic cal is")
-		fmt.Println(currentTraffic)
-		fmt.Println("update the new rev")
-		fmt.Println("replicas num")
-		fmt.Println(*revUp.TargetReplicas)
-		fmt.Println("replicas percentage")
-		fmt.Println(*revUp.Percent)
-
 		stageRevisionTarget[scaleUpIndex] = *revUp
 
 		// Adjust the target traffic percentage for this stage.
 		revDown.Percent = ptr.Int64(*revDown.Percent - stageTrafficDelta)
 		num, _ = replicasMap[revDown.RevisionName]
-		fmt.Println("num in the cache for old")
-		fmt.Println(num)
-		fmt.Println("stageReplicasInt to reduce")
-		fmt.Println(stageReplicasInt)
 		revDown.TargetReplicas = ptr.Int32(num - stageReplicasInt)
 
-		fmt.Println("reduce the num of the replicas before adjust")
-		fmt.Println(*revDown.TargetReplicas)
 		adjustedReplicas = math.Ceil(float64(currentReplicas) * float64(*revDown.Percent) / float64(currentTraffic))
-		fmt.Println("the adjusted old rev adjustedReplicas")
-		fmt.Println(adjustedReplicas)
 		if *revDown.TargetReplicas < int32(adjustedReplicas) {
 			revDown.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
-		fmt.Println("reduce the num of the replicas")
-		fmt.Println(*revDown.TargetReplicas)
-		fmt.Println("replicas percentage")
-		fmt.Println(*revDown.Percent)
 		revDown.Direction = "down"
 		revDown.Tag = ""
 		stageRevisionTarget[scaleDownIndex] = *revDown
@@ -765,15 +720,11 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 		if lastRev.RevisionName == targetRevName {
 			// If the revision is the last one, we will scale it up.
 			// The last but one revision will be scaled down.
-			fmt.Println("the last rev is newest scaling up")
-			fmt.Println("the size")
-			fmt.Println(len(startRevisions))
 			scaleUpIndex := len(startRevisions) - 1
 			scaleDownIndex := len(startRevisions) - 2
 			stageRevisionTarget = refreshStage(replicasMap, startRevisions, scaleUpIndex, scaleDownIndex,
 				stageReplicasInt, stageTrafficDeltaInt, currentReplicas, currentTraffic)
 		} else {
-			fmt.Println("not expecting seeing this")
 			// If the revision is not the last one, then the last revision is the one we scale down.
 			scaleDownIndex := len(startRevisions) - 1
 			// Search for the index of the revision of scaling up.
@@ -790,7 +741,6 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 		}
 
 	} else {
-		fmt.Println("adding scaling up rev is int stage")
 		// The target revision will be added into the stageRevisionTarget.
 		stageRevisionTarget = make([]v1.TargetRevision, len(startRevisions)+1)
 		tempTarget = getInitialStageRevisionTarget(finalTargetRevs[0])
@@ -799,7 +749,6 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 		lastRev := *startRevisions[len(startRevisions)-1].DeepCopy()
 		if *lastRev.Percent <= stageTrafficDeltaInt {
 			// This means we need to reduce the traffic down to 0 for this revision to make the current stage's move.
-			fmt.Println("not expecting scaling down old rev to 0")
 			// Adjust the target traffic percentage for this stage.
 			stageTrafficDelta := *lastRev.Percent
 			tempTarget.Percent = ptr.Int64(stageTrafficDelta)
@@ -820,17 +769,10 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			stageRevisionTarget[len(stageRevisionTarget)-2] = lastRev
 
 		} else {
-			fmt.Println("scaling down old rev to 0")
 			// Adjust the target traffic percentage for this stage.
 			stageTrafficDelta := stageTrafficDeltaInt
 			tempTarget.Percent = ptr.Int64(stageTrafficDelta)
 			tempTarget.TargetReplicas = ptr.Int32(stageReplicasInt)
-			fmt.Println("new revision")
-			fmt.Println(tempTarget.RevisionName)
-			fmt.Println("replicas number for new")
-			fmt.Println(*tempTarget.TargetReplicas)
-			fmt.Println("percentage for new")
-			fmt.Println(*tempTarget.Percent)
 			// It is the first time that traffic starts to move on to the new revision.
 			stageRevisionTarget[len(stageRevisionTarget)-1] = tempTarget
 
@@ -839,51 +781,22 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			replicas, _ := replicasMap[lastRev.RevisionName]
 			lastRev.TargetReplicas = ptr.Int32(replicas - stageReplicasInt)
 			lastRev.LatestRevision = ptr.Bool(false)
-			fmt.Println("old revision")
-			fmt.Println(lastRev.RevisionName)
-			fmt.Println("replicas number for old")
-			fmt.Println(*lastRev.TargetReplicas)
-			fmt.Println("percentage for old")
-			fmt.Println(*lastRev.Percent)
 
 			lastRev.Direction = "down"
 			// reset the tag
 			lastRev.Tag = ""
 			adjustedDeltaReplicas := math.Ceil(float64(currentReplicas) * float64(*lastRev.Percent) / float64(currentTraffic))
-			fmt.Println("adjusted replicas for old")
-			fmt.Println(*lastRev.TargetReplicas)
 
 			if *lastRev.TargetReplicas < int32(adjustedDeltaReplicas) {
 				lastRev.TargetReplicas = ptr.Int32(int32(adjustedDeltaReplicas))
 			}
-			fmt.Println("percentage for old after adjust")
-			fmt.Println(*lastRev.Percent)
-
-			fmt.Println("the index is")
-			fmt.Println(len(stageRevisionTarget) - 2)
 
 			stageRevisionTarget[len(stageRevisionTarget)-2] = lastRev
-
-			fmt.Println("RevisionName for the new")
-			fmt.Println(stageRevisionTarget[1].RevisionName)
-			fmt.Println("TargetReplicas for new is")
-			if stageRevisionTarget[1].TargetReplicas != nil {
-				fmt.Println(*stageRevisionTarget[1].TargetReplicas)
-			}
-
-			fmt.Println("RevisionName for the old")
-			fmt.Println(stageRevisionTarget[len(stageRevisionTarget)-2].RevisionName)
-			fmt.Println("TargetReplicas for old is")
-			if stageRevisionTarget[len(stageRevisionTarget)-2].TargetReplicas != nil {
-				fmt.Println(*stageRevisionTarget[len(stageRevisionTarget)-2].TargetReplicas)
-			}
 		}
 
 		// After update the revision that need to scale down, we need to fill in all the previous revisions in front
 		// of the revision scaling down as well.
-		fmt.Println("fill in down old rev unchanged")
 		for i := 0; i < len(startRevisions)-1; i++ {
-			fmt.Println("adding now")
 			clonedRev := *startRevisions[i].DeepCopy()
 			clonedRev.Direction = "stay"
 			clonedRev.LatestRevision = ptr.Bool(false)
@@ -895,70 +808,6 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			stageRevisionTarget[i] = clonedRev
 		}
 	}
-
-	//stageRevisionTarget = make([]v1.TargetRevision, 0, len(startRevisions))
-	//if len(startRevisions) == 2 {
-	//	tempTarget = startRevisions[1]
-	//} else {
-	//	tempTarget = getInitialStageRevisionTarget(finalTargetRevs[0])
-	//}
-	//targetPercent := *tempTarget.Percent + stageTrafficDeltaInt
-	//if targetPercent >= 100 {
-	//	stageRevisionTarget = append(stageRevisionTarget, finalTargetRevs...)
-	//	return stageRevisionTarget, nil
-	//}
-	//stageRevisionTarget = make([]v1.TargetRevision, 2)
-	//if len(startRevisions) == 2 {
-	//	target := startRevisions[0].DeepCopy()
-	//	pa, err := podAutoscalerLister.Get(target.RevisionName)
-	//	if err != nil {
-	//		return stageRevisionTarget, err
-	//	}
-	//
-	//	oldRevReplicas := getActualReplicas(pa)
-	//
-	//	target.TargetReplicas = ptr.Int32(oldRevReplicas - stageReplicasInt)
-	//	target.Percent = ptr.Int64(*target.Percent - stageTrafficDeltaInt)
-	//
-	//	replicas := float64(currentReplicas) * float64(*target.Percent) / float64(currentTraffic)
-	//	if *target.TargetReplicas <= 0 || *target.TargetReplicas < int32(replicas) {
-	//		target.TargetReplicas = ptr.Int32(int32(math.Ceil(replicas)))
-	//	}
-	//	if *target.TargetReplicas == 0 {
-	//		target.TargetReplicas = ptr.Int32(1)
-	//	}
-	//
-	//	stageRevisionTarget[0] = *target
-	//
-	//	targetN := startRevisions[1].DeepCopy()
-	//	pa, err = podAutoscalerLister.Get(targetN.RevisionName)
-	//	if err != nil {
-	//		return stageRevisionTarget, err
-	//	}
-	//	newReplicas := getActualReplicas(pa)
-	//	targetN.TargetReplicas = ptr.Int32(newReplicas + stageReplicasInt)
-	//	targetN.Percent = ptr.Int64(*targetN.Percent + stageTrafficDeltaInt)
-	//
-	//	replicas = float64(currentReplicas) * float64(*targetN.Percent) / float64(currentTraffic)
-	//	if *targetN.TargetReplicas < int32(replicas) {
-	//		targetN.TargetReplicas = ptr.Int32(int32(math.Floor(replicas)))
-	//	}
-	//	stageRevisionTarget[1] = *targetN
-	//} else {
-	//	// Update the old revision record in the stageRevisionTarget.
-	//	target := startRevisions[0].DeepCopy()
-	//	target.LatestRevision = ptr.Bool(false)
-	//	target.Direction = "down"
-	//	target.TargetReplicas = ptr.Int32(currentReplicas - stageReplicasInt)
-	//	target.Percent = ptr.Int64(currentTraffic - stageTrafficDeltaInt)
-	//	stageRevisionTarget[0] = *target
-	//
-	//	// Update the new revision record in the stageRevisionTarget.
-	//	tempTarget.TargetReplicas = ptr.Int32(stageReplicasInt)
-	//	tempTarget.Percent = ptr.Int64(stageTrafficDeltaInt)
-	//	stageRevisionTarget[1] = tempTarget
-	//}
-
 	return stageRevisionTarget, nil
 }
 

@@ -206,12 +206,7 @@ func (r *Reconciler) createStagePA(ctx context.Context, ro *v1.RolloutOrchestrat
 func RemoveNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
 	result := make([]v1.TargetRevision, 0, len(ts))
 	for _, r := range ts {
-		fmt.Println("RemoveNonTrafficRev check name")
-		fmt.Println(r.RevisionName)
-		fmt.Println("check percentage")
-		fmt.Println(r.Direction)
 		if r.Percent != nil && (*r.Percent != 0 || (*r.Percent == 0 && r.LatestRevision != nil && *r.LatestRevision)) {
-			fmt.Println("adding this rev into status rev")
 			result = append(result, r)
 		}
 	}

@@ -637,8 +637,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		// Adjust the target traffic percentage for this stage.
 		stageTrafficDelta := *revDown.Percent
 		revUp.Percent = ptr.Int64(stageTrafficDelta + *revUp.Percent)
-		num, _ := replicasMap[revUp.RevisionName]
-		revUp.TargetReplicas = ptr.Int32(num + stageReplicasInt)
+		revUp.TargetReplicas = ptr.Int32(replicasMap[revUp.RevisionName] + stageReplicasInt)
 
 		// Calculate the adjusted number of delta for this stage.
 		adjustedReplicas := math.Floor(float64(currentReplicas) * float64(*revUp.Percent) / float64(currentTraffic))
@@ -658,8 +657,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 	} else {
 		stageTrafficDelta := stageTrafficDeltaInt
 		revUp.Percent = ptr.Int64(stageTrafficDelta + *revUp.Percent)
-		num, _ := replicasMap[revUp.RevisionName]
-		revUp.TargetReplicas = ptr.Int32(num + stageReplicasInt)
+		revUp.TargetReplicas = ptr.Int32(replicasMap[revUp.RevisionName] + stageReplicasInt)
 
 		// Calculate the adjusted number of delta for this stage.
 		adjustedReplicas := math.Floor(float64(currentReplicas) * float64(*revUp.Percent) / float64(currentTraffic))
@@ -671,8 +669,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 
 		// Adjust the target traffic percentage for this stage.
 		revDown.Percent = ptr.Int64(*revDown.Percent - stageTrafficDelta)
-		num, _ = replicasMap[revDown.RevisionName]
-		revDown.TargetReplicas = ptr.Int32(num - stageReplicasInt)
+		revDown.TargetReplicas = ptr.Int32(replicasMap[revDown.RevisionName] - stageReplicasInt)
 
 		adjustedReplicas = math.Ceil(float64(currentReplicas) * float64(*revDown.Percent) / float64(currentTraffic))
 		if *revDown.TargetReplicas < int32(adjustedReplicas) {
@@ -764,8 +761,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 
 			// Keep one in the list for sure, but set the percentage to empty, target replicas into 0.
 			lastRev.Percent = ptr.Int64(*lastRev.Percent - stageTrafficDeltaInt)
-			replicas, _ := replicasMap[lastRev.RevisionName]
-			lastRev.TargetReplicas = ptr.Int32(replicas - stageReplicasInt)
+			lastRev.TargetReplicas = ptr.Int32(replicasMap[lastRev.RevisionName] - stageReplicasInt)
 			lastRev.LatestRevision = ptr.Bool(false)
 
 			lastRev.Direction = "down"

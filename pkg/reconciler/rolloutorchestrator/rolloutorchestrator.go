@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -42,6 +44,7 @@ type Reconciler struct {
 
 	// lister indexes properties about StagePodAutoscaler
 	stagePodAutoscalerLister listers.StagePodAutoscalerLister
+	deploymentLister         appsv1listers.DeploymentLister
 }
 
 // Check that our Reconciler implements roreconciler.Interface
@@ -92,34 +95,35 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	// scales up or down, min and max scales defined by the Knative Service.
 	stageTargetRevisions := ro.Spec.StageTargetRevisions
 	revScalingUp, revScalingDown, err := RetrieveRevsUpDown(stageTargetRevisions)
+
 	if err != nil {
 		return err
 	}
 
 	// Create or update the StagePodAutoscaler for the revision scale up
-	for i := range revScalingUp {
-		if _, err = r.createOrUpdateSPARevUp(ctx, ro, revScalingUp[i]); err != nil {
+	for _, revUp := range revScalingUp {
+		if _, err = r.createOrUpdateSPARevUp(ctx, ro, revUp); err != nil {
 			return err
 		}
 	}
 
 	// If spec.StageRevisionStatus is nil, check on if the number of replicas meets the conditions.
 	if ro.IsStageInProgress() {
-		for i := range revScalingUp {
-			spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingUp[i].RevisionName)
+		for _, revUp := range revScalingUp {
+			spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revUp.RevisionName)
 			if err != nil {
 				return err
 			}
 
 			// spa.IsStageScaleInReady() returns true, as long as both DesireScale and ActualScale are available.
-			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revScalingUp[i]) {
+			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revUp) || !IsDeploymentAvailable(spa, revUp, r.deploymentLister) {
 				// Create the stage pod autoscaler with the new maxScale set to
 				// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 				// scale down the old revision.
-				// Create or update the stagePodAutoscaler for the revision to be scaled down, eve if the scaling up
+				// Create or update the stagePodAutoscaler for the revision to be scaled down, even if the scaling up
 				// phase is not over.
-				for i := range revScalingDown {
-					if _, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown[i], false); err != nil {
+				for _, valDown := range revScalingDown {
+					if _, err = r.createOrUpdateSPARevDown(ctx, ro, valDown, false); err != nil {
 						return err
 					}
 				}
@@ -133,17 +137,17 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		// in the revision traffic. Scaling up phase is over, we are able to scale down.
 		// Create or update the stagePodAutoscaler for the revision to be scaled down.
 		if len(revScalingDown) != 0 {
-			for i := range revScalingDown {
-				_, err = r.createOrUpdateSPARevDown(ctx, ro, revScalingDown[i], true)
+			for _, valDown := range revScalingDown {
+				_, err = r.createOrUpdateSPARevDown(ctx, ro, valDown, true)
 				if err != nil {
 					return err
 				}
 
-				spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revScalingDown[i].RevisionName)
+				spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(valDown.RevisionName)
 				if err != nil {
 					return err
 				}
-				if !IsStageScaleDownReady(spa, revScalingDown[i]) {
+				if !IsStageScaleDownReady(spa, valDown) {
 					return nil
 				}
 			}
@@ -151,11 +155,16 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			// Reset the stagePodAutoscaler for the initial target revision, since it has scaled down to 0, without
 			// taking any traffic.
 			// Min and Max scale in stagePodAutoscaler will be set to the same value as in the revision.
-			revScaleDown := ro.Spec.InitialRevisions[0].DeepCopy()
-			revScaleDown.Percent = nil
-			_, err = r.createOrUpdateSPARevDown(ctx, ro, revScaleDown, true)
-			if err != nil {
-				return err
+			for _, initRev := range ro.Spec.InitialRevisions {
+				if _, found := revScalingUp[initRev.RevisionName]; !found {
+					// If this revision is not found in the map for revisions scaling up, we need to scale down.
+					revScaleDown := initRev.DeepCopy()
+					revScaleDown.Percent = nil
+					_, err = r.createOrUpdateSPARevDown(ctx, ro, revScaleDown, true)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 		ro.Status.MarkStageRevisionScaleDownReady()
@@ -198,10 +207,19 @@ func (r *Reconciler) createStagePA(ctx context.Context, ro *v1.RolloutOrchestrat
 
 // RemoveNonTrafficRev removes the redundant TargetRevision from the list of TargetRevisions.
 func RemoveNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
-	result := make([]v1.TargetRevision, 0)
+	result := make([]v1.TargetRevision, 0, len(ts))
 	for _, r := range ts {
 		if r.Percent != nil && (*r.Percent != 0 || (*r.Percent == 0 && r.LatestRevision != nil && *r.LatestRevision)) {
 			result = append(result, r)
+		}
+	}
+	if len(result) < len(ts) {
+		// We need to find out the revision to scale down, since we remove the revision previously scaling down.
+		for i := len(result) - 1; i >= 0; i-- {
+			if result[i].Direction == "stay" {
+				result[i].Direction = "down"
+				break
+			}
 		}
 	}
 	return result
@@ -212,7 +230,7 @@ func targetRevisionEqual(currentStatusRevisions, finalTargetRevisions []v1.Targe
 		return false
 	}
 	for _, r := range currentStatusRevisions {
-		if *r.Percent == 100 && r.RevisionName == finalTargetRevisions[0].RevisionName {
+		if r.Percent != nil && *r.Percent == 100 && r.RevisionName == finalTargetRevisions[0].RevisionName {
 			return true
 		}
 	}
@@ -302,13 +320,13 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 }
 
 // RetrieveRevsUpDown returns two list of revisions scaling up and down based on the input TargetRevisions.
-func RetrieveRevsUpDown(targetRevs []v1.TargetRevision) ([]*v1.TargetRevision, []*v1.TargetRevision, error) {
-	targetRevsUp, targetRevsDown := make([]*v1.TargetRevision, 0), make([]*v1.TargetRevision, 0)
-	for i, rev := range targetRevs {
+func RetrieveRevsUpDown(targetRevs []v1.TargetRevision) (map[string]*v1.TargetRevision, map[string]*v1.TargetRevision, error) {
+	targetRevsUp, targetRevsDown := make(map[string]*v1.TargetRevision), make(map[string]*v1.TargetRevision)
+	for _, rev := range targetRevs {
 		if rev.IsRevScalingUp() {
-			targetRevsUp = append(targetRevsUp, &targetRevs[i])
+			targetRevsUp[rev.RevisionName] = rev.DeepCopy()
 		} else if rev.IsRevScalingDown() {
-			targetRevsDown = append(targetRevsDown, &targetRevs[i])
+			targetRevsDown[rev.RevisionName] = rev.DeepCopy()
 		}
 	}
 	if len(targetRevsUp) == 0 {
@@ -360,6 +378,19 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min
 }
 
+func IsDeploymentAvailable(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision,
+	deploymentLister appsv1listers.DeploymentLister) bool {
+	deployName := fmt.Sprintf("%s-deployment", revision.RevisionName)
+	dep, err := deploymentLister.Deployments(spa.Namespace).Get(deployName)
+	if err != nil {
+		return false
+	}
+	if !common.IsDeploymentAvailable(dep) {
+		return false
+	}
+	return true
+}
+
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based
 // on the revision and the spa(StagePodAutoscaler).
 func IsStageScaleDownReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision) bool {
@@ -367,7 +398,8 @@ func IsStageScaleDownReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevisi
 		return false
 	}
 	if revision.TargetReplicas == nil {
-		// For revision scaling up without TargetReplicas, it means this revision will be assigned 0% of the traffic.
+		// For revision scaling down without TargetReplicas, it means this revision will be assigned the same
+		// traffic percentage as the previous stage.
 		max := getMaxScale(revision)
 		return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, max)
 	}

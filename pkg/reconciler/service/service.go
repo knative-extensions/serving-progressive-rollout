@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -32,17 +31,16 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
-	"knative.dev/pkg/system"
-	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
-
-	"knative.dev/pkg/controller"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
+	"knative.dev/pkg/system"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -350,7 +348,7 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 // or during the upgrade transition, one stage has finished but the last stage not reached.
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) (*v1.RolloutOrchestrator, error) {
-	if ro.IsNotOneToOneUpgrade() || !config.ProgressiveRolloutEnabled {
+	if ro.IsNotConvertToOneUpgrade() || !config.ProgressiveRolloutEnabled {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
 		// in the implementation.
@@ -362,7 +360,7 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// target.
 		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
-		return updateStageTargetRevisions(ro, config, podAutoscalerLister, time.Now())
+		return updateStageTargetRevisions(ro, config, podAutoscalerLister)
 	}
 	return ro, nil
 }
@@ -377,40 +375,47 @@ func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
 	return startRevisions
 }
 
-func getGaugeIndex(targetRevs []v1.TargetRevision) int {
-	if len(targetRevs) == 1 {
-		// If there is only one element/revision in the list of TargetRevision,
-		// 0 is the only index we used to get the revision and calculate the target number of replicas.
-		return 0
-	}
-
-	if len(targetRevs) == 2 {
-		// The length is either 1 or 2. If it is 2, we will use 1 as the index to get the
-		// revision and calculate the target number of the replica.
-		return 1
-	}
-	return -1
-}
-
 // getGauge returns the number of replicas and the traffic percentage it occupies, plus the minScale and maxScale
 // defined by the knative service.
 // These values are used to calculate the target number of replicas for the new and
 // the old revision.
-func getGauge(targetRevs []v1.TargetRevision, podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, error) {
-	currentReplicas, currentTraffic, err := getGaugeWithIndex(targetRevs, 0, podAutoscalerLister)
+func getGauge(targetRevs []v1.TargetRevision,
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, map[string]int32, error) {
+	replicasMap := make(map[string]int32)
+	startIndex := -1
+	for i := 0; i < len(targetRevs); i++ {
+		if targetRevs[i].Direction != "stay" {
+			startIndex = i
+			break
+		}
+	}
+
+	if startIndex == -1 {
+		return 0, 0, replicasMap, fmt.Errorf("there is no revision found to to scale up or down")
+	}
+	currentReplicas, currentTraffic, err := getGaugeWithIndex(targetRevs, startIndex, podAutoscalerLister)
 	if err != nil {
-		return currentReplicas, currentTraffic, err
+		return currentReplicas, currentTraffic, replicasMap, err
 	}
-	if len(targetRevs) > 1 {
-		currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, 1, podAutoscalerLister)
-		if errN != nil {
-			return currentReplicasN, currentTrafficN, errN
-		}
-		if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
-			return currentReplicasN, currentTrafficN, nil
+	replicasMap[targetRevs[startIndex].RevisionName] = currentReplicas
+
+	if startIndex < len(targetRevs)-1 {
+		for i := startIndex + 1; i < len(targetRevs); i++ {
+			if targetRevs[i].Direction == "stay" {
+				continue
+			}
+			currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, i, podAutoscalerLister)
+			if errN != nil {
+				return currentReplicas, currentTraffic, replicasMap, errN
+			}
+			replicasMap[targetRevs[i].RevisionName] = currentReplicasN
+			if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
+				currentReplicas = currentReplicasN
+				currentTraffic = currentTrafficN
+			}
 		}
 	}
-	return currentReplicas, currentTraffic, nil
+	return currentReplicas, currentTraffic, replicasMap, nil
 }
 
 func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
@@ -445,17 +450,11 @@ func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio 
 // updateStageTargetRevisions updates the StageTargetRevisions based on the existing StageTargetRevisions,
 // Initial target Revisions, Final target revisions, and the current PodAutoscaler.
 func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfig,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, t time.Time) (*v1.RolloutOrchestrator, error) {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (*v1.RolloutOrchestrator, error) {
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
-	// The index is 0, if there is only one revision in startRevisions, meaning that this is the revision about
-	// to scale down.
-	// The index is 1, if there are two revisions in startRevisions, meaning that this is the revision about
-	// to scale up.
-	// The revision at 0th is always the one scaling down, and the one at 1st is always the one scaling up.
 	startRevisions := getStartRevisions(ro)
-	index := getGaugeIndex(startRevisions)
-	if index == -1 {
+	if len(startRevisions) == 0 || config.OverConsumptionRatio == 100 {
 		// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 		return ro, nil
@@ -463,7 +462,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 	// The currentReplicas and currentTraffic will be used as the standard values to calculate
 	// the further target number of replicas for each revision.
-	currentReplicas, currentTraffic, err := getGauge(startRevisions, podAutoscalerLister)
+	currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
 	if err != nil {
 		return ro, err
 	}
@@ -475,22 +474,20 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 	// Based on the min, max and currentReplicas, we can decide the number of replicas for the revisions
 	// are either traffic driven or non-traffic driven.
-	stageRevisionTarget := make([]v1.TargetRevision, 0)
+	stageRevisionTarget := make([]v1.TargetRevision, 0, len(startRevisions))
 	if currentReplicas == 0 {
 		// If the revision runs with 0 replicas, it means it scales down to 0 and there is no traffic.
 		// We can set the stage revision target to final revision target.
 		stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
 	} else {
-		var err error
-		stageRevisionTarget, err = calculateStageTargetRevisions(startRevisions, ro.Spec.TargetRevisions, deltaReplicas,
-			deltaTrafficPercent, currentReplicas, currentTraffic, podAutoscalerLister)
-		if err != nil {
-			return ro, err
-		}
+		stageRevisionTarget = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions,
+			deltaReplicas, deltaTrafficPercent, currentReplicas, currentTraffic)
 	}
 
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
-	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(t.Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
+
+	// Set the target time when the current stage will be over.
+	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
 	return ro, nil
 }
 
@@ -548,20 +545,11 @@ func checkDeploymentsAvailable(namespace string, revisionTarget []v1.TargetRevis
 		} else if err != nil {
 			return err
 		}
-		if !isDeploymentAvailable(dep) {
+		if !common.IsDeploymentAvailable(dep) {
 			return fmt.Errorf("error the revision's deployment %s was not ready, when the timeout limit hit", deployName)
 		}
 	}
 	return nil
-}
-
-func isDeploymentAvailable(d *appsv1.Deployment) bool {
-	for _, c := range d.Status.Conditions {
-		if c.Type == appsv1.DeploymentAvailable && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
 }
 
 func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
@@ -570,11 +558,32 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 	// The TargetRevision at the index 0 will always be the revision that is about to scale down.
 	// We get the number of replicas and how much traffic dispatched to this revision, and use them as the gauge
 	// to calculate the number of replicas for any other traffic percentage.
-	currentReplicas, currentTraffic, err := getGauge(revisionTarget, podAutoscalerLister)
+	currentReplicas, currentTraffic, _, err := getGauge(revisionTarget, podAutoscalerLister)
 	if err != nil {
 		return revisionTarget, err
 	}
-	oldReplica, _, err := getGaugeWithIndex(revisionTarget, 0, podAutoscalerLister)
+
+	scaleUpIndex, scaleDownIndex := -1, -1
+	for i := range revisionTarget {
+		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
+			scaleUpIndex = i
+			if scaleDownIndex != -1 {
+				break
+			}
+		} else if revisionTarget[i].Direction == "down" {
+			scaleDownIndex = i
+			if scaleUpIndex != -1 {
+				break
+			}
+		}
+	}
+
+	if scaleUpIndex == -1 || scaleDownIndex == -1 {
+		// If is unlikely to happen, but we add the logic check here for safety.
+		return revisionTarget, fmt.Errorf("unable to find both the revisions to scale up and down")
+	}
+
+	oldReplica, _, err := getGaugeWithIndex(revisionTarget, scaleDownIndex, podAutoscalerLister)
 	if err != nil {
 		return revisionTarget, err
 	}
@@ -588,22 +597,18 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 		stageTrafficDeltaInt = ratio
 	}
 
-	for i := range revisionTarget {
-		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
-			targetPercent := *revisionTarget[i].Percent + int64(stageTrafficDeltaInt)
-			if targetPercent >= 100 {
-				revisionTarget[i].Percent = ptr.Int64(100)
-			} else {
-				revisionTarget[i].Percent = ptr.Int64(targetPercent)
-			}
-		} else if revisionTarget[i].Direction == "down" {
-			targetPercent := *revisionTarget[i].Percent - int64(stageTrafficDeltaInt)
-			if targetPercent <= 0 {
-				revisionTarget[i].Percent = ptr.Int64(0)
-			} else {
-				revisionTarget[i].Percent = ptr.Int64(targetPercent)
-			}
-		}
+	targetPercent := *revisionTarget[scaleUpIndex].Percent + int64(stageTrafficDeltaInt)
+	if targetPercent >= 100 {
+		revisionTarget[scaleUpIndex].Percent = ptr.Int64(100)
+	} else {
+		revisionTarget[scaleUpIndex].Percent = ptr.Int64(targetPercent)
+	}
+
+	targetPercent = *revisionTarget[scaleDownIndex].Percent - int64(stageTrafficDeltaInt)
+	if targetPercent <= 0 {
+		revisionTarget[scaleDownIndex].Percent = nil
+	} else {
+		revisionTarget[scaleDownIndex].Percent = ptr.Int64(targetPercent)
 	}
 
 	return revisionTarget, nil
@@ -621,85 +626,171 @@ func getInitialStageRevisionTarget(ftr v1.TargetRevision) v1.TargetRevision {
 	return targetNewRollout
 }
 
-func getActualReplicas(pa *v1alpha1.PodAutoscaler) int32 {
-	revReplicas := int32(0)
-	if pa != nil {
-		revReplicas = *pa.Status.ActualScale
+func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevision, scaleUpIndex, scaleDownIndex int,
+	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64) []v1.TargetRevision {
+	stageRevisionTarget := make([]v1.TargetRevision, len(startRevisions))
+	revUp := startRevisions[scaleUpIndex].DeepCopy()
+	revDown := startRevisions[scaleDownIndex].DeepCopy()
+
+	if *revDown.Percent <= stageTrafficDeltaInt {
+		// This means we need to reduce the traffic down to 0 for this revision to make the current stage's move.
+		// Adjust the target traffic percentage for this stage.
+		stageTrafficDelta := *revDown.Percent
+		revUp.Percent = ptr.Int64(stageTrafficDelta + *revUp.Percent)
+		revUp.TargetReplicas = ptr.Int32(replicasMap[revUp.RevisionName] + stageReplicasInt)
+
+		// Calculate the adjusted number of delta for this stage.
+		adjustedReplicas := math.Floor(float64(currentReplicas) * float64(*revUp.Percent) / float64(currentTraffic))
+		if *revUp.TargetReplicas > int32(adjustedReplicas) {
+			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
+		}
+		revUp.Direction = "up"
+		stageRevisionTarget[scaleUpIndex] = *revUp
+
+		// Still keep one in the list, but set the percentage to empty, target replicas into 0.
+		revDown.Percent = nil
+		revDown.TargetReplicas = ptr.Int32(0)
+		revDown.Direction = "down"
+		revDown.Tag = ""
+		stageRevisionTarget[scaleDownIndex] = *revDown
+
+	} else {
+		stageTrafficDelta := stageTrafficDeltaInt
+		revUp.Percent = ptr.Int64(stageTrafficDelta + *revUp.Percent)
+		revUp.TargetReplicas = ptr.Int32(replicasMap[revUp.RevisionName] + stageReplicasInt)
+
+		// Calculate the adjusted number of delta for this stage.
+		adjustedReplicas := math.Floor(float64(currentReplicas) * float64(*revUp.Percent) / float64(currentTraffic))
+		if *revUp.TargetReplicas > int32(adjustedReplicas) {
+			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
+		}
+		revUp.Direction = "up"
+		stageRevisionTarget[scaleUpIndex] = *revUp
+
+		// Adjust the target traffic percentage for this stage.
+		revDown.Percent = ptr.Int64(*revDown.Percent - stageTrafficDelta)
+		revDown.TargetReplicas = ptr.Int32(replicasMap[revDown.RevisionName] - stageReplicasInt)
+
+		adjustedReplicas = math.Ceil(float64(currentReplicas) * float64(*revDown.Percent) / float64(currentTraffic))
+		if *revDown.TargetReplicas < int32(adjustedReplicas) {
+			revDown.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
+		}
+		revDown.Direction = "down"
+		revDown.Tag = ""
+		stageRevisionTarget[scaleDownIndex] = *revDown
 	}
-	if revReplicas < 0 {
-		revReplicas = 0
+
+	for i := 0; i < len(startRevisions); i++ {
+		if i != scaleUpIndex && i != scaleDownIndex {
+			clonedRev := *startRevisions[i].DeepCopy()
+			clonedRev.Direction = "stay"
+			stageRevisionTarget[i] = clonedRev
+		}
 	}
-	return revReplicas
+
+	return stageRevisionTarget
 }
 
-func calculateStageTargetRevisions(initialTargetRev, finalTargetRevs []v1.TargetRevision,
-	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) ([]v1.TargetRevision, error) {
-	stageRevisionTarget := make([]v1.TargetRevision, 0)
-	var tempTarget v1.TargetRevision
-	if len(initialTargetRev) == 2 {
-		tempTarget = initialTargetRev[1]
+func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions, finalTargetRevs []v1.TargetRevision,
+	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64) []v1.TargetRevision {
+	// The length of startRevisions will be 1 or greater, if we can reach this function.
+	// First, we need to check if the revision in the finalTargetRevs exists in the startRevisions.
+	var stageRevisionTarget []v1.TargetRevision
+	targetRevName := finalTargetRevs[0].RevisionName
+	if _, found := replicasMap[targetRevName]; found {
+		// Check if it is the last one or not.
+		lastRev := *startRevisions[len(startRevisions)-1].DeepCopy()
+		if lastRev.RevisionName == targetRevName {
+			// If the revision is the last one, we will scale it up.
+			// The last but one revision will be scaled down.
+			scaleUpIndex := len(startRevisions) - 1
+			scaleDownIndex := len(startRevisions) - 2
+			stageRevisionTarget = refreshStage(replicasMap, startRevisions, scaleUpIndex, scaleDownIndex,
+				stageReplicasInt, stageTrafficDeltaInt, currentReplicas, currentTraffic)
+		} else {
+			// If the revision is not the last one, then the last revision is the one we scale down.
+			scaleDownIndex := len(startRevisions) - 1
+			// Search for the index of the revision of scaling up.
+			scaleUpIndex := 0
+			for i := 0; i < len(startRevisions)-1; i++ {
+				if startRevisions[i].RevisionName == targetRevName {
+					// 100% sure scaleUpIndex will be found
+					scaleUpIndex = i
+					break
+				}
+			}
+			stageRevisionTarget = refreshStage(replicasMap, startRevisions, scaleUpIndex, scaleDownIndex,
+				stageReplicasInt, stageTrafficDeltaInt, currentReplicas, currentTraffic)
+		}
+
 	} else {
-		tempTarget = getInitialStageRevisionTarget(finalTargetRevs[0])
+		// The target revision will be added into the stageRevisionTarget.
+		stageRevisionTarget = make([]v1.TargetRevision, len(startRevisions)+1)
+		tempTarget := getInitialStageRevisionTarget(finalTargetRevs[0])
+
+		// Check the last one in the startRevisions to see if this revision have enough percentage to reduce.
+		lastRev := *startRevisions[len(startRevisions)-1].DeepCopy()
+		if *lastRev.Percent <= stageTrafficDeltaInt {
+			// This means we need to reduce the traffic down to 0 for this revision to make the current stage's move.
+			// Adjust the target traffic percentage for this stage.
+			stageTrafficDelta := *lastRev.Percent
+			tempTarget.Percent = ptr.Int64(stageTrafficDelta)
+
+			// Calculate the adjusted number of delta for this stage.
+			adjustedDeltaReplicas := math.Floor(float64(currentReplicas) * float64(stageTrafficDelta) / float64(currentTraffic))
+			tempTarget.TargetReplicas = ptr.Int32(int32(adjustedDeltaReplicas))
+			// It is the first time that traffic starts to move on to the new revision.
+			stageRevisionTarget[len(stageRevisionTarget)-1] = tempTarget
+
+			// Still keep one in the list, but set the percentage to empty, target replicas into 0.
+			lastRev.Percent = nil
+			lastRev.TargetReplicas = ptr.Int32(0)
+			lastRev.LatestRevision = ptr.Bool(false)
+			lastRev.Direction = "down"
+			// reset the tag
+			lastRev.Tag = ""
+			stageRevisionTarget[len(stageRevisionTarget)-2] = lastRev
+
+		} else {
+			// Adjust the target traffic percentage for this stage.
+			stageTrafficDelta := stageTrafficDeltaInt
+			tempTarget.Percent = ptr.Int64(stageTrafficDelta)
+			tempTarget.TargetReplicas = ptr.Int32(stageReplicasInt)
+			// It is the first time that traffic starts to move on to the new revision.
+			stageRevisionTarget[len(stageRevisionTarget)-1] = tempTarget
+
+			// Keep one in the list for sure, but set the percentage to empty, target replicas into 0.
+			lastRev.Percent = ptr.Int64(*lastRev.Percent - stageTrafficDeltaInt)
+			lastRev.TargetReplicas = ptr.Int32(replicasMap[lastRev.RevisionName] - stageReplicasInt)
+			lastRev.LatestRevision = ptr.Bool(false)
+
+			lastRev.Direction = "down"
+			// reset the tag
+			lastRev.Tag = ""
+			adjustedDeltaReplicas := math.Ceil(float64(currentReplicas) * float64(*lastRev.Percent) / float64(currentTraffic))
+
+			if *lastRev.TargetReplicas < int32(adjustedDeltaReplicas) {
+				lastRev.TargetReplicas = ptr.Int32(int32(adjustedDeltaReplicas))
+			}
+
+			stageRevisionTarget[len(stageRevisionTarget)-2] = lastRev
+		}
+
+		// After update the revision that need to scale down, we need to fill in all the previous revisions in front
+		// of the revision scaling down as well.
+		for i := 0; i < len(startRevisions)-1; i++ {
+			clonedRev := *startRevisions[i].DeepCopy()
+			clonedRev.Direction = "stay"
+			clonedRev.LatestRevision = ptr.Bool(false)
+			// reset the tag
+			clonedRev.Tag = ""
+			if clonedRev.MinScale != nil && clonedRev.TargetReplicas != nil && *clonedRev.TargetReplicas < *clonedRev.MinScale {
+				clonedRev.TargetReplicas = nil
+			}
+			stageRevisionTarget[i] = clonedRev
+		}
 	}
-	targetPercent := *tempTarget.Percent + stageTrafficDeltaInt
-	if targetPercent >= 100 {
-		stageRevisionTarget = append(stageRevisionTarget, finalTargetRevs...)
-		return stageRevisionTarget, nil
-	}
-	stageRevisionTarget = make([]v1.TargetRevision, 2)
-	if len(initialTargetRev) == 2 {
-		target := initialTargetRev[0].DeepCopy()
-		pa, err := podAutoscalerLister.Get(target.RevisionName)
-		if err != nil {
-			return stageRevisionTarget, err
-		}
-
-		oldRevReplicas := getActualReplicas(pa)
-
-		target.TargetReplicas = ptr.Int32(oldRevReplicas - stageReplicasInt)
-		target.Percent = ptr.Int64(*target.Percent - stageTrafficDeltaInt)
-
-		replicas := float64(currentReplicas) * float64(*target.Percent) / float64(currentTraffic)
-		if *target.TargetReplicas <= 0 || *target.TargetReplicas < int32(replicas) {
-			target.TargetReplicas = ptr.Int32(int32(math.Ceil(replicas)))
-		}
-		if *target.TargetReplicas == 0 {
-			target.TargetReplicas = ptr.Int32(1)
-		}
-
-		stageRevisionTarget[0] = *target
-
-		targetN := initialTargetRev[1].DeepCopy()
-		pa, err = podAutoscalerLister.Get(targetN.RevisionName)
-		if err != nil {
-			return stageRevisionTarget, err
-		}
-		newReplicas := getActualReplicas(pa)
-		targetN.TargetReplicas = ptr.Int32(newReplicas + stageReplicasInt)
-		targetN.Percent = ptr.Int64(*targetN.Percent + stageTrafficDeltaInt)
-
-		replicas = float64(currentReplicas) * float64(*targetN.Percent) / float64(currentTraffic)
-		if *targetN.TargetReplicas < int32(replicas) {
-			targetN.TargetReplicas = ptr.Int32(int32(math.Floor(replicas)))
-		}
-		stageRevisionTarget[1] = *targetN
-	} else {
-		// Update the old revision record in the stageRevisionTarget.
-		target := initialTargetRev[0].DeepCopy()
-		target.LatestRevision = ptr.Bool(false)
-		target.Direction = "down"
-		target.TargetReplicas = ptr.Int32(currentReplicas - stageReplicasInt)
-		target.Percent = ptr.Int64(currentTraffic - stageTrafficDeltaInt)
-		stageRevisionTarget[0] = *target
-
-		// Update the new revision record in the stageRevisionTarget.
-		tempTarget.TargetReplicas = ptr.Int32(stageReplicasInt)
-		tempTarget.Percent = ptr.Int64(stageTrafficDeltaInt)
-		stageRevisionTarget[1] = tempTarget
-	}
-
-	return stageRevisionTarget, nil
+	return stageRevisionTarget
 }
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {
@@ -714,12 +805,14 @@ func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *s
 }
 
 func convertIntoTrafficTarget(name string, revisionTarget []v1.TargetRevision) []servingv1.TrafficTarget {
-	trafficTarget := make([]servingv1.TrafficTarget, len(revisionTarget))
-	for i, revision := range revisionTarget {
+	trafficTarget := make([]servingv1.TrafficTarget, 0, len(revisionTarget))
+	for _, revision := range revisionTarget {
 		target := servingv1.TrafficTarget{}
 		target.LatestRevision = revision.LatestRevision
+		if revision.Percent == nil {
+			continue
+		}
 		target.Percent = revision.Percent
-
 		if revision.LatestRevision != nil && *revision.LatestRevision {
 			if strings.TrimSpace(revision.ConfigurationName) != "" {
 				target.ConfigurationName = revision.ConfigurationName
@@ -731,7 +824,7 @@ func convertIntoTrafficTarget(name string, revisionTarget []v1.TargetRevision) [
 		}
 		target.Tag = revision.Tag
 		target.URL = revision.URL
-		trafficTarget[i] = target
+		trafficTarget = append(trafficTarget, target)
 	}
 	return trafficTarget
 }

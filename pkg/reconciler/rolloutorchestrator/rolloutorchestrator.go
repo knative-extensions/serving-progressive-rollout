@@ -116,7 +116,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 			}
 
 			// spa.IsStageScaleInReady() returns true, as long as both DesireScale and ActualScale are available.
-			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revUp) || !IsDeploymentAvailable(spa, revUp, r.deploymentLister) {
+			if !spa.IsStageScaleInReady() || !IsStageScaleUpReady(spa, revUp) {
 				// Create the stage pod autoscaler with the new maxScale set to
 				// maxScale defined in the revision traffic, because scale up phase is not over, we cannot
 				// scale down the old revision.

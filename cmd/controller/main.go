@@ -20,7 +20,6 @@ import (
 	// The set of controllers this controller process runs.
 	"flag"
 
-	certificate "knative.dev/networking/pkg/certificates/reconciler"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/signals"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
@@ -57,7 +56,6 @@ var ctors = []injection.ControllerConstructor{
 	service.NewController,
 	gc.NewController,
 	nscert.NewController,
-	certificate.NewControllerFactory(networking.ServingCertName),
 	domainmapping.NewController,
 	rolloutorchestrator.NewController,
 }

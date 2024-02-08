@@ -159,6 +159,23 @@ func TestLoadConfigFromService(t *testing.T) {
 			StageRolloutTimeoutMinutes: 10,
 		},
 	}, {
+		name: "Test the RolloutConfig with valid annotation as input",
+		annotationInput: map[string]string{
+			resources.OverConsumptionRatioKey:   "18",
+			resources.ProgressiveRolloutEnabled: "false",
+			resources.StageRolloutTimeout:       "10",
+		},
+		configInput: &RolloutConfig{
+			OverConsumptionRatio:       resources.OverSubRatio,
+			ProgressiveRolloutEnabled:  true,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+		},
+		ExpectedResult: &RolloutConfig{
+			OverConsumptionRatio:       18,
+			ProgressiveRolloutEnabled:  false,
+			StageRolloutTimeoutMinutes: 10,
+		},
+	}, {
 		name: "Test the RolloutConfig with invalid annotation as input",
 		annotationInput: map[string]string{
 			resources.OverConsumptionRatioKey: "18u",

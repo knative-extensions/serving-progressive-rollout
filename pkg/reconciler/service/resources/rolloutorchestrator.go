@@ -154,6 +154,7 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1
 				service, records)
 		}
 	}
+
 	return initialTargetRevision, ultimateRevisionTarget
 }
 

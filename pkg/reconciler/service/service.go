@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 
@@ -285,7 +286,6 @@ func (c *Reconciler) getRecordsFromRevs(service *servingv1.Service) map[string]r
 func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
 	config *servingv1.Configuration, route *servingv1.Route) (*v1.RolloutOrchestrator, error) {
 	records := c.getRecordsFromRevs(service)
-
 	// Based on the knative service, the map of the revision records and the route, we can get the initial target
 	// revisions and the final target revisions. The initial target revisions define the start, and the final target
 	// revisions define the end for the upgrade.
@@ -453,37 +453,42 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (*v1.RolloutOrchestrator, error) {
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
-	startRevisions := getStartRevisions(ro)
-	if len(startRevisions) == 0 || config.OverConsumptionRatio == 100 {
-		// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
-		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
-		return ro, nil
-	}
+	var stageRevisionTarget []v1.TargetRevision
+	if !reflect.DeepEqual(ro.Spec.InitialRevisions, ro.Spec.TargetRevisions) {
+		startRevisions := getStartRevisions(ro)
+		if len(startRevisions) == 0 || config.OverConsumptionRatio == 100 {
+			// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
+			ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
+			return ro, nil
+		}
 
-	// The currentReplicas and currentTraffic will be used as the standard values to calculate
-	// the further target number of replicas for each revision.
-	currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
-	if err != nil {
-		return ro, err
-	}
+		// The currentReplicas and currentTraffic will be used as the standard values to calculate
+		// the further target number of replicas for each revision.
+		currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
+		if err != nil {
+			return ro, err
+		}
 
-	// The deltaReplicas will be the number of replicas the new revision will increase by. The deltaTrafficPercent
-	// will be the traffic percentage that will be shifted to the new revision.
-	// For the old revision, just do the opposite.
-	deltaReplicas, deltaTrafficPercent := getDeltaReplicasTraffic(currentReplicas, currentTraffic, config.OverConsumptionRatio)
+		// The deltaReplicas will be the number of replicas the new revision will increase by. The deltaTrafficPercent
+		// will be the traffic percentage that will be shifted to the new revision.
+		// For the old revision, just do the opposite.
+		deltaReplicas, deltaTrafficPercent := getDeltaReplicasTraffic(currentReplicas, currentTraffic, config.OverConsumptionRatio)
 
-	// Based on the min, max and currentReplicas, we can decide the number of replicas for the revisions
-	// are either traffic driven or non-traffic driven.
-	stageRevisionTarget := make([]v1.TargetRevision, 0, len(startRevisions))
-	if currentReplicas == 0 {
-		// If the revision runs with 0 replicas, it means it scales down to 0 and there is no traffic.
-		// We can set the stage revision target to final revision target.
-		stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
+		// Based on the min, max and currentReplicas, we can decide the number of replicas for the revisions
+		// are either traffic driven or non-traffic driven.
+		stageRevisionTarget = make([]v1.TargetRevision, 0, len(startRevisions))
+		if currentReplicas == 0 {
+			// If the revision runs with 0 replicas, it means it scales down to 0 and there is no traffic.
+			// We can set the stage revision target to final revision target.
+			stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
+		} else {
+			stageRevisionTarget = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions,
+				deltaReplicas, deltaTrafficPercent, currentReplicas, currentTraffic)
+		}
 	} else {
-		stageRevisionTarget = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions,
-			deltaReplicas, deltaTrafficPercent, currentReplicas, currentTraffic)
+		stageRevisionTarget = make([]v1.TargetRevision, 0, len(ro.Spec.TargetRevisions))
+		stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
 	}
-
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
 
 	// Set the target time when the current stage will be over.

@@ -47,6 +47,9 @@ var (
 	// StageRolloutTimeout is the annotation key Knative Service can use to specify the stage rollout timeout.
 	StageRolloutTimeout = GroupName + "/stage-rollout-timeout"
 
+	// ProgressiveRolloutEnabled is the annotation key Knative Service can use to enable or disable the progressive rollout.
+	ProgressiveRolloutEnabled = GroupName + "/progressive-rollout-enabled"
+
 	// ConfigMapName is the name of the ConfigMap, that saves the configuration information about the rollout orchestrator.
 	ConfigMapName = "config-rolloutorchestrator"
 )

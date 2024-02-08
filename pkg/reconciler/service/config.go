@@ -73,6 +73,13 @@ func LoadConfigFromService(annotation map[string]string, rolloutConfig *RolloutC
 		}
 	}
 
+	if val, ok := annotation[resources.ProgressiveRolloutEnabled]; ok {
+		progressiveRolloutEnabled, err := strconv.ParseBool(val)
+		if err == nil {
+			rolloutConfig.ProgressiveRolloutEnabled = progressiveRolloutEnabled
+		}
+	}
+
 	if val, ok := annotation[resources.StageRolloutTimeout]; ok {
 		timeout, err := strconv.Atoi(val)
 		if err == nil {

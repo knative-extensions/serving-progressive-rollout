@@ -257,7 +257,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 	} else if !metav1.IsControlledBy(rolloutOrchestrator, service) {
 		// TODO Surface an error in the service's status, and return an error.
 		return nil, fmt.Errorf("service: %q does not own the RolloutOrchestrator: %q", service.Name, roName)
-	} else if rolloutOrchestrator, err = c.reconcileRolloutOrchestrator(ctx, service, config, route,
+	} else if err = c.reconcileRolloutOrchestrator(ctx, service, config, route,
 		rolloutOrchestrator); err != nil {
 		return nil, fmt.Errorf("failed to reconcile RolloutOrchestrator: %w", err)
 	}
@@ -302,7 +302,7 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	ro := resources.NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget, service)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
-	ro, err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
+	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
 	if err != nil {
 		return ro, err
 	}
@@ -310,25 +310,35 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 		ctx, ro, metav1.CreateOptions{})
 }
 
-// updateRolloutOrchestrator updates the CR RolloutOrchestrator.
-func (c *Reconciler) updateRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
+// reconcileRolloutOrchestrator reconciles the CR RolloutOrchestrator.
+func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
+	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator) error {
 	records := c.getRecordsFromRevs(service)
 
 	// Based on the knative service, the map of the revision records and the route, we can get the final target
 	// revisions. The final target revisions define the end for the upgrade.
 	_, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config, records, route)
 
+	existingROSpec := ro.Spec.DeepCopy()
+
 	// Assign the RolloutOrchestrator with the final target revision and reset StageTargetRevisions in the spec,
 	// if the final target revision is different from the existing final target revision.
-	ro = resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro)
+	resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
-	ro, err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
+	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
 	if err != nil {
-		return ro, err
+		return err
 	}
-	return c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
+
+	// If the new ro.Spec is not equal to the existing ro.Spec, we update the RO.
+	if !reflect.DeepEqual(existingROSpec, ro.Spec) {
+		_, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, ro, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CreateRevRecordsFromRevList converts the revision list into a map of revision records.
@@ -347,13 +357,13 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 // updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target, if it is the start of the upgrade,
 // or during the upgrade transition, one stage has finished but the last stage not reached.
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) (*v1.RolloutOrchestrator, error) {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) error {
 	if ro.IsNotConvertToOneUpgrade() || !config.ProgressiveRolloutEnabled {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
 		// in the implementation.
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
-		return ro, nil
+		return nil
 	}
 	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsReady()) {
 		// 1. If so.Spec.StageRevisionTarget is empty, we need to calculate the stage revision target as the new(next)
@@ -362,7 +372,7 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
 		return updateStageTargetRevisions(ro, config, podAutoscalerLister)
 	}
-	return ro, nil
+	return nil
 }
 
 func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
@@ -450,7 +460,7 @@ func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio 
 // updateStageTargetRevisions updates the StageTargetRevisions based on the existing StageTargetRevisions,
 // Initial target Revisions, Final target revisions, and the current PodAutoscaler.
 func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfig,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (*v1.RolloutOrchestrator, error) {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) error {
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
 	var stageRevisionTarget []v1.TargetRevision
@@ -459,14 +469,14 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 		if len(startRevisions) == 0 || config.OverConsumptionRatio == 100 {
 			// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
 			ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
-			return ro, nil
+			return nil
 		}
 
 		// The currentReplicas and currentTraffic will be used as the standard values to calculate
 		// the further target number of replicas for each revision.
 		currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
 		if err != nil {
-			return ro, err
+			return err
 		}
 
 		// The deltaReplicas will be the number of replicas the new revision will increase by. The deltaTrafficPercent
@@ -493,13 +503,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 	// Set the target time when the current stage will be over.
 	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
-	return ro, nil
-}
-
-// reconcileRolloutOrchestrator updates the RolloutOrchestrator based on the service and route.
-func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	config *servingv1.Configuration, route *servingv1.Route, so *v1.RolloutOrchestrator) (*v1.RolloutOrchestrator, error) {
-	return c.updateRolloutOrchestrator(ctx, service, config, route, so)
+	return nil
 }
 
 func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.RolloutOrchestrator,

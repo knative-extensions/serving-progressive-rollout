@@ -181,7 +181,7 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 }
 
 // UpdateInitialFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
-func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) *v1.RolloutOrchestrator {
+func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) {
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
 		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the user updated the ksvc,
 		// leading to the new rollout, and the RolloutOrchestrator will start a new rollout, so we need to update
@@ -203,7 +203,6 @@ func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro 
 
 	// If ultimateRevisionTarget is equal to the TargetRevisions in the spec(), it means no update happened on the ksvc,
 	// and it is still in the progress of rolling out the new revision. No need to change the RolloutOrchestrator.
-	return ro
 }
 
 func trafficEqual(origin, target []v1.TargetRevision) bool {

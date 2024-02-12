@@ -741,18 +741,18 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			res, _ := updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister)
-			if !reflect.DeepEqual(res.Status, test.ExpectedR.Status) {
-				t.Fatalf("Result Status of updateStageTargetRevisions() = %v, want %v", res.Status, test.ExpectedR.Status)
+			updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister)
+			if !reflect.DeepEqual(test.ro.Status, test.ExpectedR.Status) {
+				t.Fatalf("Result Status of updateStageTargetRevisions() = %v, want %v", test.ro.Status, test.ExpectedR.Status)
 			}
-			if !reflect.DeepEqual(res.Spec.InitialRevisions, test.ExpectedR.Spec.InitialRevisions) {
-				t.Fatalf("Result Spec.InitialRevisions of updateStageTargetRevisions() = %v, want %v", res.Spec.InitialRevisions, test.ExpectedR.Spec.InitialRevisions)
+			if !reflect.DeepEqual(test.ro.Spec.InitialRevisions, test.ExpectedR.Spec.InitialRevisions) {
+				t.Fatalf("Result Spec.InitialRevisions of updateStageTargetRevisions() = %v, want %v", test.ro.Spec.InitialRevisions, test.ExpectedR.Spec.InitialRevisions)
 			}
-			if !reflect.DeepEqual(res.Spec.TargetRevisions, test.ExpectedR.Spec.TargetRevisions) {
-				t.Fatalf("Result Spec.TargetRevisions of updateStageTargetRevisions() = %v, want %v", res.Spec.TargetRevisions, test.ExpectedR.Spec.TargetRevisions)
+			if !reflect.DeepEqual(test.ro.Spec.TargetRevisions, test.ExpectedR.Spec.TargetRevisions) {
+				t.Fatalf("Result Spec.TargetRevisions of updateStageTargetRevisions() = %v, want %v", test.ro.Spec.TargetRevisions, test.ExpectedR.Spec.TargetRevisions)
 			}
-			if !reflect.DeepEqual(res.Spec.StageTargetRevisions, test.ExpectedR.Spec.StageTargetRevisions) {
-				t.Fatalf("Result Spec.StageTargetRevisions of updateStageTargetRevisions() = %v, want %v", res.Spec.StageTargetRevisions, test.ExpectedR.Spec.StageTargetRevisions)
+			if !reflect.DeepEqual(test.ro.Spec.StageTargetRevisions, test.ExpectedR.Spec.StageTargetRevisions) {
+				t.Fatalf("Result Spec.StageTargetRevisions of updateStageTargetRevisions() = %v, want %v", test.ro.Spec.StageTargetRevisions, test.ExpectedR.Spec.StageTargetRevisions)
 			}
 		})
 	}

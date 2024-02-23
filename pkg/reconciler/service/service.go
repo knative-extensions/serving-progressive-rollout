@@ -466,7 +466,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	var stageRevisionTarget []v1.TargetRevision
 	if !reflect.DeepEqual(ro.Spec.InitialRevisions, ro.Spec.TargetRevisions) {
 		startRevisions := getStartRevisions(ro)
-		if len(startRevisions) == 0 || config.OverConsumptionRatio == 100 {
+		if len(startRevisions) == 0 || config.OverConsumptionRatio >= 100 {
 			// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
 			ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 			return nil
@@ -653,6 +653,10 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		if *revUp.TargetReplicas > int32(adjustedReplicas) {
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
+		if *revUp.Percent == 100 && *revUp.MinScale > *revUp.TargetReplicas {
+			*revUp.TargetReplicas = *revUp.MinScale
+		}
+
 		revUp.Direction = "up"
 		stageRevisionTarget[scaleUpIndex] = *revUp
 
@@ -748,6 +752,9 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			// Calculate the adjusted number of delta for this stage.
 			adjustedDeltaReplicas := math.Floor(float64(currentReplicas) * float64(stageTrafficDelta) / float64(currentTraffic))
 			tempTarget.TargetReplicas = ptr.Int32(int32(adjustedDeltaReplicas))
+			if *tempTarget.Percent == 100 && *tempTarget.MinScale > *tempTarget.TargetReplicas {
+				*tempTarget.TargetReplicas = *tempTarget.MinScale
+			}
 			// It is the first time that traffic starts to move on to the new revision.
 			stageRevisionTarget[len(stageRevisionTarget)-1] = tempTarget
 
@@ -808,18 +815,23 @@ func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *s
 		return service
 	}
 	service.Spec.RouteSpec = servingv1.RouteSpec{
-		Traffic: convertIntoTrafficTarget(service.GetName(), ro.Spec.StageTargetRevisions),
+		Traffic: convertIntoTrafficTarget(service.GetName(), ro),
 	}
 	return service
 }
 
-func convertIntoTrafficTarget(name string, revisionTarget []v1.TargetRevision) []servingv1.TrafficTarget {
+func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator) []servingv1.TrafficTarget {
+	revisionTarget := ro.Spec.StageTargetRevisions
 	trafficTarget := make([]servingv1.TrafficTarget, 0, len(revisionTarget))
 	for _, revision := range revisionTarget {
 		target := servingv1.TrafficTarget{}
 		target.LatestRevision = revision.LatestRevision
 		if revision.Percent == nil {
-			continue
+			if ro.IsComplete() {
+				continue
+			} else {
+				target.Percent = ptr.Int64(0)
+			}
 		}
 		target.Percent = revision.Percent
 		if revision.LatestRevision != nil && *revision.LatestRevision {

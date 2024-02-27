@@ -827,11 +827,19 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator) []serving
 		target := servingv1.TrafficTarget{}
 		target.LatestRevision = revision.LatestRevision
 		if revision.Percent == nil {
+			// There is a difference between assigning 0% of the traffic and assigning nil traffic to the revision:
+			// 0% of the traffic means no traffic will go to the target revision, but the revision is still active,
+			// meaning that revision can stay with the number of replicas defined by minScale;
+			// nil traffic means no traffic will go to the target traffic, but the revision is marked as inactive,
+			// meaning that it will scale down to 0, regardless of other revisions' status.
 			if ro.IsComplete() {
+				// IsComplete with true means the completion of rollout transition, we are safe to mark the traffic
+				// as nil for this revision.
 				continue
-			} else {
-				target.Percent = ptr.Int64(0)
 			}
+			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
+			// as inactive, so assign 0% of the traffic for this revision.
+			target.Percent = ptr.Int64(0)
 		}
 		target.Percent = revision.Percent
 		if revision.LatestRevision != nil && *revision.LatestRevision {

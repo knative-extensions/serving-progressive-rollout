@@ -229,7 +229,7 @@ jobs:
         # Replace the images of the controller and the autoscaler with the ones built from the extension  
         export CONTROLLER_IMAGE=$(cat $HOME/artifacts/build-extension/controller | tr -d ' \t\n\r')
         export AUTOSCALER_IMAGE=$(cat $HOME/artifacts/build-extension/autoscaler | tr -d ' \t\n\r')
-        kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"'$AUTOSCALER_IMAGE'"}]}}}}'
+        # kubectl patch deployment autoscaler -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"autoscaler","image":"'$AUTOSCALER_IMAGE'"}]}}}}'
         # kubectl patch deployment controller -n $SYSTEM_NAMESPACE -p '{"spec":{"template":{"spec":{"containers":[{"name":"controller","image":"'$CONTROLLER_IMAGE'"}]}}}}'
 
     - name: Test ${{ matrix.test-suite }}

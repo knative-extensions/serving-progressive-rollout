@@ -831,8 +831,7 @@ func convertIntoTrafficTarget(name string, revisionTarget []v1.TargetRevision) [
 		} else {
 			target.RevisionName = revision.RevisionName
 		}
-		target.Tag = revision.Tag
-		target.URL = revision.URL
+		target.Tag, target.URL = revision.Tag, revision.URL
 		trafficTarget = append(trafficTarget, target)
 	}
 	return trafficTarget

@@ -128,6 +128,12 @@ const (
 
 	// SOStageScaleDownReady is set to True, when scaling down phase is finished for the current stage of the transition.
 	SOStageScaleDownReady apis.ConditionType = "StageScaleDownReady"
+
+	// DirectionUp is the indicator indicating the revision scaling up.
+	DirectionUp = "up"
+
+	// DirectionDown is the indicator indicating the revision scaling down.
+	DirectionDown = "down"
 )
 
 // IsRolloutOrchestratorCondition returns true if the given ConditionType is a RolloutOrchestratorCondition.

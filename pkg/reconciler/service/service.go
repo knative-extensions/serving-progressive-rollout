@@ -574,12 +574,12 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 
 	scaleUpIndex, scaleDownIndex := -1, -1
 	for i := range revisionTarget {
-		if revisionTarget[i].Direction == "up" || revisionTarget[i].Direction == "" {
+		if revisionTarget[i].Direction == v1.DirectionUp || revisionTarget[i].Direction == "" {
 			scaleUpIndex = i
 			if scaleDownIndex != -1 {
 				break
 			}
-		} else if revisionTarget[i].Direction == "down" {
+		} else if revisionTarget[i].Direction == v1.DirectionDown {
 			scaleDownIndex = i
 			if scaleUpIndex != -1 {
 				break
@@ -629,7 +629,7 @@ func getInitialStageRevisionTarget(ftr v1.TargetRevision) v1.TargetRevision {
 	targetNewRollout.LatestRevision = ptr.Bool(true)
 	targetNewRollout.MinScale = ftr.MinScale
 	targetNewRollout.MaxScale = ftr.MaxScale
-	targetNewRollout.Direction = "up"
+	targetNewRollout.Direction = v1.DirectionUp
 	targetNewRollout.TargetReplicas = ptr.Int32(0)
 	targetNewRollout.Percent = ptr.Int64(0)
 	return targetNewRollout
@@ -653,13 +653,17 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		if *revUp.TargetReplicas > int32(adjustedReplicas) {
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
-		revUp.Direction = "up"
+		if *revUp.Percent == 100 && *revUp.MinScale > *revUp.TargetReplicas {
+			*revUp.TargetReplicas = *revUp.MinScale
+		}
+
+		revUp.Direction = v1.DirectionUp
 		stageRevisionTarget[scaleUpIndex] = *revUp
 
 		// Still keep one in the list, but set the percentage to empty, target replicas into 0.
 		revDown.Percent = nil
 		revDown.TargetReplicas = ptr.Int32(0)
-		revDown.Direction = "down"
+		revDown.Direction = v1.DirectionDown
 		revDown.Tag = ""
 		stageRevisionTarget[scaleDownIndex] = *revDown
 
@@ -673,7 +677,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		if *revUp.TargetReplicas > int32(adjustedReplicas) {
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
-		revUp.Direction = "up"
+		revUp.Direction = v1.DirectionUp
 		stageRevisionTarget[scaleUpIndex] = *revUp
 
 		// Adjust the target traffic percentage for this stage.
@@ -684,7 +688,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		if *revDown.TargetReplicas < int32(adjustedReplicas) {
 			revDown.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
-		revDown.Direction = "down"
+		revDown.Direction = v1.DirectionDown
 		revDown.Tag = ""
 		stageRevisionTarget[scaleDownIndex] = *revDown
 	}
@@ -755,7 +759,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			lastRev.Percent = nil
 			lastRev.TargetReplicas = ptr.Int32(0)
 			lastRev.LatestRevision = ptr.Bool(false)
-			lastRev.Direction = "down"
+			lastRev.Direction = v1.DirectionDown
 			// reset the tag
 			lastRev.Tag = ""
 			stageRevisionTarget[len(stageRevisionTarget)-2] = lastRev
@@ -773,7 +777,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			lastRev.TargetReplicas = ptr.Int32(replicasMap[lastRev.RevisionName] - stageReplicasInt)
 			lastRev.LatestRevision = ptr.Bool(false)
 
-			lastRev.Direction = "down"
+			lastRev.Direction = v1.DirectionDown
 			// reset the tag
 			lastRev.Tag = ""
 			adjustedDeltaReplicas := math.Ceil(float64(currentReplicas) * float64(*lastRev.Percent) / float64(currentTraffic))

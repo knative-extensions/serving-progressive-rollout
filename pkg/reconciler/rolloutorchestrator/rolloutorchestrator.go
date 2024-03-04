@@ -217,7 +217,7 @@ func RemoveNonTrafficRev(ts []v1.TargetRevision) []v1.TargetRevision {
 		// We need to find out the revision to scale down, since we remove the revision previously scaling down.
 		for i := len(result) - 1; i >= 0; i-- {
 			if result[i].Direction == "stay" {
-				result[i].Direction = "down"
+				result[i].Direction = v1.DirectionDown
 				break
 			}
 		}

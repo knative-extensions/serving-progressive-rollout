@@ -19,4 +19,5 @@ package common
 const (
 	ConfigStoreName     = "config-store"
 	DefaultStageTimeout = 2
+	HundredPercent      = 100
 )

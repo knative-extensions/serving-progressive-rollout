@@ -472,6 +472,15 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 			return nil
 		}
 
+		if len(startRevisions) == 1 {
+			if reflect.DeepEqual(ro.Spec.StageTargetRevisions, startRevisions) {
+				return nil
+			} else if reflect.DeepEqual(rolloutorchestrator.RemoveNonTrafficRev(ro.Spec.StageTargetRevisions),
+				startRevisions) {
+				ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, startRevisions...)
+				return nil
+			}
+		}
 		// The currentReplicas and currentTraffic will be used as the standard values to calculate
 		// the further target number of replicas for each revision.
 		currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
@@ -615,7 +624,7 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 
 	targetPercent = *revisionTarget[scaleDownIndex].Percent - int64(stageTrafficDeltaInt)
 	if targetPercent <= 0 {
-		revisionTarget[scaleDownIndex].Percent = nil
+		revisionTarget[scaleDownIndex].Percent = ptr.Int64(0)
 	} else {
 		revisionTarget[scaleDownIndex].Percent = ptr.Int64(targetPercent)
 	}
@@ -661,7 +670,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		stageRevisionTarget[scaleUpIndex] = *revUp
 
 		// Still keep one in the list, but set the percentage to empty, target replicas into 0.
-		revDown.Percent = nil
+		revDown.Percent = ptr.Int64(0)
 		revDown.TargetReplicas = ptr.Int32(0)
 		revDown.Direction = v1.DirectionDown
 		revDown.Tag = ""
@@ -761,7 +770,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			stageRevisionTarget[len(stageRevisionTarget)-1] = tempTarget
 
 			// Still keep one in the list, but set the percentage to empty, target replicas into 0.
-			lastRev.Percent = nil
+			lastRev.Percent = ptr.Int64(0)
 			lastRev.TargetReplicas = ptr.Int32(0)
 			lastRev.LatestRevision = ptr.Bool(false)
 			lastRev.Direction = v1.DirectionDown
@@ -829,22 +838,9 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator) []serving
 		target := servingv1.TrafficTarget{}
 		target.LatestRevision = revision.LatestRevision
 		if revision.Percent == nil {
-			// There is a difference between assigning 0% of the traffic and assigning nil traffic to the revision:
-			// 0% of the traffic means no traffic will go to the target revision, but the revision is still active,
-			// meaning that revision can stay with the number of replicas defined by minScale;
-			// nil traffic means no traffic will go to the target traffic, but the revision is marked as inactive,
-			// meaning that it will scale down to 0, regardless of other revisions' status.
-			if ro.IsComplete() {
-				// IsComplete with true means the completion of rollout transition, we are safe to mark the traffic
-				// as nil for this revision.
-				continue
-			}
-			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
-			// as inactive, so assign 0% of the traffic for this revision.
-			target.Percent = ptr.Int64(0)
-		} else {
-			target.Percent = revision.Percent
+			continue
 		}
+		target.Percent = revision.Percent
 		if revision.LatestRevision != nil && *revision.LatestRevision {
 			if strings.TrimSpace(revision.ConfigurationName) != "" {
 				target.ConfigurationName = revision.ConfigurationName

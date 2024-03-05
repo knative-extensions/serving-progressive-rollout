@@ -653,9 +653,9 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		if *revUp.TargetReplicas > int32(adjustedReplicas) {
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
-		if *revUp.Percent == common.HundredPercent && *revUp.MinScale > *revUp.TargetReplicas {
-			*revUp.TargetReplicas = *revUp.MinScale
-		}
+		//if *revUp.Percent == common.HundredPercent && *revUp.MinScale > *revUp.TargetReplicas {
+		//	*revUp.TargetReplicas = *revUp.MinScale
+		//}
 
 		revUp.Direction = v1.DirectionUp
 		stageRevisionTarget[scaleUpIndex] = *revUp
@@ -753,9 +753,9 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			adjustedDeltaReplicas := math.Floor(float64(currentReplicas) * float64(stageTrafficDelta) / float64(currentTraffic))
 			tempTarget.TargetReplicas = ptr.Int32(int32(adjustedDeltaReplicas))
 
-			if *tempTarget.Percent == common.HundredPercent && *tempTarget.MinScale > *tempTarget.TargetReplicas {
-				*tempTarget.TargetReplicas = *tempTarget.MinScale
-			}
+			//if *tempTarget.Percent == common.HundredPercent && *tempTarget.MinScale > *tempTarget.TargetReplicas {
+			//	*tempTarget.TargetReplicas = *tempTarget.MinScale
+			//}
 
 			// It is the first time that traffic starts to move on to the new revision.
 			stageRevisionTarget[len(stageRevisionTarget)-1] = tempTarget

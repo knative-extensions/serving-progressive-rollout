@@ -111,13 +111,18 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 		return err
 	}
 
+	cmN, errN := c.configmapLister.ConfigMaps(system.Namespace()).Get(resources.ConfigMapNetworkName)
+	if errN != nil && !apierrs.IsNotFound(errN) {
+		return errN
+	}
+
 	// Load the configuration into the struct.
-	if c.rolloutConfig, err = NewConfigFromConfigMapFunc(cm); err != nil {
+	if c.rolloutConfig, err = NewConfigFromConfigMapFunc(cm, cmN); err != nil {
 		return err
 	}
 
 	// Check configuration in the service's annotation for possible overriding.
-	LoadConfigFromService(service.Spec.Template.Annotations, c.rolloutConfig)
+	LoadConfigFromService(service.Spec.Template.Annotations, service.Annotations, c.rolloutConfig)
 
 	// Initialize the configuration first.
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
@@ -153,7 +158,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	}
 
 	// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
-	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator))
+	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig))
 	if err != nil {
 		return err
 	}
@@ -811,27 +816,44 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 	return stageRevisionTarget
 }
 
-func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator) *servingv1.Service {
+func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc *RolloutConfig) *servingv1.Service {
 	// If Knative Service defines more than one traffic, this feature tentatively does not cover this case.
 	if len(service.Spec.Traffic) > 1 {
 		return service
 	}
 	service.Spec.RouteSpec = servingv1.RouteSpec{
-		Traffic: convertIntoTrafficTarget(service.GetName(), ro),
+		Traffic: convertIntoTrafficTarget(service.GetName(), ro, rc),
 	}
 	return service
 }
 
-func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator) []servingv1.TrafficTarget {
+func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *RolloutConfig) []servingv1.TrafficTarget {
 	revisionTarget := ro.Spec.StageTargetRevisions
 	trafficTarget := make([]servingv1.TrafficTarget, 0, len(revisionTarget))
 	for _, revision := range revisionTarget {
 		target := servingv1.TrafficTarget{}
 		target.LatestRevision = revision.LatestRevision
+
 		if revision.Percent == nil {
-			continue
+			// There is a difference between assigning 0% of the traffic and assigning nil traffic to the revision:
+			// 0% of the traffic means no traffic will go to the target revision, but the revision is still active,
+			// meaning that revision can stay with the number of replicas defined by minScale;
+			// nil traffic means no traffic will go to the target traffic, but the revision is marked as inactive,
+			// meaning that it will scale down to 0, regardless of other revisions' status.
+			if ro.IsComplete() || (rc != nil && rc.RolloutDuration != "0") {
+				// IsComplete with true means the completion of rollout transition, we are safe to mark the traffic
+				// as nil for this revision.
+				// If RolloutDuration is not 0, there is a rollout-duration specified. In this case, we directly
+				// skip the 0% traffic.
+				continue
+			}
+			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
+			// as inactive, so assign 0% of the traffic for this revision.
+			target.Percent = ptr.Int64(0)
+		} else {
+			target.Percent = revision.Percent
 		}
-		target.Percent = revision.Percent
+
 		if revision.LatestRevision != nil && *revision.LatestRevision {
 			if strings.TrimSpace(revision.ConfigurationName) != "" {
 				target.ConfigurationName = revision.ConfigurationName

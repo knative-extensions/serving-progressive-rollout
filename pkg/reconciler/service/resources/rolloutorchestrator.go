@@ -52,6 +52,9 @@ var (
 
 	// ConfigMapName is the name of the ConfigMap, that saves the configuration information about the rollout orchestrator.
 	ConfigMapName = "config-rolloutorchestrator"
+
+	// ConfigMapNetworkName is the name of the ConfigMap, that saves the configuration information about the network.
+	ConfigMapNetworkName = "config-network"
 )
 
 // RevisionRecord is a struct that hosts the name, minScale and maxScale for the revision.

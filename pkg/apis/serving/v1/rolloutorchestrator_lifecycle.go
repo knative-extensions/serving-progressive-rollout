@@ -74,6 +74,11 @@ func (so *RolloutOrchestrator) IsStageReady() bool {
 	return sos.GetCondition(SOStageReady).IsTrue()
 }
 
+func (so *RolloutOrchestrator) IsComplete() bool {
+	sos := so.Status
+	return sos.GetCondition(SOLastStageComplete).IsTrue()
+}
+
 func (so *RolloutOrchestrator) IsStageFailed() bool {
 	sos := so.Status
 	return sos.GetCondition(SOStageReady).IsFalse()

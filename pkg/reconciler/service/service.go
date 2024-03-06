@@ -835,8 +835,10 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator) []serving
 			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
 			// as inactive, so assign 0% of the traffic for this revision.
 			target.Percent = ptr.Int64(0)
+		} else {
+			target.Percent = revision.Percent
 		}
-		target.Percent = revision.Percent
+
 		if revision.LatestRevision != nil && *revision.LatestRevision {
 			if strings.TrimSpace(revision.ConfigurationName) != "" {
 				target.ConfigurationName = revision.ConfigurationName

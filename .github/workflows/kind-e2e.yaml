@@ -72,6 +72,9 @@ jobs:
       run: |
         cd ${KNATIVE_DIR}
         git clone https://github.com/knative/serving.git "serving"
+        cd serving
+        git fetch origin release-1.13:release-1.13
+        git checkout release-1.13
 
     - name: Setup Registry
       run: |
@@ -199,6 +202,9 @@ jobs:
       run: |
         cd ${KNATIVE_DIR}
         git clone https://github.com/knative/serving.git "serving"
+        cd serving
+        git fetch origin release-1.13:release-1.13
+        git checkout release-1.13
 
     - name: Install Serving & Ingress
       run: |

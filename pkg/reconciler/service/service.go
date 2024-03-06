@@ -653,7 +653,7 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 		if *revUp.TargetReplicas > int32(adjustedReplicas) {
 			revUp.TargetReplicas = ptr.Int32(int32(adjustedReplicas))
 		}
-		if *revUp.Percent == 100 && *revUp.MinScale > *revUp.TargetReplicas {
+		if *revUp.Percent == 100 && revUp.MinScale != nil && *revUp.MinScale > *revUp.TargetReplicas {
 			*revUp.TargetReplicas = *revUp.MinScale
 		}
 
@@ -752,7 +752,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			// Calculate the adjusted number of delta for this stage.
 			adjustedDeltaReplicas := math.Floor(float64(currentReplicas) * float64(stageTrafficDelta) / float64(currentTraffic))
 			tempTarget.TargetReplicas = ptr.Int32(int32(adjustedDeltaReplicas))
-			if *tempTarget.Percent == 100 && *tempTarget.MinScale > *tempTarget.TargetReplicas {
+			if *tempTarget.Percent == 100 && tempTarget.MinScale != nil && *tempTarget.MinScale > *tempTarget.TargetReplicas {
 				*tempTarget.TargetReplicas = *tempTarget.MinScale
 			}
 			// It is the first time that traffic starts to move on to the new revision.
@@ -840,8 +840,9 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator) []serving
 			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
 			// as inactive, so assign 0% of the traffic for this revision.
 			target.Percent = ptr.Int64(0)
+		} else {
+			target.Percent = revision.Percent
 		}
-		target.Percent = revision.Percent
 		if revision.LatestRevision != nil && *revision.LatestRevision {
 			if strings.TrimSpace(revision.ConfigurationName) != "" {
 				target.ConfigurationName = revision.ConfigurationName

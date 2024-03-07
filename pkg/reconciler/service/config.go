@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
+	"knative.dev/serving/pkg/apis/serving"
 )
 
 // RolloutConfig includes the configuration options for the rollout orchestrator.
@@ -36,36 +37,46 @@ type RolloutConfig struct {
 
 	// StageRolloutTimeoutMinutes contains the timeout value of minutes to use for each stage to accomplish in the rollout process.
 	StageRolloutTimeoutMinutes int
+
+	// RolloutDuration contains the minimal duration in seconds over which the Configuration traffic targets are
+	// rolled out to the newest revision
+	RolloutDuration string
 }
 
 // NewConfigFromConfigMapFunc reads the configurations: OverConsumptionRatio, ProgressiveRolloutEnabled and
 // StageRolloutTimeoutMinutes available in the configmap.
-func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap) (*RolloutConfig, error) {
+func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.ConfigMap) (*RolloutConfig, error) {
 	rolloutConfig := &RolloutConfig{
 		OverConsumptionRatio:       resources.OverSubRatio,
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+		RolloutDuration:            "0",
 	}
 
-	if configMap == nil || len(configMap.Data) == 0 {
-		return rolloutConfig, nil
+	if configMap != nil && len(configMap.Data) != 0 {
+		if err := cm.Parse(configMap.Data,
+			cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
+			cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
+			cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
+		); err != nil {
+			return nil, fmt.Errorf("failed to parse data: %w", err)
+		}
 	}
 
-	if err := cm.Parse(configMap.Data,
-		cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
-		cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
-		cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
-	); err != nil {
-		return nil, fmt.Errorf("failed to parse data: %w", err)
+	if configMapN != nil && len(configMapN.Data) != 0 {
+		if err := cm.Parse(configMapN.Data,
+			cm.AsString("rollout-duration", &rolloutConfig.RolloutDuration),
+		); err != nil {
+			return nil, fmt.Errorf("failed to parse data: %w", err)
+		}
 	}
 
 	return rolloutConfig, nil
-
 }
 
 // LoadConfigFromService reads the configurations: OverConsumptionRatio and
 // StageRolloutTimeoutMinutes available in the annotation of the knative service.
-func LoadConfigFromService(annotation map[string]string, rolloutConfig *RolloutConfig) {
+func LoadConfigFromService(annotation map[string]string, serviceAnnotation map[string]string, rolloutConfig *RolloutConfig) {
 	if val, ok := annotation[resources.OverConsumptionRatioKey]; ok {
 		ratio, err := strconv.Atoi(val)
 		if err == nil {
@@ -85,5 +96,9 @@ func LoadConfigFromService(annotation map[string]string, rolloutConfig *RolloutC
 		if err == nil {
 			rolloutConfig.StageRolloutTimeoutMinutes = timeout
 		}
+	}
+
+	if val, ok := serviceAnnotation[serving.RolloutDurationKey]; ok {
+		rolloutConfig.RolloutDuration = val
 	}
 }

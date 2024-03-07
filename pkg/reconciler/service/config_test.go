@@ -38,6 +38,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			RolloutDuration:            "0",
 		},
 		ExpectedError: nil,
 	}, {
@@ -49,6 +50,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			RolloutDuration:            "0",
 		},
 		ExpectedError: nil,
 	}, {
@@ -64,6 +66,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			OverConsumptionRatio:       15,
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
+			RolloutDuration:            "0",
 		},
 		ExpectedError: nil,
 	}, {
@@ -79,6 +82,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			OverConsumptionRatio:       15,
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
+			RolloutDuration:            "0",
 		},
 		ExpectedError: nil,
 	}, {
@@ -106,7 +110,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			r, err := NewConfigFromConfigMapFunc(test.input)
+			r, err := NewConfigFromConfigMapFunc(test.input, nil)
 			if !reflect.DeepEqual(r, test.ExpectedResult) {
 				t.Fatalf("Result of NewConfigFromConfigMapFunc() = %v, want %v", r, test.ExpectedResult)
 			}
@@ -210,7 +214,7 @@ func TestLoadConfigFromService(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			LoadConfigFromService(test.annotationInput, test.configInput)
+			LoadConfigFromService(test.annotationInput, test.annotationInput, test.configInput)
 			if !reflect.DeepEqual(test.configInput, test.ExpectedResult) {
 				t.Fatalf("LoadConfigFromService() = %v, want %v", test.configInput, test.ExpectedResult)
 			}

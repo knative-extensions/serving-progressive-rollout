@@ -26,8 +26,6 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
-
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
@@ -35,6 +33,7 @@ import (
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -147,7 +146,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				if err != nil {
 					return err
 				}
-				if !IsStageScaleDownReady(spa, valDown) {
+
+				if spa.Status.ReplicasTerminating == nil ||
+					(spa.Status.ReplicasTerminating != nil && *spa.Status.ReplicasTerminating > 0) ||
+					!IsStageScaleDownReady(spa, valDown) {
 					return nil
 				}
 			}

@@ -21,6 +21,10 @@ import (
 	"fmt"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/ptr"
+	"knative.dev/serving/pkg/apis/serving"
+	resourceutil "knative.dev/serving/pkg/resources"
 
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -33,6 +37,7 @@ import (
 type Reconciler struct {
 	client              clientset.Interface
 	podAutoscalerLister palisters.PodAutoscalerLister
+	podsLister          corev1listers.PodLister
 }
 
 // Check that our Reconciler implements soreconciler.Interface
@@ -48,6 +53,17 @@ func (c *Reconciler) ReconcileKind(_ context.Context, spa *v1.StagePodAutoscaler
 	} else if err != nil {
 		spa.Status.MarkPodAutoscalerStageNotReady(err.Error())
 		return err
+	}
+
+	podCounter := resourceutil.NewPodAccessor(c.podsLister, pa.Namespace, pa.Labels[serving.RevisionLabelKey])
+	_, _, _, terminating, err := podCounter.PodCountsByState()
+	if err != nil {
+		return fmt.Errorf("error getting pod counts for the revision %s under the namespace %s: %w",
+			pa.Labels[serving.RevisionLabelKey], pa.Namespace, err)
+	}
+
+	if spa.Status.ReplicasTerminating == nil || *spa.Status.ReplicasTerminating != int32(terminating) {
+		spa.Status.ReplicasTerminating = ptr.Int32(int32(terminating))
 	}
 
 	// As long as the PodAutoscaler with the same name as StagePodAutoscaler exists, and both of the DesiredScale

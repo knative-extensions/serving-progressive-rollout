@@ -55,6 +55,9 @@ type StagePodAutoscalerStatus struct {
 
 	// ActualScale shows the actual number of replicas for the revision.
 	ActualScale *int32 `json:"actualScale,omitempty"`
+
+	// ReplicasTerminating shows the actual number of replicas being terminated.
+	ReplicasTerminating *int32 `json:"replicasTerminating,omitempty"`
 }
 
 // Verify that StagePodAutoscaler adheres to the appropriate interfaces.

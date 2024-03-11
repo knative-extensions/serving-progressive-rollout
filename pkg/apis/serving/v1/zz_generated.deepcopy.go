@@ -259,6 +259,11 @@ func (in *StagePodAutoscalerStatus) DeepCopyInto(out *StagePodAutoscalerStatus) 
 		*out = new(int32)
 		**out = **in
 	}
+	if in.ReplicasTerminating != nil {
+		in, out := &in.ReplicasTerminating, &out.ReplicasTerminating
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 

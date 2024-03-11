@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
 
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -43,6 +44,7 @@ func NewController(
 	logger := logging.FromContext(ctx)
 	paInformer := painformer.Get(ctx)
 	stagePodAutoscalerInformer := spainformer.Get(ctx)
+	podsInformer := filteredpodinformer.Get(ctx, serving.RevisionUID)
 
 	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
@@ -50,6 +52,7 @@ func NewController(
 	c := &Reconciler{
 		client:              servingclient.Get(ctx),
 		podAutoscalerLister: paInformer.Lister(),
+		podsLister:          podsInformer.Lister(),
 	}
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
@@ -61,6 +64,11 @@ func NewController(
 
 	// This reconciliation loop of the StagePodAutoscaler will watch the changes of stagePodAutoscaler itself.
 	stagePodAutoscalerInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))
+
+	podsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: pkgreconciler.LabelExistsFilterFunc(serving.RevisionLabelKey),
+		Handler:    controller.HandleAll(impl.EnqueueLabelOfNamespaceScopedResource("", serving.RevisionLabelKey)),
+	})
 
 	// Create a FilteringResourceEventHandler, that will match the PodAutoscaler having the same
 	// value for the key serving.RevisionLabelKey as the StagePodAutoscaler. The purpose is to make sure

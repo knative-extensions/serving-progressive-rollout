@@ -32,6 +32,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/stagepodautoscaler"
 
 	netcfg "knative.dev/networking/pkg/config"
 	filteredpodinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/pod/filtered"
@@ -144,6 +145,7 @@ func main() {
 	controllers := []*controller.Impl{
 		kpa.NewController(ctx, cmw, multiScaler),
 		metric.NewController(ctx, cmw, collector),
+		stagepodautoscaler.NewController(ctx, cmw),
 	}
 
 	// Start watching the configs.

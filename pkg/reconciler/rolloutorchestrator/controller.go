@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
-
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"

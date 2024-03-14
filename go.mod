@@ -14,11 +14,11 @@ require (
 	k8s.io/client-go v0.29.2
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
-	knative.dev/caching v0.0.0-20240312014556-d38838e915f0
-	knative.dev/hack v0.0.0-20240302114326-e6dedc74dc47
-	knative.dev/networking v0.0.0-20240312031421-3594f84d0be5
-	knative.dev/pkg v0.0.0-20240311204931-2c15a6fd07af
-	knative.dev/serving v0.40.1-0.20240312120852-1c9495a96082
+	knative.dev/caching v0.0.0-20240313151103-e05a25d26a18
+	knative.dev/hack v0.0.0-20240313135155-b9f6bf0b323b
+	knative.dev/networking v0.0.0-20240313172330-f56f3aa1b1dc
+	knative.dev/pkg v0.0.0-20240313155908-adefab46f5e5
+	knative.dev/serving v0.40.1-0.20240314121520-e6403458d60e
 )
 
 require (

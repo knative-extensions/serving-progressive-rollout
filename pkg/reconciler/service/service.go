@@ -547,9 +547,12 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.RolloutOrchestrator,
 	service *servingv1.Service) pkgreconciler.Event {
-	if so.IsReady() || rolloutorchestrator.LastStageComplete(so.Spec.StageTargetRevisions, so.Spec.TargetRevisions) {
+	if so.IsReady() || rolloutorchestrator.LastStageComplete(so.Spec.StageTargetRevisions, so.Spec.TargetRevisions) ||
+		so.Spec.TargetFinishTime == nil {
 		// Knative Service cannot reflect the status of the RolloutOrchestrator.
 		// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
+		// If the RolloutOrchestrator reached ready, or this is the last stage, or TargetFinishTime is empty
+		// for the StageStageTarget, there is no need to schedule future kick-off of the reconcile loop.
 		return nil
 	}
 

@@ -302,8 +302,9 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	// 1. There is no revision records or the route, when it is the first time to create the knative service.
 	// 2. There are revision records and the route. The RolloutOrchestrator will be created on an existing old version
 	// of knative serving.
-	initialRevisionStatus, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config,
+	initialRevisionStatus := resources.GetInitialTargetRevision(service, config,
 		records, route)
+	ultimateRevisionTarget := resources.GetFinalTargetRevision(service, config, records)
 
 	// Assign the RolloutOrchestrator with the initial target revision, and final target revision.
 	// StageTargetRevisions in the spec is nil.
@@ -326,7 +327,7 @@ func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *
 
 	// Based on the knative service, the map of the revision records and the route, we can get the final target
 	// revisions. The final target revisions define the end for the upgrade.
-	_, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config, records, route)
+	ultimateRevisionTarget := resources.GetFinalTargetRevision(service, config, records)
 
 	existingROSpec := ro.Spec.DeepCopy()
 

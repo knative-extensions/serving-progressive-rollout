@@ -127,12 +127,12 @@ func initializeTargetRevisions(revisionTarget *[]v1.TargetRevision, traffic *ser
 	(*revisionTarget)[index] = target
 }
 
-// GetInitialFinalTargetRevision is used to generate the initialTargetRevision and ultimateRevisionTarget.
+// GetFinalTargetRevision is used to generate the ultimateRevisionTarget.
 // Both of them are needed for the RolloutOrchestrator creation.
 // Only ultimateRevisionTarget for the RolloutOrchestrator update.
-func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
-	records map[string]RevisionRecord, route *servingv1.Route) ([]v1.TargetRevision, []v1.TargetRevision) {
-	var initialTargetRevision, ultimateRevisionTarget []v1.TargetRevision
+func GetFinalTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
+	records map[string]RevisionRecord) []v1.TargetRevision {
+	var ultimateRevisionTarget []v1.TargetRevision
 	// This is how the last revision is named after the service generation.
 	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", config.Generation))
 	if len(service.Spec.Traffic) == 0 {
@@ -150,7 +150,16 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1
 				service, records)
 		}
 	}
+	return ultimateRevisionTarget
+}
 
+// GetInitialTargetRevision is used to generate the initialTargetRevision.
+// Both of them are needed for the RolloutOrchestrator creation.
+// Only ultimateRevisionTarget for the RolloutOrchestrator update.
+func GetInitialTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
+	records map[string]RevisionRecord, route *servingv1.Route) []v1.TargetRevision {
+	var initialTargetRevision []v1.TargetRevision
+	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", config.Generation))
 	if (route != nil) && len(route.Status.Traffic) > 0 {
 		// initialTargetRevision is only needed when this function is called to create the RolloutOrchestrator.
 		// If there is route and the route status contains the traffic information, initialTargetRevision will be
@@ -163,7 +172,7 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1
 		}
 	}
 
-	return initialTargetRevision, ultimateRevisionTarget
+	return initialTargetRevision
 }
 
 // consolidateTraffic consolidates traffic with the same revision name into one.

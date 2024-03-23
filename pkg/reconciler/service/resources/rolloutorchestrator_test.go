@@ -1359,3 +1359,87 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 		})
 	}
 }
+
+func TestConsolidateTraffic(t *testing.T) {
+	tests := []struct {
+		name               string
+		routeStatusTraffic []servingv1.TrafficTarget
+		ExpectedResult     []servingv1.TrafficTarget
+	}{{
+		name: "Test the consolidateTraffic without repeated revision",
+		routeStatusTraffic: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(20),
+		}},
+		ExpectedResult: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(20),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
+		}},
+	}, {
+		name: "Test the consolidateTraffic with repeated revision",
+		routeStatusTraffic: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(40),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(30),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(10),
+		}},
+		ExpectedResult: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(20),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
+		}},
+	}, {
+		name:               "Test the consolidateTraffic with empty input",
+		routeStatusTraffic: []servingv1.TrafficTarget{},
+		ExpectedResult:     []servingv1.TrafficTarget{},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			res := consolidateTraffic(test.routeStatusTraffic)
+			if !reflect.DeepEqual(res, test.ExpectedResult) {
+				t.Fatalf("Result of consolidateTraffic() = %v, want %v", res, test.ExpectedResult)
+			}
+		})
+	}
+}

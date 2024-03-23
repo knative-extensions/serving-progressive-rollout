@@ -18,6 +18,7 @@ package resources
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,13 +156,45 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1
 		// If there is route and the route status contains the traffic information, initialTargetRevision will be
 		// generated based on the traffic.
 		initialTargetRevision = make([]v1.TargetRevision, len(route.Status.Traffic))
-		for i := range route.Status.Traffic {
+		traffic := consolidateTraffic(route.Status.Traffic)
+		for i := range traffic {
 			initializeTargetRevisions(&initialTargetRevision, &route.Status.Traffic[i], i, lastRevName,
 				service, records)
 		}
 	}
 
 	return initialTargetRevision, ultimateRevisionTarget
+}
+
+// consolidateTraffic consolidates traffic with the same revision name into one.
+func consolidateTraffic(traffic []servingv1.TrafficTarget) []servingv1.TrafficTarget {
+	trafficMap := map[string]*servingv1.TrafficTarget{}
+	for _, traffic := range traffic {
+		if trafficInMap, found := trafficMap[traffic.RevisionName]; !found {
+			trafficMap[traffic.RevisionName] = traffic.DeepCopy()
+		} else {
+			if traffic.Percent != nil {
+				if trafficInMap.Percent != nil {
+					*trafficInMap.Percent += *traffic.Percent
+				} else {
+					trafficInMap.Percent = traffic.Percent
+				}
+			}
+			if traffic.LatestRevision != nil && *traffic.LatestRevision {
+				trafficInMap.LatestRevision = ptr.Bool(*traffic.LatestRevision)
+			}
+			trafficMap[traffic.RevisionName] = trafficInMap
+		}
+	}
+	res := make([]servingv1.TrafficTarget, 0, len(trafficMap))
+	for _, traf := range trafficMap {
+		res = append(res, *traf)
+	}
+	// Sort the array in the descending order of the revision name.
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].RevisionName > res[j].RevisionName
+	})
+	return res
 }
 
 // NewInitialFinalTargetRev creates a RolloutOrchestrator with InitialRevisions and TargetRevisions.

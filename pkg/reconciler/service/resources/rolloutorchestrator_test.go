@@ -934,7 +934,8 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			initialTarget, finalTarget := GetInitialFinalTargetRevision(test.service, test.config, test.records, test.route)
+			initialTarget := GetInitialTargetRevision(test.service, test.config, test.records, test.route)
+			finalTarget := GetFinalTargetRevision(test.service, test.config, test.records)
 			if !reflect.DeepEqual(initialTarget, test.ExpectedInitialTarget) {
 				t.Fatalf("Result of GetInitialFinalTargetRevision() = %v, want %v", initialTarget, test.ExpectedInitialTarget)
 			}

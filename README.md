@@ -19,6 +19,8 @@ the new version, and then scale down the replicas for the old version. With the 
 Knative Serving will launch a proportion of the replicas for the new version and scale down the old version in each stage,
 until the new version fully takes over the old version.
 
+[Installation and configuration](./DEVELOPMENT.md)
+
 For documentation on using Knative Serving, see the [serving section](https://www.knative.dev/docs/serving/) of the [Knative documentation site](https://www.knative.dev/docs).
 
 For documentation on the Knative Serving specification, see the [docs](https://github.com/knative/serving/tree/main/docs) folder of this repository.

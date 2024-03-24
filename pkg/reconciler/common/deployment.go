@@ -36,3 +36,11 @@ func IsDeploymentAvailable(d *appsv1.Deployment) bool {
 	}
 	return false
 }
+
+// IsDeploymentHavingPods returns the whether the deployment has pods running.
+func IsDeploymentHavingPods(d *appsv1.Deployment) bool {
+	if d.Spec.Replicas != nil && d.Status.AvailableReplicas > 0 && d.Status.AvailableReplicas <= *d.Spec.Replicas {
+		return true
+	}
+	return false
+}

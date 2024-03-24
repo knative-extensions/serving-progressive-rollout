@@ -263,7 +263,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 		// TODO Surface an error in the service's status, and return an error.
 		return nil, fmt.Errorf("service: %q does not own the RolloutOrchestrator: %q", service.Name, roName)
 	} else if err = c.reconcileRolloutOrchestrator(ctx, service, config, route,
-		rolloutOrchestrator); err != nil {
+		rolloutOrchestrator, c.deploymentLister); err != nil {
 		return nil, fmt.Errorf("failed to reconcile RolloutOrchestrator: %w", err)
 	}
 
@@ -318,7 +318,8 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 
 // reconcileRolloutOrchestrator reconciles the CR RolloutOrchestrator.
 func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator) error {
+	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator,
+	deploymentLister appsv1listers.DeploymentLister) error {
 	records := c.getRecordsFromRevs(service)
 
 	// Based on the knative service, the map of the revision records and the route, we can get the final target
@@ -329,7 +330,7 @@ func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *
 
 	// Assign the RolloutOrchestrator with the final target revision and reset StageTargetRevisions in the spec,
 	// if the final target revision is different from the existing final target revision.
-	resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro)
+	resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro, route, deploymentLister)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
 	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
@@ -383,9 +384,11 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 
 func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
 	startRevisions := ro.Status.StageRevisionStatus
-	if startRevisions == nil {
-		// If StageTargetRevisions is empty, we will start from the beginning, meaning
+	if startRevisions == nil || ro.Spec.StageTargetRevisions == nil {
+		// If Status.StageRevisionStatus is empty, we will start from the beginning, meaning
 		// that starting from the InitialRevisions.
+		// If Spec.StageTargetRevisions is empty, the user updated the ksvc for a new revision, meaning
+		// that starting from the InitialRevisions
 		startRevisions = ro.Spec.InitialRevisions
 	}
 	return startRevisions

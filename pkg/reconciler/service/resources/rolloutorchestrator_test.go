@@ -21,8 +21,10 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -954,6 +956,8 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 		name           string
 		ultimateTarget []v1.TargetRevision
 		ro             *v1.RolloutOrchestrator
+		route          *servingv1.Route
+		records        map[string]RevisionRecord
 		ExpectedResult *v1.RolloutOrchestrator
 	}{{
 		name:           "Test the UpdateFinalTargetRev with ultimateTarget",
@@ -1263,6 +1267,12 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 				},
 			},
 			Status: v1.RolloutOrchestratorStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.SOStageReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 				RolloutOrchestratorStatusFields: v1.RolloutOrchestratorStatusFields{
 					StageRevisionStatus: []v1.TargetRevision{
 						{
@@ -1289,6 +1299,12 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 		},
 		ExpectedResult: &v1.RolloutOrchestrator{
 			Status: v1.RolloutOrchestratorStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.SOStageReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 				RolloutOrchestratorStatusFields: v1.RolloutOrchestratorStatusFields{
 					StageRevisionStatus: []v1.TargetRevision{
 						{
@@ -1353,7 +1369,7 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			UpdateInitialFinalTargetRev(test.ultimateTarget, test.ro)
+			UpdateInitialFinalTargetRev(test.ultimateTarget, test.ro, test.route, nil)
 			if !reflect.DeepEqual(test.ro, test.ExpectedResult) {
 				t.Fatalf("Result of UpdateFinalTargetRev() = %v, want %v", test.ro, test.ExpectedResult)
 			}

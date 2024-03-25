@@ -169,8 +169,7 @@ func GetInitialTargetRevision(service *servingv1.Service, config *servingv1.Conf
 		traffic := consolidateTraffic(route.Status.Traffic)
 		initialTargetRevision = make([]v1.TargetRevision, len(traffic))
 		for i := range traffic {
-			initializeTargetRevisions(&initialTargetRevision, &route.Status.Traffic[i], i, lastRevName,
-				service, records)
+			initializeTargetRevisions(&initialTargetRevision, &traffic[i], i, lastRevName, service, records)
 		}
 	}
 
@@ -201,9 +200,9 @@ func consolidateTraffic(traffic []servingv1.TrafficTarget) []servingv1.TrafficTa
 	for _, traf := range trafficMap {
 		res = append(res, *traf)
 	}
-	// Sort the array in the descending order of the revision name.
+	// Sort the array in the ascending order of the revision name.
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].RevisionName > res[j].RevisionName
+		return res[i].RevisionName < res[j].RevisionName
 	})
 	return res
 }

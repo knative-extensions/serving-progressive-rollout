@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -511,6 +512,9 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
 
 	// Set the target time when the current stage will be over.
+	if ro.Spec.StageTarget.TargetFinishTime == nil {
+		ro.Spec.StageTarget.TargetFinishTime = &apis.VolatileTime{}
+	}
 	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
 	return nil
 }
@@ -529,6 +533,7 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	// Knative Service cannot reflect the status of the RolloutOrchestrator.
 	// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
 	now := metav1.NewTime(time.Now())
+
 	if so.Spec.TargetFinishTime.Inner.Before(&now) {
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
 		var err error

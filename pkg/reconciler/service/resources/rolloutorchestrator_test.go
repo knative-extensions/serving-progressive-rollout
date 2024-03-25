@@ -1398,17 +1398,17 @@ func TestConsolidateTraffic(t *testing.T) {
 			Percent:        ptr.Int64(20),
 		}},
 		ExpectedResult: []servingv1.TrafficTarget{{
-			LatestRevision: ptr.Bool(true),
-			RevisionName:   "rev-0003",
-			Percent:        ptr.Int64(10),
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
 		}, {
 			LatestRevision: ptr.Bool(false),
 			RevisionName:   "rev-0002",
 			Percent:        ptr.Int64(20),
 		}, {
-			LatestRevision: ptr.Bool(false),
-			RevisionName:   "rev-0001",
-			Percent:        ptr.Int64(70),
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
 		}},
 	}, {
 		name: "Test the consolidateTraffic with repeated revision",
@@ -1434,23 +1434,48 @@ func TestConsolidateTraffic(t *testing.T) {
 			Percent:        ptr.Int64(10),
 		}},
 		ExpectedResult: []servingv1.TrafficTarget{{
-			LatestRevision: ptr.Bool(true),
-			RevisionName:   "rev-0003",
-			Percent:        ptr.Int64(20),
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
 		}, {
 			LatestRevision: ptr.Bool(false),
 			RevisionName:   "rev-0002",
 			Percent:        ptr.Int64(10),
 		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(20),
+		}},
+	}, {
+		name: "Test the consolidateTraffic with repeated revision",
+		routeStatusTraffic: []servingv1.TrafficTarget{{
 			LatestRevision: ptr.Bool(false),
-			RevisionName:   "rev-0001",
-			Percent:        ptr.Int64(70),
+			RevisionName:   "demo-triton-v-predictor-00001",
+			Percent:        ptr.Int64(50),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "demo-triton-v-predictor-00002",
+			Percent:        ptr.Int64(25),
+		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "demo-triton-v-predictor-00002",
+			Percent:        ptr.Int64(25),
+		}},
+		ExpectedResult: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "demo-triton-v-predictor-00001",
+			Percent:        ptr.Int64(50),
+		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "demo-triton-v-predictor-00002",
+			Percent:        ptr.Int64(50),
 		}},
 	}, {
 		name:               "Test the consolidateTraffic with empty input",
 		routeStatusTraffic: []servingv1.TrafficTarget{},
 		ExpectedResult:     []servingv1.TrafficTarget{},
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			res := consolidateTraffic(test.routeStatusTraffic)

@@ -253,15 +253,13 @@ func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro 
 						}
 					}
 					dep, err := deploymentLister.Deployments(ro.Namespace).Get(depName)
-					if err == nil {
-						if common.IsDeploymentHavingPods(dep) {
-							// It is either the revision scaling up has no error or in the progress of launching more
-							// pods.
-							ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Spec.StageTargetRevisions...)
-						} else {
-							// The revision scaling up runs into error.
-							ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
-						}
+					if err == nil && common.IsDeploymentHavingPods(dep) {
+						// It is either the revision scaling up has no error or in the progress of launching more
+						// pods.
+						ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Spec.StageTargetRevisions...)
+					} else {
+						// The revision scaling up runs into error.
+						ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
 					}
 				}
 			}

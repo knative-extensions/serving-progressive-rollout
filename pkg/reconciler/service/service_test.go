@@ -327,7 +327,7 @@ func TestGetGauge(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			replicas, traffic, _, _ := getGauge(test.targetRevs, test.podAutoscalerLister)
+			replicas, traffic, _, _ := getGauge(test.targetRevs, test.podAutoscalerLister, nil)
 			if !reflect.DeepEqual(replicas, test.ExpectedReplicas) {
 				t.Fatalf("Result of getGauge() = %v, want %v", replicas, test.ExpectedReplicas)
 			}
@@ -741,7 +741,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister)
+			updateStageTargetRevisions(test.ro, test.ratio, test.podAutoscalerLister, nil)
 			if !reflect.DeepEqual(test.ro.Status, test.ExpectedR.Status) {
 				t.Fatalf("Result Status of updateStageTargetRevisions() = %v, want %v", test.ro.Status, test.ExpectedR.Status)
 			}

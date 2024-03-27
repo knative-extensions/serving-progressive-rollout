@@ -21,8 +21,10 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -934,7 +936,8 @@ func TestGetInitialFinalTargetRevision(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			initialTarget, finalTarget := GetInitialFinalTargetRevision(test.service, test.config, test.records, test.route)
+			initialTarget := GetInitialTargetRevision(test.service, test.config, test.records, test.route)
+			finalTarget := GetFinalTargetRevision(test.service, test.config, test.records)
 			if !reflect.DeepEqual(initialTarget, test.ExpectedInitialTarget) {
 				t.Fatalf("Result of GetInitialFinalTargetRevision() = %v, want %v", initialTarget, test.ExpectedInitialTarget)
 			}
@@ -953,6 +956,8 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 		name           string
 		ultimateTarget []v1.TargetRevision
 		ro             *v1.RolloutOrchestrator
+		route          *servingv1.Route
+		records        map[string]RevisionRecord
 		ExpectedResult *v1.RolloutOrchestrator
 	}{{
 		name:           "Test the UpdateFinalTargetRev with ultimateTarget",
@@ -1262,6 +1267,12 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 				},
 			},
 			Status: v1.RolloutOrchestratorStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.SOStageReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 				RolloutOrchestratorStatusFields: v1.RolloutOrchestratorStatusFields{
 					StageRevisionStatus: []v1.TargetRevision{
 						{
@@ -1288,6 +1299,12 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 		},
 		ExpectedResult: &v1.RolloutOrchestrator{
 			Status: v1.RolloutOrchestratorStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   v1.SOStageReady,
+						Status: corev1.ConditionTrue,
+					}},
+				},
 				RolloutOrchestratorStatusFields: v1.RolloutOrchestratorStatusFields{
 					StageRevisionStatus: []v1.TargetRevision{
 						{
@@ -1352,9 +1369,118 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			UpdateInitialFinalTargetRev(test.ultimateTarget, test.ro)
+			UpdateInitialFinalTargetRev(test.ultimateTarget, test.ro, test.route, nil)
 			if !reflect.DeepEqual(test.ro, test.ExpectedResult) {
 				t.Fatalf("Result of UpdateFinalTargetRev() = %v, want %v", test.ro, test.ExpectedResult)
+			}
+		})
+	}
+}
+
+func TestConsolidateTraffic(t *testing.T) {
+	tests := []struct {
+		name               string
+		routeStatusTraffic []servingv1.TrafficTarget
+		ExpectedResult     []servingv1.TrafficTarget
+	}{{
+		name: "Test the consolidateTraffic without repeated revision",
+		routeStatusTraffic: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(20),
+		}},
+		ExpectedResult: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(20),
+		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}},
+	}, {
+		name: "Test the consolidateTraffic with repeated revision",
+		routeStatusTraffic: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(40),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(30),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(10),
+		}},
+		ExpectedResult: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0001",
+			Percent:        ptr.Int64(70),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "rev-0002",
+			Percent:        ptr.Int64(10),
+		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "rev-0003",
+			Percent:        ptr.Int64(20),
+		}},
+	}, {
+		name: "Test the consolidateTraffic with repeated revision",
+		routeStatusTraffic: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "demo-triton-v-predictor-00001",
+			Percent:        ptr.Int64(50),
+		}, {
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "demo-triton-v-predictor-00002",
+			Percent:        ptr.Int64(25),
+		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "demo-triton-v-predictor-00002",
+			Percent:        ptr.Int64(25),
+		}},
+		ExpectedResult: []servingv1.TrafficTarget{{
+			LatestRevision: ptr.Bool(false),
+			RevisionName:   "demo-triton-v-predictor-00001",
+			Percent:        ptr.Int64(50),
+		}, {
+			LatestRevision: ptr.Bool(true),
+			RevisionName:   "demo-triton-v-predictor-00002",
+			Percent:        ptr.Int64(50),
+		}},
+	}, {
+		name:               "Test the consolidateTraffic with empty input",
+		routeStatusTraffic: []servingv1.TrafficTarget{},
+		ExpectedResult:     []servingv1.TrafficTarget{},
+	}}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			res := consolidateTraffic(test.routeStatusTraffic)
+			if !reflect.DeepEqual(res, test.ExpectedResult) {
+				t.Fatalf("Result of consolidateTraffic() = %v, want %v", res, test.ExpectedResult)
 			}
 		})
 	}

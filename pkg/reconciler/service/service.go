@@ -83,7 +83,8 @@ var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 func NewReconciler(prclient clientset.Interface, client servingclientset.Interface, configurationLister servinglisters.ConfigurationLister,
 	revisionLister servinglisters.RevisionLister, routeLister servinglisters.RouteLister,
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister,
-	podAutoscalerLister palisters.PodAutoscalerLister, configmapLister corev1listers.ConfigMapLister,
+	podAutoscalerLister palisters.PodAutoscalerLister, spaLister listers.StagePodAutoscalerLister,
+	configmapLister corev1listers.ConfigMapLister,
 	deploymentLister appsv1listers.DeploymentLister) *Reconciler {
 	return &Reconciler{
 		baseReconciler: servingService.NewReconciler(
@@ -99,6 +100,7 @@ func NewReconciler(prclient clientset.Interface, client servingclientset.Interfa
 		revisionLister:            revisionLister,
 		rolloutOrchestratorLister: rolloutOrchestratorLister,
 		podAutoscalerLister:       podAutoscalerLister,
+		spaLister:                 spaLister,
 		configmapLister:           configmapLister,
 		deploymentLister:          deploymentLister,
 	}
@@ -469,7 +471,7 @@ func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
 			// to the minScale, we need to revise the returned replicas and traffic as the gauge.
 			if revision.MinScale != nil && currentReplicas <= *revision.MinScale {
 				// This revision is not driven by traffic. We need to calculate the currentReplicas differently.
-				currentReplicas = int32(math.Floor(float64(*revision.MinScale * (int32(currentTraffic)) / (int32(100)))))
+				currentReplicas = *revision.MinScale * (int32(currentTraffic)) / (int32(100))
 			}
 		}
 	}

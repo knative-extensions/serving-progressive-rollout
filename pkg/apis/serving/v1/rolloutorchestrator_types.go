@@ -82,7 +82,7 @@ type StageTarget struct {
 
 	// TargetFinishTime indicates target time to complete this target.
 	// +optional
-	TargetFinishTime *apis.VolatileTime `json:"targetFinishTime,omitempty"`
+	TargetFinishTime apis.VolatileTime `json:"targetFinishTime,omitempty"`
 }
 
 // RolloutOrchestratorSpec holds the desired state of the RolloutOrchestrator (from the client).

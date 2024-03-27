@@ -272,7 +272,7 @@ func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro 
 		ro.Spec.TargetRevisions = ultimateRevisionTarget
 		// Reset the StageTargetRevisions
 		ro.Spec.StageTargetRevisions = nil
-		ro.Spec.TargetFinishTime = &apis.VolatileTime{}
+		ro.Spec.TargetFinishTime = apis.VolatileTime{}
 	}
 
 	// If ultimateRevisionTarget is equal to the TargetRevisions in the spec(), it means no update happened on the ksvc,

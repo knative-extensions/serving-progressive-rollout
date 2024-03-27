@@ -157,7 +157,7 @@ func TestGetStartRevisions(t *testing.T) {
 				},
 				StageTarget: v1.StageTarget{
 					StageTargetRevisions: nil,
-					TargetFinishTime:     &apis.VolatileTime{},
+					TargetFinishTime:     apis.VolatileTime{},
 				},
 			},
 		},
@@ -221,7 +221,7 @@ func TestGetStartRevisions(t *testing.T) {
 				},
 				StageTarget: v1.StageTarget{
 					StageTargetRevisions: nil,
-					TargetFinishTime:     &apis.VolatileTime{},
+					TargetFinishTime:     apis.VolatileTime{},
 				},
 			},
 		},
@@ -411,7 +411,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 				},
 				StageTarget: v1.StageTarget{
 					StageTargetRevisions: nil,
-					TargetFinishTime: &apis.VolatileTime{
+					TargetFinishTime: apis.VolatileTime{
 						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
 					},
 				},
@@ -472,7 +472,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 							TargetReplicas: ptr.Int32(1),
 						},
 					},
-					TargetFinishTime: &apis.VolatileTime{
+					TargetFinishTime: apis.VolatileTime{
 						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
 					},
 				},
@@ -529,7 +529,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 							TargetReplicas: ptr.Int32(2),
 						},
 					},
-					TargetFinishTime: &apis.VolatileTime{
+					TargetFinishTime: apis.VolatileTime{
 						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
 					},
 				},
@@ -618,7 +618,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 							TargetReplicas: ptr.Int32(4),
 						},
 					},
-					TargetFinishTime: &apis.VolatileTime{
+					TargetFinishTime: apis.VolatileTime{
 						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
 					},
 				},
@@ -680,7 +680,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 				},
 				StageTarget: v1.StageTarget{
 					StageTargetRevisions: []v1.TargetRevision{},
-					TargetFinishTime:     &apis.VolatileTime{},
+					TargetFinishTime:     apis.VolatileTime{},
 				},
 			},
 			Status: v1.RolloutOrchestratorStatus{
@@ -729,7 +729,7 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 							MaxScale: ptr.Int32(10),
 						},
 					},
-					TargetFinishTime: &apis.VolatileTime{
+					TargetFinishTime: apis.VolatileTime{
 						Inner: metav1.NewTime(now.Add(time.Minute * common.DefaultStageTimeout)),
 					},
 				},

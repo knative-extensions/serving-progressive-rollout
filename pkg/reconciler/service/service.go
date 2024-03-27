@@ -546,9 +546,6 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
 
 	// Set the target time when the current stage will be over.
-	if ro.Spec.StageTarget.TargetFinishTime == nil {
-		ro.Spec.StageTarget.TargetFinishTime = &apis.VolatileTime{}
-	}
 	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
 	return nil
 }
@@ -556,7 +553,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.RolloutOrchestrator,
 	service *servingv1.Service) pkgreconciler.Event {
 	if so.IsReady() || rolloutorchestrator.LastStageComplete(so.Spec.StageTargetRevisions, so.Spec.TargetRevisions) ||
-		so.Spec.TargetFinishTime == nil {
+		(so.Spec.TargetFinishTime == apis.VolatileTime{}) {
 		// Knative Service cannot reflect the status of the RolloutOrchestrator.
 		// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
 		// If the RolloutOrchestrator reached ready, or this is the last stage, or TargetFinishTime is empty

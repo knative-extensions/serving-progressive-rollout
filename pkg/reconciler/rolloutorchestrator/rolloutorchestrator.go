@@ -33,7 +33,6 @@ import (
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
-	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving/pkg/apis/serving"
 )
 
@@ -378,19 +377,6 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 
 	// This is for the second mode.
 	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min
-}
-
-func IsDeploymentAvailable(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision,
-	deploymentLister appsv1listers.DeploymentLister) bool {
-	deployName := fmt.Sprintf("%s-deployment", revision.RevisionName)
-	dep, err := deploymentLister.Deployments(spa.Namespace).Get(deployName)
-	if err != nil {
-		return false
-	}
-	if !common.IsDeploymentAvailable(dep) {
-		return false
-	}
-	return true
 }
 
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based

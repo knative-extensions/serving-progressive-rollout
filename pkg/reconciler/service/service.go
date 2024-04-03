@@ -411,7 +411,7 @@ func getGauge(targetRevs []v1.TargetRevision,
 	replicasMap := make(map[string]int32)
 	startIndex := -1
 	for i := 0; i < len(targetRevs); i++ {
-		if targetRevs[i].Direction != "stay" {
+		if targetRevs[i].Direction != "stay" && targetRevs[i].Percent != nil && *targetRevs[i].Percent != 0 {
 			startIndex = i
 			break
 		}
@@ -429,7 +429,7 @@ func getGauge(targetRevs []v1.TargetRevision,
 
 	if startIndex < len(targetRevs)-1 {
 		for i := startIndex + 1; i < len(targetRevs); i++ {
-			if targetRevs[i].Direction == "stay" {
+			if targetRevs[i].Direction == "stay" || targetRevs[i].Percent == nil || *targetRevs[i].Percent == 0 {
 				continue
 			}
 			currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, i, podAutoscalerLister,
@@ -571,7 +571,7 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 
 		// Check if the deployment for the revisions are in available status.
 		// If not, we consider the stage is unable to finish due to an error and return the error.
-		err = checkDeploymentsAvailable(so.Namespace, so.Spec.StageTargetRevisions, c.deploymentLister)
+		err = checkDeploymentsAvailable(so, c.deploymentLister)
 		if err != nil {
 			return err
 		}
@@ -593,18 +593,20 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	return nil
 }
 
-func checkDeploymentsAvailable(namespace string, revisionTarget []v1.TargetRevision,
-	deploymentLister appsv1listers.DeploymentLister) error {
-	for _, rev := range revisionTarget {
-		deployName := fmt.Sprintf("%s-deployment", rev.RevisionName)
-		dep, err := deploymentLister.Deployments(namespace).Get(deployName)
+func checkDeploymentsAvailable(ro *v1.RolloutOrchestrator, deploymentLister appsv1listers.DeploymentLister) error {
+	for _, rev := range ro.Spec.StageTargetRevisions {
+		selector := labels.SelectorFromSet(labels.Set{
+			serving.ServiceLabelKey:  ro.Name,
+			serving.RevisionLabelKey: rev.RevisionName,
+		})
+		deps, err := deploymentLister.Deployments(ro.Namespace).List(selector)
 		if apierrs.IsNotFound(err) {
-			return fmt.Errorf("error the revision's deployment %s was not found", deployName)
+			return fmt.Errorf("error no deployment was not found for the revision %s", rev.RevisionName)
 		} else if err != nil {
 			return err
 		}
-		if !common.IsDeploymentAvailable(dep) {
-			return fmt.Errorf("error the revision's deployment %s was not ready, when the timeout limit hit", deployName)
+		if len(deps) > 0 && !common.IsDeploymentAvailable(deps[0]) {
+			return fmt.Errorf("error the deployment for the revision %s was not ready, when the timeout limit hit", rev.RevisionName)
 		}
 	}
 	return nil

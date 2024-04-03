@@ -22,6 +22,7 @@ import (
 	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
@@ -244,16 +245,19 @@ func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro 
 					// If route.Status.Traffic is empty, no revision is assigned to any traffic.
 					ro.Spec.InitialRevisions = nil
 				} else {
-					depName := ""
+					var selector labels.Selector
 					for _, rev := range ro.Spec.StageTargetRevisions {
 						if rev.IsRevScalingUp() {
-							// Locate the index of the revision scaling up
-							depName = fmt.Sprintf("%s-deployment", rev.RevisionName)
+							// Locate the index of the revision scaling up, using the selector
+							selector = labels.SelectorFromSet(labels.Set{
+								serving.ServiceLabelKey:  ro.Name,
+								serving.RevisionLabelKey: rev.RevisionName,
+							})
 							break
 						}
 					}
-					dep, err := deploymentLister.Deployments(ro.Namespace).Get(depName)
-					if err == nil && common.IsDeploymentHavingPods(dep) {
+					deps, err := deploymentLister.Deployments(ro.Namespace).List(selector)
+					if err == nil && len(deps) > 0 && common.IsDeploymentHavingPods(deps[0]) {
 						// It is either the revision scaling up has no error or in the progress of launching more
 						// pods.
 						ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Spec.StageTargetRevisions...)

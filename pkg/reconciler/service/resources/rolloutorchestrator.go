@@ -18,13 +18,17 @@ package resources
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -126,12 +130,12 @@ func initializeTargetRevisions(revisionTarget *[]v1.TargetRevision, traffic *ser
 	(*revisionTarget)[index] = target
 }
 
-// GetInitialFinalTargetRevision is used to generate the initialTargetRevision and ultimateRevisionTarget.
+// GetFinalTargetRevision is used to generate the ultimateRevisionTarget.
 // Both of them are needed for the RolloutOrchestrator creation.
 // Only ultimateRevisionTarget for the RolloutOrchestrator update.
-func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
-	records map[string]RevisionRecord, route *servingv1.Route) ([]v1.TargetRevision, []v1.TargetRevision) {
-	var initialTargetRevision, ultimateRevisionTarget []v1.TargetRevision
+func GetFinalTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
+	records map[string]RevisionRecord) []v1.TargetRevision {
+	var ultimateRevisionTarget []v1.TargetRevision
 	// This is how the last revision is named after the service generation.
 	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", config.Generation))
 	if len(service.Spec.Traffic) == 0 {
@@ -149,19 +153,59 @@ func GetInitialFinalTargetRevision(service *servingv1.Service, config *servingv1
 				service, records)
 		}
 	}
+	return ultimateRevisionTarget
+}
 
+// GetInitialTargetRevision is used to generate the initialTargetRevision.
+// Both of them are needed for the RolloutOrchestrator creation.
+// Only ultimateRevisionTarget for the RolloutOrchestrator update.
+func GetInitialTargetRevision(service *servingv1.Service, config *servingv1.Configuration,
+	records map[string]RevisionRecord, route *servingv1.Route) []v1.TargetRevision {
+	var initialTargetRevision []v1.TargetRevision
+	lastRevName := kmeta.ChildName(service.Name, fmt.Sprintf("-%05d", config.Generation))
 	if (route != nil) && len(route.Status.Traffic) > 0 {
 		// initialTargetRevision is only needed when this function is called to create the RolloutOrchestrator.
 		// If there is route and the route status contains the traffic information, initialTargetRevision will be
 		// generated based on the traffic.
-		initialTargetRevision = make([]v1.TargetRevision, len(route.Status.Traffic))
-		for i := range route.Status.Traffic {
-			initializeTargetRevisions(&initialTargetRevision, &route.Status.Traffic[i], i, lastRevName,
-				service, records)
+		traffic := consolidateTraffic(route.Status.Traffic)
+		initialTargetRevision = make([]v1.TargetRevision, len(traffic))
+		for i := range traffic {
+			initializeTargetRevisions(&initialTargetRevision, &traffic[i], i, lastRevName, service, records)
 		}
 	}
 
-	return initialTargetRevision, ultimateRevisionTarget
+	return initialTargetRevision
+}
+
+// consolidateTraffic consolidates traffic with the same revision name into one.
+func consolidateTraffic(traffic []servingv1.TrafficTarget) []servingv1.TrafficTarget {
+	trafficMap := map[string]*servingv1.TrafficTarget{}
+	for _, traffic := range traffic {
+		if trafficInMap, found := trafficMap[traffic.RevisionName]; !found {
+			trafficMap[traffic.RevisionName] = traffic.DeepCopy()
+		} else {
+			if traffic.Percent != nil {
+				if trafficInMap.Percent != nil {
+					*trafficInMap.Percent += *traffic.Percent
+				} else {
+					trafficInMap.Percent = traffic.Percent
+				}
+			}
+			if traffic.LatestRevision != nil && *traffic.LatestRevision {
+				trafficInMap.LatestRevision = ptr.Bool(*traffic.LatestRevision)
+			}
+			trafficMap[traffic.RevisionName] = trafficInMap
+		}
+	}
+	res := make([]servingv1.TrafficTarget, 0, len(trafficMap))
+	for _, traf := range trafficMap {
+		res = append(res, *traf)
+	}
+	// Sort the array in the ascending order of the revision name.
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].RevisionName < res[j].RevisionName
+	})
+	return res
 }
 
 // NewInitialFinalTargetRev creates a RolloutOrchestrator with InitialRevisions and TargetRevisions.
@@ -184,14 +228,45 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 }
 
 // UpdateInitialFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
-func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator) {
+func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator,
+	route *servingv1.Route, deploymentLister appsv1listers.DeploymentLister) {
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {
 		// If ultimateRevisionTarget is not equal to the TargetRevisions in the spec, it means the user updated the ksvc,
 		// leading to the new rollout, and the RolloutOrchestrator will start a new rollout, so we need to update
 		// the InitialRevisions, TargetRevisions and StageTargetRevisions.
 		if len(ro.Status.StageRevisionStatus) != 0 {
 			// Set the current StageRevisionStatus in status to the InitialRevisions.
-			ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
+			if ro.IsStageReady() || ro.IsReady() {
+				// If we reach the end of the rollout or the stage rollout, set the Spec.InitialRevisions
+				// to Status.StageRevisionStatus directly.
+				ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
+			} else {
+				if route == nil || len(route.Status.Traffic) == 0 || len(ro.Spec.StageTargetRevisions) == 0 {
+					// If route.Status.Traffic is empty, no revision is assigned to any traffic.
+					ro.Spec.InitialRevisions = nil
+				} else {
+					var selector labels.Selector
+					for _, rev := range ro.Spec.StageTargetRevisions {
+						if rev.IsRevScalingUp() {
+							// Locate the index of the revision scaling up, using the selector
+							selector = labels.SelectorFromSet(labels.Set{
+								serving.ServiceLabelKey:  ro.Name,
+								serving.RevisionLabelKey: rev.RevisionName,
+							})
+							break
+						}
+					}
+					deps, err := deploymentLister.Deployments(ro.Namespace).List(selector)
+					if err == nil && len(deps) > 0 && common.IsDeploymentHavingPods(deps[0]) {
+						// It is either the revision scaling up has no error or in the progress of launching more
+						// pods.
+						ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Spec.StageTargetRevisions...)
+					} else {
+						// The revision scaling up runs into error.
+						ro.Spec.InitialRevisions = append([]v1.TargetRevision{}, ro.Status.StageRevisionStatus...)
+					}
+				}
+			}
 		} else {
 			// Reset the InitialRevisions, if StageRevisionStatus in the status is empty.
 			ro.Spec.InitialRevisions = nil

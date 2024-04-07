@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	configmapinformer "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
@@ -52,6 +53,7 @@ func NewController(
 	configurationInformer := configurationinformer.Get(ctx)
 	revisionInformer := revisioninformer.Get(ctx)
 	paInformer := painformer.Get(ctx)
+	stagePodAutoscalerInformer := spainformer.Get(ctx)
 	roInformer := roinformer.Get(ctx)
 	configmapInformer := configmapinformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
@@ -67,6 +69,7 @@ func NewController(
 		routeInformer.Lister(),
 		roInformer.Lister(),
 		paInformer.Lister(),
+		stagePodAutoscalerInformer.Lister(),
 		configmapInformer.Lister(),
 		deploymentInformer.Lister(),
 	)

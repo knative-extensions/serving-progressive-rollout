@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/controller"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/logging"
@@ -66,6 +67,7 @@ type Reconciler struct {
 	revisionLister            servinglisters.RevisionLister
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister
 	podAutoscalerLister       palisters.PodAutoscalerLister
+	spaLister                 listers.StagePodAutoscalerLister
 	deploymentLister          appsv1listers.DeploymentLister
 	configmapLister           corev1listers.ConfigMapLister
 	enqueueAfter              func(interface{}, time.Duration)
@@ -82,7 +84,8 @@ var _ ksvcreconciler.Interface = (*Reconciler)(nil)
 func NewReconciler(prclient clientset.Interface, client servingclientset.Interface, configurationLister servinglisters.ConfigurationLister,
 	revisionLister servinglisters.RevisionLister, routeLister servinglisters.RouteLister,
 	rolloutOrchestratorLister listers.RolloutOrchestratorLister,
-	podAutoscalerLister palisters.PodAutoscalerLister, configmapLister corev1listers.ConfigMapLister,
+	podAutoscalerLister palisters.PodAutoscalerLister, spaLister listers.StagePodAutoscalerLister,
+	configmapLister corev1listers.ConfigMapLister,
 	deploymentLister appsv1listers.DeploymentLister) *Reconciler {
 	return &Reconciler{
 		baseReconciler: servingService.NewReconciler(
@@ -98,6 +101,7 @@ func NewReconciler(prclient clientset.Interface, client servingclientset.Interfa
 		revisionLister:            revisionLister,
 		rolloutOrchestratorLister: rolloutOrchestratorLister,
 		podAutoscalerLister:       podAutoscalerLister,
+		spaLister:                 spaLister,
 		configmapLister:           configmapLister,
 		deploymentLister:          deploymentLister,
 	}
@@ -263,7 +267,7 @@ func (c *Reconciler) rolloutOrchestrator(ctx context.Context, service *servingv1
 		// TODO Surface an error in the service's status, and return an error.
 		return nil, fmt.Errorf("service: %q does not own the RolloutOrchestrator: %q", service.Name, roName)
 	} else if err = c.reconcileRolloutOrchestrator(ctx, service, config, route,
-		rolloutOrchestrator); err != nil {
+		rolloutOrchestrator, c.deploymentLister); err != nil {
 		return nil, fmt.Errorf("failed to reconcile RolloutOrchestrator: %w", err)
 	}
 
@@ -299,15 +303,17 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 	// 1. There is no revision records or the route, when it is the first time to create the knative service.
 	// 2. There are revision records and the route. The RolloutOrchestrator will be created on an existing old version
 	// of knative serving.
-	initialRevisionStatus, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config,
+	initialRevisionStatus := resources.GetInitialTargetRevision(service, config,
 		records, route)
+	ultimateRevisionTarget := resources.GetFinalTargetRevision(service, config, records)
 
 	// Assign the RolloutOrchestrator with the initial target revision, and final target revision.
 	// StageTargetRevisions in the spec is nil.
 	ro := resources.NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget, service)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
-	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
+	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace),
+		c.spaLister.StagePodAutoscalers(ro.Namespace), c.rolloutConfig)
 	if err != nil {
 		return ro, err
 	}
@@ -317,21 +323,23 @@ func (c *Reconciler) createRolloutOrchestrator(ctx context.Context, service *ser
 
 // reconcileRolloutOrchestrator reconciles the CR RolloutOrchestrator.
 func (c *Reconciler) reconcileRolloutOrchestrator(ctx context.Context, service *servingv1.Service,
-	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator) error {
+	config *servingv1.Configuration, route *servingv1.Route, ro *v1.RolloutOrchestrator,
+	deploymentLister appsv1listers.DeploymentLister) error {
 	records := c.getRecordsFromRevs(service)
 
 	// Based on the knative service, the map of the revision records and the route, we can get the final target
 	// revisions. The final target revisions define the end for the upgrade.
-	_, ultimateRevisionTarget := resources.GetInitialFinalTargetRevision(service, config, records, route)
+	ultimateRevisionTarget := resources.GetFinalTargetRevision(service, config, records)
 
 	existingROSpec := ro.Spec.DeepCopy()
 
 	// Assign the RolloutOrchestrator with the final target revision and reset StageTargetRevisions in the spec,
 	// if the final target revision is different from the existing final target revision.
-	resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro)
+	resources.UpdateInitialFinalTargetRev(ultimateRevisionTarget, ro, route, deploymentLister)
 
 	// updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target.
-	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace), c.rolloutConfig)
+	err := updateRolloutOrchestrator(ro, c.podAutoscalerLister.PodAutoscalers(ro.Namespace),
+		c.spaLister.StagePodAutoscalers(ro.Namespace), c.rolloutConfig)
 	if err != nil {
 		return err
 	}
@@ -362,7 +370,8 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 // updateRolloutOrchestrator updates the StageRevisionTarget as the new(next) target, if it is the start of the upgrade,
 // or during the upgrade transition, one stage has finished but the last stage not reached.
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, config *RolloutConfig) error {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, spaLister listers.StagePodAutoscalerNamespaceLister,
+	config *RolloutConfig) error {
 	if ro.IsNotConvertToOneUpgrade() || !config.ProgressiveRolloutEnabled {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
@@ -375,16 +384,18 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		// target.
 		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
-		return updateStageTargetRevisions(ro, config, podAutoscalerLister)
+		return updateStageTargetRevisions(ro, config, podAutoscalerLister, spaLister)
 	}
 	return nil
 }
 
 func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
 	startRevisions := ro.Status.StageRevisionStatus
-	if startRevisions == nil {
-		// If StageTargetRevisions is empty, we will start from the beginning, meaning
+	if startRevisions == nil || ro.Spec.StageTargetRevisions == nil {
+		// If Status.StageRevisionStatus is empty, we will start from the beginning, meaning
 		// that starting from the InitialRevisions.
+		// If Spec.StageTargetRevisions is empty, the user updated the ksvc for a new revision, meaning
+		// that starting from the InitialRevisions
 		startRevisions = ro.Spec.InitialRevisions
 	}
 	return startRevisions
@@ -395,11 +406,12 @@ func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
 // These values are used to calculate the target number of replicas for the new and
 // the old revision.
 func getGauge(targetRevs []v1.TargetRevision,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, map[string]int32, error) {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister,
+	spaLister listers.StagePodAutoscalerNamespaceLister) (int32, int64, map[string]int32, error) {
 	replicasMap := make(map[string]int32)
 	startIndex := -1
 	for i := 0; i < len(targetRevs); i++ {
-		if targetRevs[i].Direction != "stay" {
+		if targetRevs[i].Direction != "stay" && targetRevs[i].Percent != nil && *targetRevs[i].Percent != 0 {
 			startIndex = i
 			break
 		}
@@ -408,7 +420,8 @@ func getGauge(targetRevs []v1.TargetRevision,
 	if startIndex == -1 {
 		return 0, 0, replicasMap, fmt.Errorf("there is no revision found to to scale up or down")
 	}
-	currentReplicas, currentTraffic, err := getGaugeWithIndex(targetRevs, startIndex, podAutoscalerLister)
+	currentReplicas, currentTraffic, err := getGaugeWithIndex(targetRevs, startIndex, podAutoscalerLister,
+		spaLister)
 	if err != nil {
 		return currentReplicas, currentTraffic, replicasMap, err
 	}
@@ -416,17 +429,27 @@ func getGauge(targetRevs []v1.TargetRevision,
 
 	if startIndex < len(targetRevs)-1 {
 		for i := startIndex + 1; i < len(targetRevs); i++ {
-			if targetRevs[i].Direction == "stay" {
+			if targetRevs[i].Direction == "stay" || targetRevs[i].Percent == nil || *targetRevs[i].Percent == 0 {
 				continue
 			}
-			currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, i, podAutoscalerLister)
+			currentReplicasN, currentTrafficN, errN := getGaugeWithIndex(targetRevs, i, podAutoscalerLister,
+				spaLister)
 			if errN != nil {
 				return currentReplicas, currentTraffic, replicasMap, errN
 			}
 			replicasMap[targetRevs[i].RevisionName] = currentReplicasN
-			if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
-				currentReplicas = currentReplicasN
-				currentTraffic = currentTrafficN
+			if spaLister != nil {
+				if _, err = spaLister.Get(targetRevs[i].RevisionName); err == nil {
+					// Normally we pick up the larger value of replicas and traffic as the gauge.
+					if int64(currentReplicasN)*currentTraffic > int64(currentReplicas)*currentTrafficN {
+						currentReplicas = currentReplicasN
+						currentTraffic = currentTrafficN
+					}
+				} else if int64(currentReplicasN)*currentTraffic < int64(currentReplicas)*currentTrafficN {
+					// If SPA does not exist, we pick up the smaller value of replicas and traffic as the gauge.
+					currentReplicas = currentReplicasN
+					currentTraffic = currentTrafficN
+				}
 			}
 		}
 	}
@@ -434,15 +457,30 @@ func getGauge(targetRevs []v1.TargetRevision,
 }
 
 func getGaugeWithIndex(targetRevs []v1.TargetRevision, index int,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) (int32, int64, error) {
-	revisionStatus := targetRevs[index]
-	currentTraffic := *revisionStatus.Percent
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister,
+	spaLister listers.StagePodAutoscalerNamespaceLister) (int32, int64, error) {
+	revision := targetRevs[index]
+	currentTraffic := *revision.Percent
 
-	pa, err := podAutoscalerLister.Get(revisionStatus.RevisionName)
+	pa, err := podAutoscalerLister.Get(revision.RevisionName)
 	if err != nil {
 		return 0, 0, err
 	}
+
 	currentReplicas := *pa.Status.ActualScale
+	// Check of the SPA is available for this revision
+	if spaLister != nil {
+		_, err = spaLister.Get(revision.RevisionName)
+		if err != nil {
+			// If the SPA does not exist or there is error getting the SPA, and if the currentReplicas is smaller or equal
+			// to the minScale, we need to revise the returned replicas and traffic as the gauge.
+			if revision.MinScale != nil && currentReplicas <= *revision.MinScale {
+				// This revision is not driven by traffic. We need to calculate the currentReplicas differently.
+				currentReplicas = *revision.MinScale * (int32(currentTraffic)) / (int32(100))
+			}
+		}
+	}
+
 	return currentReplicas, currentTraffic, nil
 }
 
@@ -465,7 +503,7 @@ func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio 
 // updateStageTargetRevisions updates the StageTargetRevisions based on the existing StageTargetRevisions,
 // Initial target Revisions, Final target revisions, and the current PodAutoscaler.
 func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfig,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) error {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, spaLister listers.StagePodAutoscalerNamespaceLister) error {
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
 	var stageRevisionTarget []v1.TargetRevision
@@ -479,7 +517,8 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 		// The currentReplicas and currentTraffic will be used as the standard values to calculate
 		// the further target number of replicas for each revision.
-		currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister)
+		currentReplicas, currentTraffic, repMap, err := getGauge(startRevisions, podAutoscalerLister,
+			spaLister)
 		if err != nil {
 			return err
 		}
@@ -513,27 +552,32 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 
 func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.RolloutOrchestrator,
 	service *servingv1.Service) pkgreconciler.Event {
-	if so.IsReady() || rolloutorchestrator.LastStageComplete(so.Spec.StageTargetRevisions, so.Spec.TargetRevisions) {
+	if so.IsReady() || rolloutorchestrator.LastStageComplete(so.Spec.StageTargetRevisions, so.Spec.TargetRevisions) ||
+		(so.Spec.TargetFinishTime == apis.VolatileTime{}) {
 		// Knative Service cannot reflect the status of the RolloutOrchestrator.
 		// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
+		// If the RolloutOrchestrator reached ready, or this is the last stage, or TargetFinishTime is empty
+		// for the StageStageTarget, there is no need to schedule future kick-off of the reconcile loop.
 		return nil
 	}
 
 	// Knative Service cannot reflect the status of the RolloutOrchestrator.
 	// TODO: figure out a way to reflect the status of the RolloutOrchestrator in the knative service.
 	now := metav1.NewTime(time.Now())
+
 	if so.Spec.TargetFinishTime.Inner.Before(&now) {
 		// Check if the stage target time has expired. If so, change the traffic split to the next stage.
 		var err error
 
 		// Check if the deployment for the revisions are in available status.
 		// If not, we consider the stage is unable to finish due to an error and return the error.
-		err = checkDeploymentsAvailable(so.Namespace, so.Spec.StageTargetRevisions, c.deploymentLister)
+		err = checkDeploymentsAvailable(so, c.deploymentLister)
 		if err != nil {
 			return err
 		}
 		so.Spec.StageTargetRevisions, err = shiftTrafficNextStage(so.Spec.StageTargetRevisions,
-			float64(c.rolloutConfig.OverConsumptionRatio), c.podAutoscalerLister.PodAutoscalers(so.Namespace))
+			float64(c.rolloutConfig.OverConsumptionRatio), c.podAutoscalerLister.PodAutoscalers(so.Namespace),
+			c.spaLister.StagePodAutoscalers(so.Namespace))
 		if err != nil {
 			return err
 		}
@@ -549,30 +593,32 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 	return nil
 }
 
-func checkDeploymentsAvailable(namespace string, revisionTarget []v1.TargetRevision,
-	deploymentLister appsv1listers.DeploymentLister) error {
-	for _, rev := range revisionTarget {
-		deployName := fmt.Sprintf("%s-deployment", rev.RevisionName)
-		dep, err := deploymentLister.Deployments(namespace).Get(deployName)
+func checkDeploymentsAvailable(ro *v1.RolloutOrchestrator, deploymentLister appsv1listers.DeploymentLister) error {
+	for _, rev := range ro.Spec.StageTargetRevisions {
+		selector := labels.SelectorFromSet(labels.Set{
+			serving.ServiceLabelKey:  ro.Name,
+			serving.RevisionLabelKey: rev.RevisionName,
+		})
+		deps, err := deploymentLister.Deployments(ro.Namespace).List(selector)
 		if apierrs.IsNotFound(err) {
-			return fmt.Errorf("error the revision's deployment %s was not found", deployName)
+			return fmt.Errorf("error no deployment was not found for the revision %s", rev.RevisionName)
 		} else if err != nil {
 			return err
 		}
-		if !common.IsDeploymentAvailable(dep) {
-			return fmt.Errorf("error the revision's deployment %s was not ready, when the timeout limit hit", deployName)
+		if len(deps) > 0 && !common.IsDeploymentAvailable(deps[0]) {
+			return fmt.Errorf("error the deployment for the revision %s was not ready, when the timeout limit hit", rev.RevisionName)
 		}
 	}
 	return nil
 }
 
 func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
-	podAutoscalerLister palisters.PodAutoscalerNamespaceLister) ([]v1.TargetRevision, error) {
+	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, spaLister listers.StagePodAutoscalerNamespaceLister) ([]v1.TargetRevision, error) {
 	// There are always two TargetRevisions in revisionTarget, since they come from the StageTargetRevisions.
 	// The TargetRevision at the index 0 will always be the revision that is about to scale down.
 	// We get the number of replicas and how much traffic dispatched to this revision, and use them as the gauge
 	// to calculate the number of replicas for any other traffic percentage.
-	currentReplicas, currentTraffic, _, err := getGauge(revisionTarget, podAutoscalerLister)
+	currentReplicas, currentTraffic, _, err := getGauge(revisionTarget, podAutoscalerLister, spaLister)
 	if err != nil {
 		return revisionTarget, err
 	}
@@ -597,7 +643,7 @@ func shiftTrafficNextStage(revisionTarget []v1.TargetRevision, ratio float64,
 		return revisionTarget, fmt.Errorf("unable to find both the revisions to scale up and down")
 	}
 
-	oldReplica, _, err := getGaugeWithIndex(revisionTarget, scaleDownIndex, podAutoscalerLister)
+	oldReplica, _, err := getGaugeWithIndex(revisionTarget, scaleDownIndex, podAutoscalerLister, spaLister)
 	if err != nil {
 		return revisionTarget, err
 	}

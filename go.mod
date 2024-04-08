@@ -8,17 +8,17 @@ require (
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.7.0
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
-	knative.dev/caching v0.0.0-20240329112012-84717c027d6f
-	knative.dev/hack v0.0.0-20240327150553-47368d631660
-	knative.dev/networking v0.0.0-20240329112016-75762caf9e15
-	knative.dev/pkg v0.0.0-20240402144403-fef5da99bd14
-	knative.dev/serving v0.40.1-0.20240402145124-91ebbbc3dd69
+	knative.dev/caching v0.0.0-20240404014547-6569b97f2577
+	knative.dev/hack v0.0.0-20240404013450-1133b37da8d7
+	knative.dev/networking v0.0.0-20240404014421-97688e760925
+	knative.dev/pkg v0.0.0-20240408131417-094f1527d5fc
+	knative.dev/serving v0.40.1-0.20240405120759-7e7bd93a8ea5
 )
 
 require (
@@ -99,7 +99,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
-	github.com/prometheus/common v0.51.1 // indirect
+	github.com/prometheus/common v0.52.2 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect

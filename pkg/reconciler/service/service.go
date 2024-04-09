@@ -379,10 +379,10 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 		return nil
 	}
-	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsReady()) {
+	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsLastStageComplete()) {
 		// 1. If so.Spec.StageRevisionTarget is empty, we need to calculate the stage revision target as the new(next)
 		// target.
-		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
+		// 2. If IsStageReady == true means the current target has reached, but LastStageReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
 		return updateStageTargetRevisions(ro, config, podAutoscalerLister, spaLister)
 	}
@@ -886,14 +886,14 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			// meaning that revision can stay with the number of replicas defined by minScale;
 			// nil traffic means no traffic will go to the target traffic, but the revision is marked as inactive,
 			// meaning that it will scale down to 0, regardless of other revisions' status.
-			if ro.IsComplete() || (rc != nil && rc.RolloutDuration != "0") {
-				// IsComplete with true means the completion of rollout transition, we are safe to mark the traffic
+			if ro.IsLastStageComplete() || (rc != nil && rc.RolloutDuration != "0") {
+				// IsLastStageComplete with true means the completion of rollout transition, we are safe to mark the traffic
 				// as nil for this revision.
 				// If RolloutDuration is not 0, there is a rollout-duration specified. In this case, we directly
 				// skip the 0% traffic.
 				continue
 			}
-			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
+			// IsLastStageComplete with false means the rollout transition is still in progress, we do not mark the revision
 			// as inactive, so assign 0% of the traffic for this revision.
 			target.Percent = ptr.Int64(0)
 		} else {

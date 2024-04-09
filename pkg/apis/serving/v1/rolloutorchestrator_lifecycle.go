@@ -74,7 +74,7 @@ func (so *RolloutOrchestrator) IsStageReady() bool {
 	return sos.GetCondition(SOStageReady).IsTrue()
 }
 
-func (so *RolloutOrchestrator) IsComplete() bool {
+func (so *RolloutOrchestrator) IsLastStageComplete() bool {
 	sos := so.Status
 	return sos.GetCondition(SOLastStageComplete).IsTrue()
 }

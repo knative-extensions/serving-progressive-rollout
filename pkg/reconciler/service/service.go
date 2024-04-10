@@ -379,10 +379,10 @@ func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 		ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 		return nil
 	}
-	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsReady()) {
+	if ro.Spec.StageTargetRevisions == nil || (ro.IsStageReady() && !ro.IsLastStageComplete()) {
 		// 1. If so.Spec.StageRevisionTarget is empty, we need to calculate the stage revision target as the new(next)
 		// target.
-		// 2. If IsStageReady == true means the current target has reached, but IsReady == false means upgrade has
+		// 2. If IsStageReady == true means the current target has reached, but LastStageReady == false means upgrade has
 		// not reached the last stage, we need to calculate the stage revision target as the new(next) target.
 		return updateStageTargetRevisions(ro, config, podAutoscalerLister, spaLister)
 	}
@@ -536,7 +536,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 			// We can set the stage revision target to final revision target.
 			stageRevisionTarget = append(stageRevisionTarget, ro.Spec.TargetRevisions...)
 		} else {
-			stageRevisionTarget = calculateStageTargetRevisions(repMap, startRevisions, ro.Spec.TargetRevisions,
+			stageRevisionTarget = calculateStageTargetRevisions(repMap, startRevisions, ro,
 				deltaReplicas, deltaTrafficPercent, currentReplicas, currentTraffic)
 		}
 	} else {
@@ -755,11 +755,12 @@ func refreshStage(replicasMap map[string]int32, startRevisions []v1.TargetRevisi
 	return stageRevisionTarget
 }
 
-func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions, finalTargetRevs []v1.TargetRevision,
+func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions []v1.TargetRevision, ro *v1.RolloutOrchestrator,
 	stageReplicasInt int32, stageTrafficDeltaInt int64, currentReplicas int32, currentTraffic int64) []v1.TargetRevision {
 	// The length of startRevisions will be 1 or greater, if we can reach this function.
 	// First, we need to check if the revision in the finalTargetRevs exists in the startRevisions.
 	var stageRevisionTarget []v1.TargetRevision
+	finalTargetRevs := ro.Spec.TargetRevisions
 	targetRevName := finalTargetRevs[0].RevisionName
 	if _, found := replicasMap[targetRevName]; found {
 		// Check if it is the last one or not.
@@ -769,8 +770,12 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions,
 			// The last but one revision will be scaled down.
 			scaleUpIndex := len(startRevisions) - 1
 			scaleDownIndex := len(startRevisions) - 2
-			stageRevisionTarget = refreshStage(replicasMap, startRevisions, scaleUpIndex, scaleDownIndex,
-				stageReplicasInt, stageTrafficDeltaInt, currentReplicas, currentTraffic)
+			// If scaleDownIndex is out-of-bounds, do not change the Spec.StageTargetRevisions.
+			stageRevisionTarget = ro.Spec.StageTargetRevisions
+			if scaleDownIndex >= 0 {
+				stageRevisionTarget = refreshStage(replicasMap, startRevisions, scaleUpIndex, scaleDownIndex,
+					stageReplicasInt, stageTrafficDeltaInt, currentReplicas, currentTraffic)
+			}
 		} else {
 			// If the revision is not the last one, then the last revision is the one we scale down.
 			scaleDownIndex := len(startRevisions) - 1
@@ -886,14 +891,14 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			// meaning that revision can stay with the number of replicas defined by minScale;
 			// nil traffic means no traffic will go to the target traffic, but the revision is marked as inactive,
 			// meaning that it will scale down to 0, regardless of other revisions' status.
-			if ro.IsComplete() || (rc != nil && rc.RolloutDuration != "0") {
-				// IsComplete with true means the completion of rollout transition, we are safe to mark the traffic
+			if ro.IsLastStageComplete() || (rc != nil && rc.RolloutDuration != "0") {
+				// IsLastStageComplete with true means the completion of rollout transition, we are safe to mark the traffic
 				// as nil for this revision.
 				// If RolloutDuration is not 0, there is a rollout-duration specified. In this case, we directly
 				// skip the 0% traffic.
 				continue
 			}
-			// IsComplete with false means the rollout transition is still in progress, we do not mark the revision
+			// IsLastStageComplete with false means the rollout transition is still in progress, we do not mark the revision
 			// as inactive, so assign 0% of the traffic for this revision.
 			target.Percent = ptr.Int64(0)
 		} else {

@@ -267,8 +267,8 @@ func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro 
 					}
 				}
 			}
-		} else {
-			// Reset the InitialRevisions, if StageRevisionStatus in the status is empty.
+		} else if route == nil || len(route.Status.Traffic) == 0 {
+			// If route.Status.Traffic is empty, no revision is assigned to any traffic, and reset the InitialRevisions.
 			ro.Spec.InitialRevisions = nil
 		}
 

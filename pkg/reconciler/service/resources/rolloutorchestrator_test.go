@@ -952,6 +952,45 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 	testTime := apis.VolatileTime{
 		Inner: metav1.NewTime(time.Now()),
 	}
+	targetRevisions := []v1.TargetRevision{
+		{
+			TrafficTarget: servingv1.TrafficTarget{
+				RevisionName:   "service-001-00003",
+				LatestRevision: ptr.Bool(true),
+				Percent:        ptr.Int64(100),
+			},
+			MinScale: ptr.Int32(8),
+			MaxScale: ptr.Int32(10),
+		},
+	}
+	ro := &v1.RolloutOrchestrator{
+		Spec: v1.RolloutOrchestratorSpec{
+			TargetRevisions: targetRevisions,
+			StageTarget: v1.StageTarget{
+				StageTargetRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "service-001-00002",
+							LatestRevision: ptr.Bool(false),
+							Percent:        ptr.Int64(20),
+						},
+						MinScale: ptr.Int32(8),
+						MaxScale: ptr.Int32(10),
+					},
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "service-001-00003",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(80),
+						},
+						MinScale: ptr.Int32(8),
+						MaxScale: ptr.Int32(10),
+					},
+				},
+				TargetFinishTime: testTime,
+			},
+		},
+	}
 	tests := []struct {
 		name           string
 		ultimateTarget []v1.TargetRevision
@@ -965,96 +1004,12 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 		ro:             &v1.RolloutOrchestrator{},
 		ExpectedResult: &v1.RolloutOrchestrator{},
 	}, {
-		name: "Test the UpdateFinalTargetRev with the same final target",
-		ultimateTarget: []v1.TargetRevision{
-			{
-				TrafficTarget: servingv1.TrafficTarget{
-					RevisionName:   "service-001-00003",
-					LatestRevision: ptr.Bool(true),
-					Percent:        ptr.Int64(100),
-				},
-				MinScale: ptr.Int32(8),
-				MaxScale: ptr.Int32(10),
-			},
-		},
-		ro: &v1.RolloutOrchestrator{
-			Spec: v1.RolloutOrchestratorSpec{
-				TargetRevisions: []v1.TargetRevision{
-					{
-						TrafficTarget: servingv1.TrafficTarget{
-							RevisionName:   "service-001-00003",
-							LatestRevision: ptr.Bool(true),
-							Percent:        ptr.Int64(100),
-						},
-						MinScale: ptr.Int32(8),
-						MaxScale: ptr.Int32(10),
-					},
-				},
-				StageTarget: v1.StageTarget{
-					StageTargetRevisions: []v1.TargetRevision{
-						{
-							TrafficTarget: servingv1.TrafficTarget{
-								RevisionName:   "service-001-00002",
-								LatestRevision: ptr.Bool(false),
-								Percent:        ptr.Int64(20),
-							},
-							MinScale: ptr.Int32(8),
-							MaxScale: ptr.Int32(10),
-						},
-						{
-							TrafficTarget: servingv1.TrafficTarget{
-								RevisionName:   "service-001-00003",
-								LatestRevision: ptr.Bool(true),
-								Percent:        ptr.Int64(80),
-							},
-							MinScale: ptr.Int32(8),
-							MaxScale: ptr.Int32(10),
-						},
-					},
-					TargetFinishTime: testTime,
-				},
-			},
-		},
-		ExpectedResult: &v1.RolloutOrchestrator{
-			Spec: v1.RolloutOrchestratorSpec{
-				TargetRevisions: []v1.TargetRevision{
-					{
-						TrafficTarget: servingv1.TrafficTarget{
-							RevisionName:   "service-001-00003",
-							LatestRevision: ptr.Bool(true),
-							Percent:        ptr.Int64(100),
-						},
-						MinScale: ptr.Int32(8),
-						MaxScale: ptr.Int32(10),
-					},
-				},
-				StageTarget: v1.StageTarget{
-					StageTargetRevisions: []v1.TargetRevision{
-						{
-							TrafficTarget: servingv1.TrafficTarget{
-								RevisionName:   "service-001-00002",
-								LatestRevision: ptr.Bool(false),
-								Percent:        ptr.Int64(20),
-							},
-							MinScale: ptr.Int32(8),
-							MaxScale: ptr.Int32(10),
-						},
-						{
-							TrafficTarget: servingv1.TrafficTarget{
-								RevisionName:   "service-001-00003",
-								LatestRevision: ptr.Bool(true),
-								Percent:        ptr.Int64(80),
-							},
-							MinScale: ptr.Int32(8),
-							MaxScale: ptr.Int32(10),
-						},
-					},
-					TargetFinishTime: testTime,
-				},
-			},
-		},
+		name:           "Test the UpdateFinalTargetRev, when the updated target revisions are equal to the existing ones",
+		ultimateTarget: targetRevisions,
+		ro:             ro,
+		ExpectedResult: ro,
 	}, {
-		name: "Test the UpdateFinalTargetRev with a new final target",
+		name: "Test the UpdateFinalTargetRev, when the updated target revisions become different with no status or route",
 		ultimateTarget: []v1.TargetRevision{
 			{
 				TrafficTarget: servingv1.TrafficTarget{
@@ -1124,7 +1079,7 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 			},
 		},
 	}, {
-		name: "Test the UpdateFinalTargetRev with a new final target no status",
+		name: "Test the UpdateFinalTargetRev with a new final target, no status or route",
 		ultimateTarget: []v1.TargetRevision{
 			{
 				TrafficTarget: servingv1.TrafficTarget{
@@ -1344,6 +1299,116 @@ func TestUpdateInitialFinalTargetRev(t *testing.T) {
 							RevisionName:   "service-001-00003",
 							LatestRevision: ptr.Bool(true),
 							Percent:        ptr.Int64(80),
+						},
+						MinScale: ptr.Int32(8),
+						MaxScale: ptr.Int32(10),
+					},
+				},
+				TargetRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "service-001-00004",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(100),
+						},
+						MinScale: ptr.Int32(9),
+						MaxScale: ptr.Int32(19),
+					},
+				},
+				StageTarget: v1.StageTarget{
+					StageTargetRevisions: nil,
+					TargetFinishTime:     apis.VolatileTime{},
+				},
+			},
+		},
+	}, {
+		name: "Test the UpdateFinalTargetRev with a new final target and route, but no status",
+		ultimateTarget: []v1.TargetRevision{
+			{
+				TrafficTarget: servingv1.TrafficTarget{
+					RevisionName:   "service-001-00004",
+					LatestRevision: ptr.Bool(true),
+					Percent:        ptr.Int64(100),
+				},
+				MinScale: ptr.Int32(9),
+				MaxScale: ptr.Int32(19),
+			},
+		},
+		route: &servingv1.Route{
+			Spec: servingv1.RouteSpec{
+				Traffic: []servingv1.TrafficTarget{{
+					ConfigurationName: "service-001",
+					LatestRevision:    ptr.Bool(true),
+					Percent:           ptr.Int64(100),
+				}},
+			},
+			Status: servingv1.RouteStatus{
+				RouteStatusFields: servingv1.RouteStatusFields{
+					Traffic: []servingv1.TrafficTarget{{
+						RevisionName:   "service-001-00002",
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					}},
+				},
+			},
+		},
+		ro: &v1.RolloutOrchestrator{
+			Spec: v1.RolloutOrchestratorSpec{
+				InitialRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "service-001-00002",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(100),
+						},
+						MinScale: ptr.Int32(8),
+						MaxScale: ptr.Int32(10),
+					},
+				},
+				TargetRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "service-001-00003",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(100),
+						},
+						MinScale: ptr.Int32(8),
+						MaxScale: ptr.Int32(10),
+					},
+				},
+				StageTarget: v1.StageTarget{
+					StageTargetRevisions: []v1.TargetRevision{
+						{
+							TrafficTarget: servingv1.TrafficTarget{
+								RevisionName:   "service-001-00002",
+								LatestRevision: ptr.Bool(false),
+								Percent:        ptr.Int64(80),
+							},
+							MinScale: ptr.Int32(8),
+							MaxScale: ptr.Int32(10),
+						},
+						{
+							TrafficTarget: servingv1.TrafficTarget{
+								RevisionName:   "service-001-00003",
+								LatestRevision: ptr.Bool(true),
+								Percent:        ptr.Int64(20),
+							},
+							MinScale: ptr.Int32(8),
+							MaxScale: ptr.Int32(10),
+						},
+					},
+					TargetFinishTime: testTime,
+				},
+			},
+		},
+		ExpectedResult: &v1.RolloutOrchestrator{
+			Spec: v1.RolloutOrchestratorSpec{
+				InitialRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "service-001-00002",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(100),
 						},
 						MinScale: ptr.Int32(8),
 						MaxScale: ptr.Int32(10),

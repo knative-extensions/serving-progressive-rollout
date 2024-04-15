@@ -228,6 +228,8 @@ func NewInitialFinalTargetRev(initialRevisionStatus, ultimateRevisionTarget []v1
 }
 
 // UpdateInitialFinalTargetRev updates InitialRevisions, TargetRevisions and StageTargetRevisions for RolloutOrchestrator.
+// Param: ultimateRevisionTarget is the most updated target revisions.
+// Param: ro is the custom resource of RolloutOrchestrator.
 func UpdateInitialFinalTargetRev(ultimateRevisionTarget []v1.TargetRevision, ro *v1.RolloutOrchestrator,
 	route *servingv1.Route, deploymentLister appsv1listers.DeploymentLister) {
 	if !trafficEqual(ro.Spec.TargetRevisions, ultimateRevisionTarget) {

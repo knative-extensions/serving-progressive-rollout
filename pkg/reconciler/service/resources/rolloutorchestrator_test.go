@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
-	clientgov1 "k8s.io/client-go/listers/apps/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
@@ -958,7 +957,7 @@ func (lister *MockEmptyDeploymentLister) List(_ labels.Selector) (ret []*appsv1.
 	return nil, nil
 }
 
-func (lister *MockEmptyDeploymentLister) Deployments(namespace string) clientgov1.DeploymentNamespaceLister {
+func (lister *MockEmptyDeploymentLister) Deployments(_ string) appsv1listers.DeploymentNamespaceLister {
 	return &MockEmptyDeploymentNamespaceLister{}
 }
 
@@ -968,7 +967,7 @@ func (lister *MockEmptyDeploymentNamespaceLister) List(_ labels.Selector) (ret [
 	return nil, nil
 }
 
-func (lister *MockEmptyDeploymentNamespaceLister) Get(name string) (*appsv1.Deployment, error) {
+func (lister *MockEmptyDeploymentNamespaceLister) Get(_ string) (*appsv1.Deployment, error) {
 	return nil, nil
 }
 
@@ -978,7 +977,7 @@ func (lister *MockDeploymentLister) List(_ labels.Selector) (ret []*appsv1.Deplo
 	return nil, nil
 }
 
-func (lister *MockDeploymentLister) Deployments(namespace string) clientgov1.DeploymentNamespaceLister {
+func (lister *MockDeploymentLister) Deployments(_ string) appsv1listers.DeploymentNamespaceLister {
 	return &MockDeploymentNamespaceLister{}
 }
 
@@ -1005,7 +1004,7 @@ func (lister *MockDeploymentNamespaceLister) List(_ labels.Selector) (ret []*app
 	}}, nil
 }
 
-func (lister *MockDeploymentNamespaceLister) Get(name string) (*appsv1.Deployment, error) {
+func (lister *MockDeploymentNamespaceLister) Get(_ string) (*appsv1.Deployment, error) {
 	return nil, nil
 }
 

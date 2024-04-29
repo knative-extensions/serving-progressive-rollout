@@ -31,6 +31,7 @@ import (
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	cfgmap "knative.dev/serving/pkg/apis/config"
+	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 )
 
 // NewController creates a new RolloutOrchestrator controller
@@ -42,6 +43,7 @@ func NewController(
 	roInformer := roinformer.Get(ctx)
 	stagePodAutoscalerInformer := spainformer.Get(ctx)
 	deploymentInformer := deploymentinformer.Get(ctx)
+	revisionInformer := revisioninformer.Get(ctx)
 
 	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
@@ -50,6 +52,7 @@ func NewController(
 		client:                   servingclient.Get(ctx),
 		stagePodAutoscalerLister: stagePodAutoscalerInformer.Lister(),
 		deploymentLister:         deploymentInformer.Lister(),
+		revisionLister:           revisionInformer.Lister(),
 	}
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}

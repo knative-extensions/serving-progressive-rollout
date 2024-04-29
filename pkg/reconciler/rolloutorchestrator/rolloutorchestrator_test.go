@@ -1163,13 +1163,23 @@ func TestCreateBaseStagePodAutoscaler(t *testing.T) {
 		},
 	}
 
+	rev := &servingv1.Revision{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "test-001",
+		},
+	}
+
+	roRef := kmeta.NewControllerRef(ro)
+	roRef.Controller = ptr.Bool(false)
+
 	expectedSPA := &v1.StagePodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
 			Namespace: ro.Namespace,
 			Labels:    map[string]string{serving.RevisionLabelKey: revision.RevisionName},
 			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(ro),
+				*roRef, *kmeta.NewControllerRef(rev),
 			},
 		},
 		Spec: v1.StagePodAutoscalerSpec{
@@ -1177,7 +1187,7 @@ func TestCreateBaseStagePodAutoscaler(t *testing.T) {
 			StageMaxScale: revision.MaxScale,
 		},
 	}
-	spa := CreateBaseStagePodAutoscaler(ro, revision)
+	spa := CreateBaseStagePodAutoscaler(ro, revision, rev)
 	if !reflect.DeepEqual(spa, expectedSPA) {
 		t.Fatalf("Result of CreateBaseStagePodAutoscaler() = %v, want %v", spa, expectedSPA)
 	}

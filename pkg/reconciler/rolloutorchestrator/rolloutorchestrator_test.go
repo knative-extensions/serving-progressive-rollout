@@ -1167,7 +1167,10 @@ func TestCreateBaseStagePodAutoscaler(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
 			Namespace: ro.Namespace,
-			Labels:    map[string]string{serving.RevisionLabelKey: revision.RevisionName},
+			Labels: map[string]string{
+				serving.RevisionLabelKey: revision.RevisionName,
+				serving.ServiceLabelKey:  ro.Name,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				*kmeta.NewControllerRef(ro),
 			},

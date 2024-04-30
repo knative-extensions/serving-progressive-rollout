@@ -386,13 +386,15 @@ func bothValuesUnderTargetValue(desire, actual, target int32) bool {
 // CreateBaseStagePodAutoscaler returns the basic spa(StagePodAutoscaler), base
 // on the RolloutOrchestrator and the revision.
 func CreateBaseStagePodAutoscaler(ro *v1.RolloutOrchestrator, revision *v1.TargetRevision) (spa *v1.StagePodAutoscaler) {
+	roRef := kmeta.NewControllerRef(ro)
+	roRef.Controller = ptr.Bool(false)
 	spa = &v1.StagePodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
 			Namespace: ro.Namespace,
 			Labels:    map[string]string{serving.RevisionLabelKey: revision.RevisionName},
 			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(ro),
+				*roRef,
 			},
 		},
 		Spec: v1.StagePodAutoscalerSpec{

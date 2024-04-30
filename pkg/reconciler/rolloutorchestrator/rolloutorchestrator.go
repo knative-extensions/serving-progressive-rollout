@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
@@ -34,6 +35,7 @@ import (
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	"knative.dev/serving/pkg/apis/serving"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 // Reconciler implements controller.Reconciler for RolloutOrchestrator resources.
@@ -43,6 +45,7 @@ type Reconciler struct {
 	// lister indexes properties about StagePodAutoscaler
 	stagePodAutoscalerLister listers.StagePodAutoscalerLister
 	deploymentLister         appsv1listers.DeploymentLister
+	revisionLister           servinglisters.RevisionLister
 }
 
 // Check that our Reconciler implements roreconciler.Interface
@@ -67,6 +70,7 @@ func (r *Reconciler) createOrUpdateSPARev(ctx context.Context, ro *v1.RolloutOrc
 func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrator) pkgreconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
+	defer r.cleanUpSPAs(ctx, ro)
 
 	// If spec.StageRevisionStatus is nil, do nothing.
 	if len(ro.Spec.StageTargetRevisions) == 0 {
@@ -183,6 +187,34 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 }
 
 type updateSPAForRev func(*v1.StagePodAutoscaler, *v1.TargetRevision, bool) *v1.StagePodAutoscaler
+
+func (r *Reconciler) cleanUpSPAs(ctx context.Context, ro *v1.RolloutOrchestrator) {
+	records := map[string]bool{}
+	// Get the list of all the revisions for the knative service.
+	revList, err := r.revisionLister.Revisions(ro.Namespace).List(labels.SelectorFromSet(labels.Set{
+		serving.ConfigurationLabelKey: ro.Name,
+		serving.ServiceLabelKey:       ro.Name,
+	}))
+
+	if err == nil && len(revList) > 0 {
+		for _, rev := range revList {
+			records[rev.Name] = true
+		}
+	}
+
+	// Get the list of all the SPAs for the knative service.
+	spaList, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).List(labels.SelectorFromSet(labels.Set{
+		serving.ServiceLabelKey: ro.Name,
+	}))
+	if err == nil && len(spaList) > 0 {
+		for _, spa := range spaList {
+			// The SPA and the revision share the same name. If the revision is gone, delete the SPA.
+			if !records[spa.Name] {
+				r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Delete(ctx, spa.Name, metav1.DeleteOptions{})
+			}
+		}
+	}
+}
 
 func (r *Reconciler) createStagePA(ctx context.Context, ro *v1.RolloutOrchestrator, revision *v1.TargetRevision,
 	scaleUpReady bool, fn updateSPAForRev) (*v1.StagePodAutoscaler, error) {
@@ -386,15 +418,16 @@ func bothValuesUnderTargetValue(desire, actual, target int32) bool {
 // CreateBaseStagePodAutoscaler returns the basic spa(StagePodAutoscaler), base
 // on the RolloutOrchestrator and the revision.
 func CreateBaseStagePodAutoscaler(ro *v1.RolloutOrchestrator, revision *v1.TargetRevision) (spa *v1.StagePodAutoscaler) {
-	roRef := kmeta.NewControllerRef(ro)
-	roRef.Controller = ptr.Bool(false)
 	spa = &v1.StagePodAutoscaler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      revision.RevisionName,
 			Namespace: ro.Namespace,
-			Labels:    map[string]string{serving.RevisionLabelKey: revision.RevisionName},
+			Labels: map[string]string{
+				serving.RevisionLabelKey: revision.RevisionName,
+				serving.ServiceLabelKey:  ro.Name,
+			},
 			OwnerReferences: []metav1.OwnerReference{
-				*roRef,
+				*kmeta.NewControllerRef(ro),
 			},
 		},
 		Spec: v1.StagePodAutoscalerSpec{

@@ -48,34 +48,19 @@ type Reconciler struct {
 // Check that our Reconciler implements roreconciler.Interface
 var _ roreconciler.Interface = (*Reconciler)(nil)
 
-// createOrUpdateSPARevDown create or update the StagePodAutoscaler, based on the specific (Stage)TargetRevision
-// defined in the RolloutOrchestrator for the revision scaling down.
-func (r *Reconciler) createOrUpdateSPARevDown(ctx context.Context, ro *v1.RolloutOrchestrator,
-	targetRev *v1.TargetRevision, scaleUpReady bool) (*v1.StagePodAutoscaler, error) {
-	spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(targetRev.RevisionName)
-	if apierrs.IsNotFound(err) {
-		return r.createStagePA(ctx, ro, targetRev, scaleUpReady, UpdateSPAForRevDown)
-	}
-	if err != nil {
-		return spa, err
-	}
-	return r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx,
-		UpdateSPAForRevDown(spa, targetRev, scaleUpReady), metav1.UpdateOptions{})
-}
-
-// createOrUpdateSPARevUp create or update the StagePodAutoscaler, based on the specific (Stage)TargetRevision
+// createOrUpdateSPARev create or update the StagePodAutoscaler, based on the specific (Stage)TargetRevision
 // defined in the RolloutOrchestrator for the revision scaling up.
-func (r *Reconciler) createOrUpdateSPARevUp(ctx context.Context, ro *v1.RolloutOrchestrator,
-	targetRev *v1.TargetRevision) (*v1.StagePodAutoscaler, error) {
+func (r *Reconciler) createOrUpdateSPARev(ctx context.Context, ro *v1.RolloutOrchestrator,
+	targetRev *v1.TargetRevision, scaleUpReady bool, fn updateSPAForRev) (*v1.StagePodAutoscaler, error) {
 	spa, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(targetRev.RevisionName)
 	if apierrs.IsNotFound(err) {
-		return r.createStagePA(ctx, ro, targetRev, true, UpdateSPAForRevUp)
+		return r.createStagePA(ctx, ro, targetRev, scaleUpReady, fn)
 	}
 	if err != nil {
 		return spa, err
 	}
 	return r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx,
-		UpdateSPAForRevUp(spa, targetRev, true), metav1.UpdateOptions{})
+		fn(spa, targetRev, scaleUpReady), metav1.UpdateOptions{})
 }
 
 // ReconcileKind implements Interface.ReconcileKind.
@@ -100,7 +85,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 
 	// Create or update the StagePodAutoscaler for the revision scale up
 	for _, revUp := range revScalingUp {
-		if _, err = r.createOrUpdateSPARevUp(ctx, ro, revUp); err != nil {
+		if _, err = r.createOrUpdateSPARev(ctx, ro, revUp, true, UpdateSPAForRevUp); err != nil {
 			return err
 		}
 	}
@@ -121,7 +106,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 				// Create or update the stagePodAutoscaler for the revision to be scaled down, even if the scaling up
 				// phase is not over.
 				for _, valDown := range revScalingDown {
-					if _, err = r.createOrUpdateSPARevDown(ctx, ro, valDown, false); err != nil {
+					if _, err = r.createOrUpdateSPARev(ctx, ro, valDown, false, UpdateSPAForRevDown); err != nil {
 						return err
 					}
 				}
@@ -136,7 +121,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		// Create or update the stagePodAutoscaler for the revision to be scaled down.
 		if len(revScalingDown) != 0 {
 			for _, valDown := range revScalingDown {
-				_, err = r.createOrUpdateSPARevDown(ctx, ro, valDown, true)
+				_, err = r.createOrUpdateSPARev(ctx, ro, valDown, true, UpdateSPAForRevDown)
 				if err != nil {
 					return err
 				}
@@ -161,7 +146,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 					// If this revision is not found in the map for revisions scaling up, we need to scale down.
 					revScaleDown := initRev.DeepCopy()
 					revScaleDown.Percent = nil
-					_, err = r.createOrUpdateSPARevDown(ctx, ro, revScaleDown, true)
+					_, err = r.createOrUpdateSPARev(ctx, ro, revScaleDown, true, UpdateSPAForRevDown)
 					if err != nil {
 						return err
 					}

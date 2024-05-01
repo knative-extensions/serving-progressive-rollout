@@ -372,6 +372,7 @@ func CreateRevRecordsFromRevList(revList []*servingv1.Revision) (records map[str
 func updateRolloutOrchestrator(ro *v1.RolloutOrchestrator,
 	podAutoscalerLister palisters.PodAutoscalerNamespaceLister, spaLister listers.StagePodAutoscalerNamespaceLister,
 	config *RolloutConfig) error {
+	ro.Spec.RolloutMode = config.ProgressiveRolloutMode
 	if ro.IsNotConvertToOneUpgrade() || !config.ProgressiveRolloutEnabled {
 		// The StageTargetRevisions is set directly to the final target revisions, because this is not a
 		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case

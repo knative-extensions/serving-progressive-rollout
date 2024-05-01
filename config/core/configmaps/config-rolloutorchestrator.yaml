@@ -40,3 +40,8 @@ data:
     # by shifting more percentage of the traffic onto the new revision.
     # The default value is 2 minutes.
     stage-rollout-timeout-minutes: "2"
+    # progressive-rollout-mode determines the mode to roll out the new revision progressively. There are two modes available:
+    # normal and maintenance. The normal mode ensures the service availability is the top priority, and the service can
+    # consume resources more than requested. The maintenance mode ensures resource utilization is the top priority, and
+    # the service will not consume resources more than requested. The default mode is normal.
+    progressive-rollout-mode: "normal"

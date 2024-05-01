@@ -83,6 +83,10 @@ type StageTarget struct {
 	// TargetFinishTime indicates target time to complete this target.
 	// +optional
 	TargetFinishTime apis.VolatileTime `json:"targetFinishTime,omitempty"`
+
+	// RolloutMode indicates the mode to roll out the new revision progressively. It is either normal or maintenance.
+	// +optional
+	RolloutMode apis.VolatileTime `json:"rolloutMode,omitempty"`
 }
 
 // RolloutOrchestratorSpec holds the desired state of the RolloutOrchestrator (from the client).

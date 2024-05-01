@@ -192,6 +192,9 @@ spec:
                 targetFinishTime:
                   description: TargetFinishTime indicates target time to complete this target.
                   type: string
+                rolloutMode:
+                  description: RolloutMode indicates the mode to roll out the new revision progressively. It is either normal or maintenance.
+                  type: string
             status:
               description: RolloutOrchestratorStatus communicates the observed state of the Configuration (from the controller).
               type: object

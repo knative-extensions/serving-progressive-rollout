@@ -26,6 +26,11 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
+var (
+	NormalMode      = "normal"
+	MaintenanceMode = "maintenance"
+)
+
 // RolloutConfig includes the configuration options for the rollout orchestrator.
 type RolloutConfig struct {
 	// OverConsumptionRatio sets the percentage about how much resource more than the requested can be used
@@ -41,6 +46,10 @@ type RolloutConfig struct {
 	// RolloutDuration contains the minimal duration in seconds over which the Configuration traffic targets are
 	// rolled out to the newest revision
 	RolloutDuration string
+
+	// ProgressiveRolloutMode determines the mode to roll out the new revision progressively. It is either normal
+	// or maintenance.
+	ProgressiveRolloutMode string
 }
 
 // NewConfigFromConfigMapFunc reads the configurations: OverConsumptionRatio, ProgressiveRolloutEnabled and
@@ -51,6 +60,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		RolloutDuration:            "0",
+		ProgressiveRolloutMode:     NormalMode,
 	}
 
 	if configMap != nil && len(configMap.Data) != 0 {
@@ -58,6 +68,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 			cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
 			cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
 			cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
+			cm.AsString("progressive-rollout-mode", &rolloutConfig.ProgressiveRolloutMode),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
@@ -96,6 +107,10 @@ func LoadConfigFromService(annotation map[string]string, serviceAnnotation map[s
 		if err == nil {
 			rolloutConfig.StageRolloutTimeoutMinutes = timeout
 		}
+	}
+
+	if mode, ok := annotation[resources.ProgressiveRolloutMode]; ok {
+		rolloutConfig.ProgressiveRolloutMode = mode
 	}
 
 	if val, ok := serviceAnnotation[serving.RolloutDurationKey]; ok {

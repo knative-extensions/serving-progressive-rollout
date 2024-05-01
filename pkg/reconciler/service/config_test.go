@@ -39,6 +39,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 			RolloutDuration:            "0",
+			ProgressiveRolloutMode:     NormalMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -51,6 +52,25 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 			RolloutDuration:            "0",
+			ProgressiveRolloutMode:     NormalMode,
+		},
+		ExpectedError: nil,
+	}, {
+		name: "Test the RolloutConfig with valid ConfigMap data as input",
+		input: &corev1.ConfigMap{
+			Data: map[string]string{
+				"over-consumption-ratio":        "15",
+				"progressive-rollout-enabled":   "false",
+				"stage-rollout-timeout-minutes": "4",
+				"progressive-rollout-mode":      MaintenanceMode,
+			},
+		},
+		ExpectedResult: &RolloutConfig{
+			OverConsumptionRatio:       15,
+			ProgressiveRolloutEnabled:  false,
+			StageRolloutTimeoutMinutes: 4,
+			RolloutDuration:            "0",
+			ProgressiveRolloutMode:     MaintenanceMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -67,22 +87,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
 			RolloutDuration:            "0",
-		},
-		ExpectedError: nil,
-	}, {
-		name: "Test the RolloutConfig with valid ConfigMap data as input",
-		input: &corev1.ConfigMap{
-			Data: map[string]string{
-				"over-consumption-ratio":        "15",
-				"progressive-rollout-enabled":   "false",
-				"stage-rollout-timeout-minutes": "4",
-			},
-		},
-		ExpectedResult: &RolloutConfig{
-			OverConsumptionRatio:       15,
-			ProgressiveRolloutEnabled:  false,
-			StageRolloutTimeoutMinutes: 4,
-			RolloutDuration:            "0",
+			ProgressiveRolloutMode:     NormalMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -101,12 +106,12 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 		input: &corev1.ConfigMap{
 			Data: map[string]string{
 				"over-consumption-ratio":        "15",
-				"progressive-rollout-enabled":   "falsea",
+				"progressive-rollout-enabled":   "invalid-false",
 				"stage-rollout-timeout-minutes": "4",
 			},
 		},
 		ExpectedResult: nil,
-		ExpectedError:  fmt.Errorf("failed to parse data: %s", "strconv.ParseBool: parsing \"falsea\": invalid syntax"),
+		ExpectedError:  fmt.Errorf("failed to parse data: %s", "strconv.ParseBool: parsing \"invalid-false\": invalid syntax"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -168,6 +173,7 @@ func TestLoadConfigFromService(t *testing.T) {
 			resources.OverConsumptionRatioKey:   "18",
 			resources.ProgressiveRolloutEnabled: "false",
 			resources.StageRolloutTimeout:       "10",
+			resources.ProgressiveRolloutMode:    MaintenanceMode,
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
@@ -178,6 +184,7 @@ func TestLoadConfigFromService(t *testing.T) {
 			OverConsumptionRatio:       18,
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 10,
+			ProgressiveRolloutMode:     MaintenanceMode,
 		},
 	}, {
 		name: "Test the RolloutConfig with invalid annotation as input",

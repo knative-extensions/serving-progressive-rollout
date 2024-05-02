@@ -22,13 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/rolloutmodes"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/serving"
-)
-
-var (
-	NormalMode      = "normal"
-	MaintenanceMode = "maintenance"
 )
 
 // RolloutConfig includes the configuration options for the rollout orchestrator.
@@ -60,7 +56,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		RolloutDuration:            "0",
-		ProgressiveRolloutMode:     NormalMode,
+		ProgressiveRolloutMode:     rolloutmodes.NormalMode,
 	}
 
 	if configMap != nil && len(configMap.Data) != 0 {

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/rolloutmodes"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 )
 
@@ -39,7 +40,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 			RolloutDuration:            "0",
-			ProgressiveRolloutMode:     NormalMode,
+			ProgressiveRolloutMode:     rolloutmodes.NormalMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -52,7 +53,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 			RolloutDuration:            "0",
-			ProgressiveRolloutMode:     NormalMode,
+			ProgressiveRolloutMode:     rolloutmodes.NormalMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -62,7 +63,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 				"over-consumption-ratio":        "15",
 				"progressive-rollout-enabled":   "false",
 				"stage-rollout-timeout-minutes": "4",
-				"progressive-rollout-mode":      MaintenanceMode,
+				"progressive-rollout-mode":      rolloutmodes.MaintenanceMode,
 			},
 		},
 		ExpectedResult: &RolloutConfig{
@@ -70,7 +71,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
 			RolloutDuration:            "0",
-			ProgressiveRolloutMode:     MaintenanceMode,
+			ProgressiveRolloutMode:     rolloutmodes.MaintenanceMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -87,7 +88,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
 			RolloutDuration:            "0",
-			ProgressiveRolloutMode:     NormalMode,
+			ProgressiveRolloutMode:     rolloutmodes.NormalMode,
 		},
 		ExpectedError: nil,
 	}, {
@@ -173,7 +174,7 @@ func TestLoadConfigFromService(t *testing.T) {
 			resources.OverConsumptionRatioKey:   "18",
 			resources.ProgressiveRolloutEnabled: "false",
 			resources.StageRolloutTimeout:       "10",
-			resources.ProgressiveRolloutMode:    MaintenanceMode,
+			resources.ProgressiveRolloutMode:    rolloutmodes.MaintenanceMode,
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
@@ -184,7 +185,7 @@ func TestLoadConfigFromService(t *testing.T) {
 			OverConsumptionRatio:       18,
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 10,
-			ProgressiveRolloutMode:     MaintenanceMode,
+			ProgressiveRolloutMode:     rolloutmodes.MaintenanceMode,
 		},
 	}, {
 		name: "Test the RolloutConfig with invalid annotation as input",

@@ -19,6 +19,7 @@ package rolloutorchestrator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,7 @@ type Reconciler struct {
 	deploymentLister         appsv1listers.DeploymentLister
 	revisionLister           servinglisters.RevisionLister
 	rolloutMode              map[string]*rolloutmodes.Rollout
+	enqueueAfter             func(interface{}, time.Duration)
 }
 
 // Check that our Reconciler implements roreconciler.Interface
@@ -70,7 +72,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	}
 
 	rollout := r.rolloutMode[ro.Spec.RolloutMode]
-	ready, err := rollout.Reconcile(ctx, ro, revScalingUp, revScalingDown)
+	ready, err := rollout.Reconcile(ctx, ro, revScalingUp, revScalingDown, r.enqueueAfter)
 	if err != nil {
 		return err
 	}

@@ -21,6 +21,8 @@ import (
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -169,7 +171,7 @@ func (s *ScaleDownStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator,
 	return nil
 }
 
-func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, _, revScalingDown map[string]*v1.TargetRevision) (bool, error) {
+func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) (bool, error) {
 	if len(revScalingDown) != 0 {
 		for _, valDown := range revScalingDown {
 			_, err := s.CreateOrUpdateSPARev(ctx, ro, valDown, true, UpdateSPAForRevDown)
@@ -185,6 +187,38 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 			if spa.Status.ReplicasTerminating == nil ||
 				(spa.Status.ReplicasTerminating != nil && *spa.Status.ReplicasTerminating > 0) ||
 				!IsStageScaleDownReady(spa, valDown) {
+				// There are two circumstances that we need to force-delete the pods with terminating status.
+				// 1. If the rollout mode is maintenance and it is in the first stage of the rollout, force-delete the
+				// pods for the old revisions.
+				// TODO: 2. The pods stuck on terminating status have timed out.
+				if ro.Spec.RolloutMode == MaintenanceMode {
+					for _, valUp := range revScalingUp {
+						spa, err := s.StagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(valUp.RevisionName)
+						if err != nil {
+							return false, nil
+						}
+						if *spa.Spec.StageMinScale == 0 && *spa.Spec.StageMaxScale == 0 {
+							// If both StageMinScale and StageMaxScale are 0, it means this is the first stage for the rollout.
+							labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{serving.RevisionLabelKey: valDown.RevisionName}}
+							listOptions := metav1.ListOptions{
+								LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
+							}
+							pods, err := s.Kubeclient.CoreV1().Pods(ro.Namespace).List(ctx, listOptions)
+							if err == nil && pods != nil {
+								for _, pod := range pods.Items {
+									if pod.DeletionTimestamp != nil {
+										// Issue the command to force delete the pods on terminating.
+										s.Kubeclient.CoreV1().Pods(ro.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
+											GracePeriodSeconds: ptr.Int64(0),
+										})
+									}
+								}
+							}
+							break
+						}
+					}
+				}
+
 				return false, nil
 			}
 		}
@@ -197,10 +231,11 @@ func (s *ScaleDownStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
 	ro.Status.MarkStageRevisionScaleDownReady()
 }
 
-func NewRolloutModes(client clientset.Interface, stagePodAutoscalerLister listers.StagePodAutoscalerLister) map[string]*Rollout {
+func NewRolloutModes(client clientset.Interface, kubeclient kubernetes.Interface, stagePodAutoscalerLister listers.StagePodAutoscalerLister) map[string]*Rollout {
 	rolloutMode := map[string]*Rollout{}
 	baseScaleStep := BaseScaleStep{
 		Client:                   client,
+		Kubeclient:               kubeclient,
 		StagePodAutoscalerLister: stagePodAutoscalerLister,
 	}
 	scaleUpStep := &ScaleUpStep{

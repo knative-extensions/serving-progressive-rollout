@@ -66,6 +66,7 @@ func NewController(
 	// Create a controller.Impl that handles queuing and feeding work from
 	// the queue through an implementation of controller.Reconciler for the RolloutOrchestrator.
 	impl := roreconciler.NewImpl(ctx, c, opts)
+	c.enqueueAfter = impl.EnqueueAfter
 
 	// This reconciliation loop of the RolloutOrchestrator will watch the changes of RolloutOrchestrator itself.
 	roInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

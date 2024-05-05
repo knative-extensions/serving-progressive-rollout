@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 	"strings"
+	"time"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,12 +38,21 @@ var (
 	MaintenanceMode = "maintenance"
 )
 
+// The RolloutStep interface defines all the functions, that are necessary to call to accomplish the rollout step.
+// Currently, there are two type of steps, it could be either scaling up or scaling down.
 type RolloutStep interface {
+	// Execute function create or update the SPAs for the revisions to either scale up or down.
 	Execute(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) error
-	Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) (bool, error)
+	// Verify function checks whether it reaches the completion of the scaling up or down for the revisions.
+	Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision,
+		enqueueAfter func(interface{}, time.Duration)) (bool, error)
+	// ModifyStatus function changes the status of the ro accordingly after the completion of the scaling up or down for the
+	// revisions.
 	ModifyStatus(ro *v1.RolloutOrchestrator)
 }
 
+// The BaseScaleStep struct defines golang clients, that are necessary to access the kubernetes resources.
+// It also consists of the functions to create or update the SPAs for the revisions.
 type BaseScaleStep struct {
 	Client                   clientset.Interface
 	Kubeclient               kubernetes.Interface

@@ -18,6 +18,7 @@ package rolloutmodes
 
 import (
 	"context"
+	"time"
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,11 +32,15 @@ import (
 	"knative.dev/serving/pkg/apis/serving"
 )
 
+// The Rollout struct is responsible to roll out the new revision in multiple stages. It consists of an array of RolloutSteps,
+// which will be called in sequence.
 type Rollout struct {
 	RolloutSteps []RolloutStep
 }
 
-func (r *Rollout) Reconcile(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) (bool, error) {
+// Reconcile will iterate all RolloutSteps, calling Execute, Verify and ModifyStatus for each RolloutStep.
+func (r *Rollout) Reconcile(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp,
+	revScalingDown map[string]*v1.TargetRevision, enqueueAfter func(interface{}, time.Duration)) (bool, error) {
 	for index, step := range r.RolloutSteps {
 		if ro.IsStageInProgress() || index == 0 {
 			err := step.Execute(ctx, ro, revScalingUp, revScalingDown)
@@ -45,7 +50,7 @@ func (r *Rollout) Reconcile(ctx context.Context, ro *v1.RolloutOrchestrator, rev
 		}
 		// If spec.StageRevisionStatus is nil, check on if the number of replicas meets the conditions.
 		if ro.IsStageInProgress() {
-			ready, err := step.Verify(ctx, ro, revScalingUp, revScalingDown)
+			ready, err := step.Verify(ctx, ro, revScalingUp, revScalingDown, enqueueAfter)
 			if err != nil {
 				return false, err
 			}
@@ -60,6 +65,7 @@ func (r *Rollout) Reconcile(ctx context.Context, ro *v1.RolloutOrchestrator, rev
 	return true, nil
 }
 
+// The ScaleUpStep struct is responsible for scaling up the pods for the new revision.
 type ScaleUpStep struct {
 	BaseScaleStep
 }
@@ -74,7 +80,8 @@ func (s *ScaleUpStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator, r
 	return nil
 }
 
-func (s *ScaleUpStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) (bool, error) {
+func (s *ScaleUpStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision,
+	_ func(interface{}, time.Duration)) (bool, error) {
 	for _, revUp := range revScalingUp {
 		spa, err := s.StagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(revUp.RevisionName)
 		if err != nil {
@@ -103,6 +110,7 @@ func (s *ScaleUpStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
 	ro.Status.MarkStageRevisionScaleUpReady()
 }
 
+// The ScaleUpStep struct is responsible for scaling down the pods for the old revisions.
 type ScaleDownStep struct {
 	BaseScaleStep
 }
@@ -171,7 +179,8 @@ func (s *ScaleDownStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator,
 	return nil
 }
 
-func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) (bool, error) {
+func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision,
+	enqueueAfter func(interface{}, time.Duration)) (bool, error) {
 	if len(revScalingDown) != 0 {
 		for _, valDown := range revScalingDown {
 			_, err := s.CreateOrUpdateSPARev(ctx, ro, valDown, true, UpdateSPAForRevDown)
@@ -188,37 +197,51 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 				(spa.Status.ReplicasTerminating != nil && *spa.Status.ReplicasTerminating > 0) ||
 				!IsStageScaleDownReady(spa, valDown) {
 				// There are two circumstances that we need to force-delete the pods with terminating status.
-				// 1. If the rollout mode is maintenance and it is in the first stage of the rollout, force-delete the
+				// 1. If the rollout mode is in maintenance mode and it is in the first stage of the rollout, force-delete the
 				// pods for the old revisions.
-				// TODO: 2. The pods stuck on terminating status have timed out.
-				if ro.Spec.RolloutMode == MaintenanceMode {
-					for _, valUp := range revScalingUp {
-						spa, err := s.StagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(valUp.RevisionName)
-						if err != nil {
-							return false, nil
-						}
-						if *spa.Spec.StageMinScale == 0 && *spa.Spec.StageMaxScale == 0 {
-							// If both StageMinScale and StageMaxScale are 0, it means this is the first stage for the rollout.
-							labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{serving.RevisionLabelKey: valDown.RevisionName}}
-							listOptions := metav1.ListOptions{
-								LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
-							}
-							pods, err := s.Kubeclient.CoreV1().Pods(ro.Namespace).List(ctx, listOptions)
-							if err == nil && pods != nil {
-								for _, pod := range pods.Items {
-									if pod.DeletionTimestamp != nil {
-										// Issue the command to force delete the pods on terminating.
-										s.Kubeclient.CoreV1().Pods(ro.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
-											GracePeriodSeconds: ptr.Int64(0),
-										})
-									}
+				// 2. The pods stuck on terminating status have timed out.
+				for _, valUp := range revScalingUp {
+					spa, err := s.StagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).Get(valUp.RevisionName)
+					// The SPA for the revision scaling up must exist.
+					if err != nil {
+						return false, nil
+					}
+					// Use the label to get the list of the pods running for the old revision scaling down.
+					labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{serving.RevisionLabelKey: valDown.RevisionName}}
+					listOptions := metav1.ListOptions{
+						LabelSelector: labels.Set(labelSelector.MatchLabels).String(),
+					}
+					pods, err := s.Kubeclient.CoreV1().Pods(ro.Namespace).List(ctx, listOptions)
+					// The pods backing the old revisions must exist.
+					if err != nil {
+						return false, nil
+					}
+
+					for _, pod := range pods.Items {
+						if pod.DeletionTimestamp != nil {
+							now := metav1.NewTime(time.Now())
+							// If the time of DeletionTimestamp is before now or it is the first stage of the Maintenance Mode,
+							// then it times out and delete the pods immediately.
+							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutMode == MaintenanceMode &&
+								*spa.Spec.StageMinScale == 0 && *spa.Spec.StageMaxScale == 0) {
+								err = s.Kubeclient.CoreV1().Pods(ro.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
+									GracePeriodSeconds: ptr.Int64(0),
+								})
+								if err != nil {
+									return false, err
+								}
+							} else {
+								// Check whether DeletionTimestamp for the pods have timed out or not.
+								// If not, re-enqueue ro in the reconcile loop.
+								if pod.GetDeletionGracePeriodSeconds() != nil {
+									enqueueAfter(ro, time.Duration(float64(*pod.GetDeletionGracePeriodSeconds())*float64(time.Second)))
 								}
 							}
-							break
 						}
 					}
+					// There is only one revision scaling up at a time, so there is no need to go to the further iteration.
+					break
 				}
-
 				return false, nil
 			}
 		}

@@ -23,6 +23,7 @@ import (
 
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -44,6 +45,7 @@ type RolloutStep interface {
 
 type BaseScaleStep struct {
 	Client                   clientset.Interface
+	Kubeclient               kubernetes.Interface
 	StagePodAutoscalerLister listers.StagePodAutoscalerLister
 }
 

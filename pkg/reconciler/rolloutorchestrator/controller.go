@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -49,7 +50,7 @@ func NewController(
 	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
 
-	rolloutMode := rolloutmodes.NewRolloutModes(servingclient.Get(ctx), stagePodAutoscalerInformer.Lister())
+	rolloutMode := rolloutmodes.NewRolloutModes(servingclient.Get(ctx), kubeclient.Get(ctx), stagePodAutoscalerInformer.Lister())
 	c := &Reconciler{
 		client:                   servingclient.Get(ctx),
 		stagePodAutoscalerLister: stagePodAutoscalerInformer.Lister(),

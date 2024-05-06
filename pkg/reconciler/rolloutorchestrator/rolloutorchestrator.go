@@ -74,7 +74,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 
 	rollout := r.rolloutStrategy[strings.ToLower(ro.Spec.RolloutStrategy)]
 	if rollout == nil {
-		rollout = r.rolloutStrategy[strategies.AvailabilityMode]
+		rollout = r.rolloutStrategy[strategies.AvailabilityStrategy]
 	}
 	ready, err := rollout.Reconcile(ctx, ro, revScalingUp, revScalingDown, r.enqueueAfter)
 	if err != nil {

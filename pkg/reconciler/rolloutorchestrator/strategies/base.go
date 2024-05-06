@@ -34,12 +34,12 @@ import (
 )
 
 var (
-	// AvailabilityMode is one strategy to roll out the new revision of the knative service, making sure the service is
+	// AvailabilityStrategy one strategy to roll out the new revision of the knative service, making sure the service is
 	// always available.
-	AvailabilityMode = "availability"
-	// ResourceUtilMode is one strategy to roll out the new revision of the knative service, making sure the resource
+	AvailabilityStrategy = "availability"
+	// ResourceUtilStrategy is one strategy to roll out the new revision of the knative service, making sure the resource
 	// is used optimized. It is possible that the service can have the downtime.
-	ResourceUtilMode = "resourceutil"
+	ResourceUtilStrategy = "resourceutil"
 )
 
 // The RolloutStep interface defines all the functions, that are necessary to call to accomplish the rollout step.

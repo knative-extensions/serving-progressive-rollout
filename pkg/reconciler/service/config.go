@@ -19,6 +19,7 @@ package service
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
@@ -56,7 +57,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		RolloutDuration:            "0",
-		ProgressiveRolloutStrategy: strategies.AvailabilityMode,
+		ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 	}
 
 	if configMap != nil && len(configMap.Data) != 0 {
@@ -106,7 +107,13 @@ func LoadConfigFromService(annotation map[string]string, serviceAnnotation map[s
 	}
 
 	if mode, ok := annotation[resources.ProgressiveRolloutStrategy]; ok {
-		rolloutConfig.ProgressiveRolloutStrategy = mode
+		// As long as ResourceUtil is defined in the service or in the configMap, we will use it as the strategy
+		// to roll out the services.
+		if strings.EqualFold(mode, strategies.ResourceUtilStrategy) {
+			rolloutConfig.ProgressiveRolloutStrategy = mode
+		} else if !strings.EqualFold(rolloutConfig.ProgressiveRolloutStrategy, strategies.ResourceUtilStrategy) {
+			rolloutConfig.ProgressiveRolloutStrategy = mode
+		}
 	}
 
 	if val, ok := serviceAnnotation[serving.RolloutDurationKey]; ok {

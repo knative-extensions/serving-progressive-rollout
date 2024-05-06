@@ -222,7 +222,7 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 							now := metav1.NewTime(time.Now())
 							// If the time of DeletionTimestamp is before now or it is the first stage of the resourceUtil Mode,
 							// then it times out and delete the pods immediately.
-							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutStrategy == ResourceUtilMode &&
+							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutStrategy == ResourceUtilStrategy &&
 								*spa.Spec.StageMinScale == 0 && *spa.Spec.StageMaxScale == 0) {
 								err = s.Kubeclient.CoreV1().Pods(ro.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
 									GracePeriodSeconds: ptr.Int64(0),
@@ -273,7 +273,7 @@ func NewRolloutStrategy(client clientset.Interface, kubeclient kubernetes.Interf
 	availabilityModeRollout := &Rollout{
 		RolloutSteps: rolloutSteps,
 	}
-	rolloutMode[AvailabilityMode] = availabilityModeRollout
+	rolloutMode[AvailabilityStrategy] = availabilityModeRollout
 
 	scaleUpMStep := &ScaleUpStep{
 		BaseScaleStep: baseScaleStep,
@@ -287,6 +287,6 @@ func NewRolloutStrategy(client clientset.Interface, kubeclient kubernetes.Interf
 	resourceUtilModeRollout := &Rollout{
 		RolloutSteps: rolloutMSteps,
 	}
-	rolloutMode[ResourceUtilMode] = resourceUtilModeRollout
+	rolloutMode[ResourceUtilStrategy] = resourceUtilModeRollout
 	return rolloutMode
 }

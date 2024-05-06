@@ -40,7 +40,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 			RolloutDuration:            "0",
-			ProgressiveRolloutStrategy: strategies.AvailabilityMode,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		ExpectedError: nil,
 	}, {
@@ -53,7 +53,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 			RolloutDuration:            "0",
-			ProgressiveRolloutStrategy: strategies.AvailabilityMode,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		ExpectedError: nil,
 	}, {
@@ -63,7 +63,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 				"over-consumption-ratio":        "15",
 				"progressive-rollout-enabled":   "false",
 				"stage-rollout-timeout-minutes": "4",
-				"progressive-rollout-mode":      strategies.ResourceUtilMode,
+				"progressive-rollout-strategy":  strategies.ResourceUtilStrategy,
 			},
 		},
 		ExpectedResult: &RolloutConfig{
@@ -71,7 +71,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
 			RolloutDuration:            "0",
-			ProgressiveRolloutStrategy: strategies.ResourceUtilMode,
+			ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
 		},
 		ExpectedError: nil,
 	}, {
@@ -88,7 +88,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 4,
 			RolloutDuration:            "0",
-			ProgressiveRolloutStrategy: strategies.AvailabilityMode,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		ExpectedError: nil,
 	}, {
@@ -174,18 +174,59 @@ func TestLoadConfigFromService(t *testing.T) {
 			resources.OverConsumptionRatioKey:    "18",
 			resources.ProgressiveRolloutEnabled:  "false",
 			resources.StageRolloutTimeout:        "10",
-			resources.ProgressiveRolloutStrategy: strategies.ResourceUtilMode,
+			resources.ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
 			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       18,
 			ProgressiveRolloutEnabled:  false,
 			StageRolloutTimeoutMinutes: 10,
-			ProgressiveRolloutStrategy: strategies.ResourceUtilMode,
+			ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
+		},
+	}, {
+		name: "Test the RolloutConfig with valid annotation as input",
+		annotationInput: map[string]string{
+			resources.OverConsumptionRatioKey:    "18",
+			resources.ProgressiveRolloutEnabled:  "false",
+			resources.StageRolloutTimeout:        "10",
+			resources.ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+		},
+		configInput: &RolloutConfig{
+			OverConsumptionRatio:       resources.OverSubRatio,
+			ProgressiveRolloutEnabled:  true,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
+		},
+		ExpectedResult: &RolloutConfig{
+			OverConsumptionRatio:       18,
+			ProgressiveRolloutEnabled:  false,
+			StageRolloutTimeoutMinutes: 10,
+			ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
+		},
+	}, {
+		name: "Test the RolloutConfig with valid annotation as input",
+		annotationInput: map[string]string{
+			resources.OverConsumptionRatioKey:    "18",
+			resources.ProgressiveRolloutEnabled:  "false",
+			resources.StageRolloutTimeout:        "10",
+			resources.ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+		},
+		configInput: &RolloutConfig{
+			OverConsumptionRatio:       resources.OverSubRatio,
+			ProgressiveRolloutEnabled:  true,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+		},
+		ExpectedResult: &RolloutConfig{
+			OverConsumptionRatio:       18,
+			ProgressiveRolloutEnabled:  false,
+			StageRolloutTimeoutMinutes: 10,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 	}, {
 		name: "Test the RolloutConfig with invalid annotation as input",

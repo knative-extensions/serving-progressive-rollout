@@ -19,6 +19,7 @@ package rolloutorchestrator
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -71,7 +72,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		return err
 	}
 
-	rollout := r.rolloutMode[ro.Spec.RolloutMode]
+	rollout := r.rolloutMode[strings.ToLower(ro.Spec.RolloutMode)]
+	if rollout == nil {
+		rollout = r.rolloutMode[rolloutmodes.AvailabilityMode]
+	}
 	ready, err := rollout.Reconcile(ctx, ro, revScalingUp, revScalingDown, r.enqueueAfter)
 	if err != nil {
 		return err

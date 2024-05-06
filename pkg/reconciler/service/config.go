@@ -43,8 +43,8 @@ type RolloutConfig struct {
 	// rolled out to the newest revision
 	RolloutDuration string
 
-	// ProgressiveRolloutMode determines the mode to roll out the new revision progressively. It is either normal
-	// or maintenance.
+	// ProgressiveRolloutMode determines the mode to roll out the new revision progressively. It is either availability
+	// or resourceUtil.
 	ProgressiveRolloutMode string
 }
 
@@ -56,7 +56,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		RolloutDuration:            "0",
-		ProgressiveRolloutMode:     rolloutmodes.NormalMode,
+		ProgressiveRolloutMode:     rolloutmodes.AvailabilityMode,
 	}
 
 	if configMap != nil && len(configMap.Data) != 0 {

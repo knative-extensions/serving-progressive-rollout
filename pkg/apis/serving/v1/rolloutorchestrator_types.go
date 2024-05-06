@@ -84,7 +84,7 @@ type StageTarget struct {
 	// +optional
 	TargetFinishTime apis.VolatileTime `json:"targetFinishTime,omitempty"`
 
-	// RolloutMode indicates the mode to roll out the new revision progressively. It is either normal or maintenance.
+	// RolloutMode indicates the mode to roll out the new revision progressively. It is either availability or resourceUtil.
 	// +optional
 	RolloutMode string `json:"rolloutMode,omitempty"`
 }

@@ -116,7 +116,7 @@ type ScaleDownStep struct {
 }
 
 func (s *ScaleDownStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) error {
-	// In the maintenance mode, we start to scale down the old revisions, but we need to create the SPAs for the new revisions,
+	// In the resourceUtil mode, we start to scale down the old revisions, but we need to create the SPAs for the new revisions,
 	// because Knative Serving launches the new revisions first. We need to leverage the SPAs to control the number of
 	// the pods for the new revisions.
 	// In the normal mode, we will always get the SPA for the new revision. The creation of the SPA will not be called.
@@ -197,7 +197,7 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 				(spa.Status.ReplicasTerminating != nil && *spa.Status.ReplicasTerminating > 0) ||
 				!IsStageScaleDownReady(spa, valDown) {
 				// There are two circumstances that we need to force-delete the pods with terminating status.
-				// 1. If the rollout mode is in maintenance mode and it is in the first stage of the rollout, force-delete the
+				// 1. If the rollout mode is in resourceUtil mode and it is in the first stage of the rollout, force-delete the
 				// pods for the old revisions.
 				// 2. The pods stuck on terminating status have timed out.
 				for _, valUp := range revScalingUp {
@@ -220,9 +220,9 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 					for _, pod := range pods.Items {
 						if pod.DeletionTimestamp != nil {
 							now := metav1.NewTime(time.Now())
-							// If the time of DeletionTimestamp is before now or it is the first stage of the Maintenance Mode,
+							// If the time of DeletionTimestamp is before now or it is the first stage of the resourceUtil Mode,
 							// then it times out and delete the pods immediately.
-							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutMode == MaintenanceMode &&
+							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutMode == ResourceUtilMode &&
 								*spa.Spec.StageMinScale == 0 && *spa.Spec.StageMaxScale == 0) {
 								err = s.Kubeclient.CoreV1().Pods(ro.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
 									GracePeriodSeconds: ptr.Int64(0),
@@ -270,10 +270,10 @@ func NewRolloutModes(client clientset.Interface, kubeclient kubernetes.Interface
 	rolloutSteps := make([]RolloutStep, 0, 2)
 	rolloutSteps = append(rolloutSteps, scaleUpStep)
 	rolloutSteps = append(rolloutSteps, scaleDownStep)
-	normalRollout := &Rollout{
+	availabilityModeRollout := &Rollout{
 		RolloutSteps: rolloutSteps,
 	}
-	rolloutMode[NormalMode] = normalRollout
+	rolloutMode[AvailabilityMode] = availabilityModeRollout
 
 	scaleUpMStep := &ScaleUpStep{
 		BaseScaleStep: baseScaleStep,
@@ -284,9 +284,9 @@ func NewRolloutModes(client clientset.Interface, kubeclient kubernetes.Interface
 	rolloutMSteps := make([]RolloutStep, 0, 2)
 	rolloutMSteps = append(rolloutMSteps, scaleDownMStep)
 	rolloutMSteps = append(rolloutMSteps, scaleUpMStep)
-	maintenanceRollout := &Rollout{
+	resourceUtilModeRollout := &Rollout{
 		RolloutSteps: rolloutMSteps,
 	}
-	rolloutMode[MaintenanceMode] = maintenanceRollout
+	rolloutMode[ResourceUtilMode] = resourceUtilModeRollout
 	return rolloutMode
 }

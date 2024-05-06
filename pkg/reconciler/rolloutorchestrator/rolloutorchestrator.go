@@ -31,7 +31,7 @@ import (
 	clientset "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
-	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/rolloutmodes"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/strategies"
 	"knative.dev/serving/pkg/apis/serving"
 	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
@@ -44,7 +44,7 @@ type Reconciler struct {
 	stagePodAutoscalerLister listers.StagePodAutoscalerLister
 	deploymentLister         appsv1listers.DeploymentLister
 	revisionLister           servinglisters.RevisionLister
-	rolloutMode              map[string]*rolloutmodes.Rollout
+	rolloutStrategy          map[string]*strategies.Rollout
 	enqueueAfter             func(interface{}, time.Duration)
 }
 
@@ -72,9 +72,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		return err
 	}
 
-	rollout := r.rolloutMode[strings.ToLower(ro.Spec.RolloutMode)]
+	rollout := r.rolloutStrategy[strings.ToLower(ro.Spec.RolloutStrategy)]
 	if rollout == nil {
-		rollout = r.rolloutMode[rolloutmodes.AvailabilityMode]
+		rollout = r.rolloutStrategy[strategies.AvailabilityMode]
 	}
 	ready, err := rollout.Reconcile(ctx, ro, revScalingUp, revScalingDown, r.enqueueAfter)
 	if err != nil {

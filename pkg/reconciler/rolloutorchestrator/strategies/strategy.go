@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rolloutmodes
+package strategies
 
 import (
 	"context"
@@ -222,7 +222,7 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 							now := metav1.NewTime(time.Now())
 							// If the time of DeletionTimestamp is before now or it is the first stage of the resourceUtil Mode,
 							// then it times out and delete the pods immediately.
-							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutMode == ResourceUtilMode &&
+							if pod.DeletionTimestamp.Before(&now) || (ro.Spec.RolloutStrategy == ResourceUtilMode &&
 								*spa.Spec.StageMinScale == 0 && *spa.Spec.StageMaxScale == 0) {
 								err = s.Kubeclient.CoreV1().Pods(ro.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{
 									GracePeriodSeconds: ptr.Int64(0),
@@ -254,7 +254,7 @@ func (s *ScaleDownStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
 	ro.Status.MarkStageRevisionScaleDownReady()
 }
 
-func NewRolloutModes(client clientset.Interface, kubeclient kubernetes.Interface, stagePodAutoscalerLister listers.StagePodAutoscalerLister) map[string]*Rollout {
+func NewRolloutStrategy(client clientset.Interface, kubeclient kubernetes.Interface, stagePodAutoscalerLister listers.StagePodAutoscalerLister) map[string]*Rollout {
 	rolloutMode := map[string]*Rollout{}
 	baseScaleStep := BaseScaleStep{
 		Client:                   client,

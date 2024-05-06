@@ -22,7 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
-	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/rolloutmodes"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/strategies"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -43,9 +43,9 @@ type RolloutConfig struct {
 	// rolled out to the newest revision
 	RolloutDuration string
 
-	// ProgressiveRolloutMode determines the mode to roll out the new revision progressively. It is either availability
+	// ProgressiveRolloutStrategy determines the mode to roll out the new revision progressively. It is either availability
 	// or resourceUtil.
-	ProgressiveRolloutMode string
+	ProgressiveRolloutStrategy string
 }
 
 // NewConfigFromConfigMapFunc reads the configurations: OverConsumptionRatio, ProgressiveRolloutEnabled and
@@ -56,7 +56,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		RolloutDuration:            "0",
-		ProgressiveRolloutMode:     rolloutmodes.AvailabilityMode,
+		ProgressiveRolloutStrategy: strategies.AvailabilityMode,
 	}
 
 	if configMap != nil && len(configMap.Data) != 0 {
@@ -64,7 +64,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 			cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
 			cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
 			cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
-			cm.AsString("progressive-rollout-mode", &rolloutConfig.ProgressiveRolloutMode),
+			cm.AsString("progressive-rollout-strategy", &rolloutConfig.ProgressiveRolloutStrategy),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
@@ -105,8 +105,8 @@ func LoadConfigFromService(annotation map[string]string, serviceAnnotation map[s
 		}
 	}
 
-	if mode, ok := annotation[resources.ProgressiveRolloutMode]; ok {
-		rolloutConfig.ProgressiveRolloutMode = mode
+	if mode, ok := annotation[resources.ProgressiveRolloutStrategy]; ok {
+		rolloutConfig.ProgressiveRolloutStrategy = mode
 	}
 
 	if val, ok := serviceAnnotation[serving.RolloutDurationKey]; ok {

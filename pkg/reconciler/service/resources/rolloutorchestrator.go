@@ -54,8 +54,8 @@ var (
 	// ProgressiveRolloutEnabled is the annotation key Knative Service can use to enable or disable the progressive rollout.
 	ProgressiveRolloutEnabled = GroupName + "/progressive-rollout-enabled"
 
-	// ProgressiveRolloutMode determines the mode to roll out the new revision progressively.
-	ProgressiveRolloutMode = GroupName + "/progressive-rollout-mode"
+	// ProgressiveRolloutStrategy determines the mode to roll out the new revision progressively.
+	ProgressiveRolloutStrategy = GroupName + "/progressive-rollout-strategy"
 
 	// ConfigMapName is the name of the ConfigMap, that saves the configuration information about the rollout orchestrator.
 	ConfigMapName = "config-rolloutorchestrator"

@@ -40,3 +40,8 @@ data:
     # by shifting more percentage of the traffic onto the new revision.
     # The default value is 2 minutes.
     stage-rollout-timeout-minutes: "2"
+    # progressive-rollout-strategy determines the strategy to roll out the new revision progressively. There are two strategies available:
+    # availability and resourceUtil. The availability strategy ensures the service availability is the top priority, and the service can
+    # consume resources more than requested. The resourceUtil strategy ensures resource utilization is the top priority, and
+    # the service will not consume resources more than requested. The default strategy is availability.
+    progressive-rollout-strategy: "availability"

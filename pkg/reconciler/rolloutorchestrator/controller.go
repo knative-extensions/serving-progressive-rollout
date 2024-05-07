@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"k8s.io/client-go/tools/cache"
+	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	deploymentinformer "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment"
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
@@ -30,6 +31,7 @@ import (
 	spainformer "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler"
 	roreconciler "knative.dev/serving-progressive-rollout/pkg/client/injection/reconciler/serving/v1/rolloutorchestrator"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/strategies"
 	cfgmap "knative.dev/serving/pkg/apis/config"
 	revisioninformer "knative.dev/serving/pkg/client/injection/informers/serving/v1/revision"
 )
@@ -48,19 +50,23 @@ func NewController(
 	configStore := cfgmap.NewStore(logger.Named(common.ConfigStoreName))
 	configStore.WatchConfigs(cmw)
 
+	rolloutStrategy := strategies.NewRolloutStrategy(servingclient.Get(ctx), kubeclient.Get(ctx), stagePodAutoscalerInformer.Lister())
 	c := &Reconciler{
 		client:                   servingclient.Get(ctx),
 		stagePodAutoscalerLister: stagePodAutoscalerInformer.Lister(),
 		deploymentLister:         deploymentInformer.Lister(),
 		revisionLister:           revisionInformer.Lister(),
+		rolloutStrategy:          rolloutStrategy,
 	}
+
 	opts := func(*controller.Impl) controller.Options {
 		return controller.Options{ConfigStore: configStore}
 	}
 
-	// Creat a controller.Impl that handles queuing and feeding work from
+	// Create a controller.Impl that handles queuing and feeding work from
 	// the queue through an implementation of controller.Reconciler for the RolloutOrchestrator.
 	impl := roreconciler.NewImpl(ctx, c, opts)
+	c.enqueueAfter = impl.EnqueueAfter
 
 	// This reconciliation loop of the RolloutOrchestrator will watch the changes of RolloutOrchestrator itself.
 	roInformer.Informer().AddEventHandler(controller.HandleAll(impl.Enqueue))

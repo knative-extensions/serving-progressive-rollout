@@ -70,6 +70,8 @@ type ScaleUpStep struct {
 	BaseScaleStep
 }
 
+// Execute for ScaleUpStep scales up the number of the pods for new revision by changing the minScale and maxScale for
+// the SPA.
 func (s *ScaleUpStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, _ map[string]*v1.TargetRevision) error {
 	// Create or update the StagePodAutoscaler for the revision scale up
 	for _, revUp := range revScalingUp {
@@ -80,6 +82,7 @@ func (s *ScaleUpStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator, r
 	return nil
 }
 
+// Verify for ScaleUpStep verified if the number of pods for the new revision has scaled up to the expected number.
 func (s *ScaleUpStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision,
 	_ func(interface{}, time.Duration)) (bool, error) {
 	for _, revUp := range revScalingUp {
@@ -106,15 +109,19 @@ func (s *ScaleUpStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, re
 	return true, nil
 }
 
+// ModifyStatus for ScaleUpStep modifies the status of the rolloutOrchestrator after the new revision has scaled up to
+// the expected number of pods.
 func (s *ScaleUpStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
 	ro.Status.MarkStageRevisionScaleUpReady()
 }
 
-// The ScaleUpStep struct is responsible for scaling down the pods for the old revisions.
+// The ScaleDownStep struct is responsible for scaling down the pods for the old revisions.
 type ScaleDownStep struct {
 	BaseScaleStep
 }
 
+// Execute for ScaleDownStep scales down the number of the pods for old revision by changing the minScale and maxScale for
+// the SPA.
 func (s *ScaleDownStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision) error {
 	// In the resourceUtil mode, we start to scale down the old revisions, but we need to create the SPAs for the new revisions,
 	// because Knative Serving launches the new revisions first. We need to leverage the SPAs to control the number of
@@ -136,7 +143,15 @@ func (s *ScaleDownStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator,
 					},
 				},
 				Spec: v1.StagePodAutoscalerSpec{
-					// If the SPA for the new revisions are created, start with 0 for the MinScale, and 1 for MaxScale.
+					// If the SPA for the new revisions are created, start with 0 for the MinScale, and 0 for MaxScale.
+					// This is a special case in the ResourceUtil strategy: with this strategy, we scale down the old
+					// revision first, and then scale up the new revision. Knative Serving automatically scales up the
+					// new revision from 0 to 1, no matter what is configured in the SPA or whether there is traffic
+					// assigned to the new revision. The only optimization we can do is to force-delete the pods for
+					// the old revision as soon as possible, so we need a group of values of minScale 0 and maxScale 0
+					// for the SPA of the new revision to indicate this special first stage. If the SPA for the new revision
+					// scaling up has this group of values in the ResourceUtil strategy, we will find out the pods for
+					// the old revisions on terminating and force delete them.
 					StageMinScale: ptr.Int32(0),
 					StageMaxScale: ptr.Int32(0),
 				},
@@ -179,6 +194,7 @@ func (s *ScaleDownStep) Execute(ctx context.Context, ro *v1.RolloutOrchestrator,
 	return nil
 }
 
+// Verify for ScaleDownStep verified if the number of pods for the old revision has scaled down to the expected number.
 func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, revScalingUp, revScalingDown map[string]*v1.TargetRevision,
 	enqueueAfter func(interface{}, time.Duration)) (bool, error) {
 	if len(revScalingDown) != 0 {
@@ -250,6 +266,8 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 	return true, nil
 }
 
+// ModifyStatus for ScaleDownStep modifies the status of the rolloutOrchestrator after the old revision has scaled down to
+// the expected number of pods.
 func (s *ScaleDownStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
 	ro.Status.MarkStageRevisionScaleDownReady()
 }

@@ -192,6 +192,9 @@ spec:
                 targetFinishTime:
                   description: TargetFinishTime indicates target time to complete this target.
                   type: string
+                rolloutStrategy:
+                  description: RolloutStrategy indicates the strategy to roll out the new revision progressively. It is either availability or resourceutil.
+                  type: string
             status:
               description: RolloutOrchestratorStatus communicates the observed state of the Configuration (from the controller).
               type: object

@@ -19,9 +19,11 @@ package service
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	cm "knative.dev/pkg/configmap"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/strategies"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/serving"
 )
@@ -41,6 +43,10 @@ type RolloutConfig struct {
 	// RolloutDuration contains the minimal duration in seconds over which the Configuration traffic targets are
 	// rolled out to the newest revision
 	RolloutDuration string
+
+	// ProgressiveRolloutStrategy determines the mode to roll out the new revision progressively. It is either availability
+	// or resourceUtil.
+	ProgressiveRolloutStrategy string
 }
 
 // NewConfigFromConfigMapFunc reads the configurations: OverConsumptionRatio, ProgressiveRolloutEnabled and
@@ -51,6 +57,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 		ProgressiveRolloutEnabled:  true,
 		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
 		RolloutDuration:            "0",
+		ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 	}
 
 	if configMap != nil && len(configMap.Data) != 0 {
@@ -58,6 +65,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 			cm.AsInt("over-consumption-ratio", &rolloutConfig.OverConsumptionRatio),
 			cm.AsBool("progressive-rollout-enabled", &rolloutConfig.ProgressiveRolloutEnabled),
 			cm.AsInt("stage-rollout-timeout-minutes", &rolloutConfig.StageRolloutTimeoutMinutes),
+			cm.AsString("progressive-rollout-strategy", &rolloutConfig.ProgressiveRolloutStrategy),
 		); err != nil {
 			return nil, fmt.Errorf("failed to parse data: %w", err)
 		}
@@ -95,6 +103,16 @@ func LoadConfigFromService(annotation map[string]string, serviceAnnotation map[s
 		timeout, err := strconv.Atoi(val)
 		if err == nil {
 			rolloutConfig.StageRolloutTimeoutMinutes = timeout
+		}
+	}
+
+	if mode, ok := annotation[resources.ProgressiveRolloutStrategy]; ok {
+		// As long as ResourceUtil is defined in the service or in the configMap, we will use it as the strategy
+		// to roll out the services.
+		if strings.EqualFold(mode, strategies.ResourceUtilStrategy) {
+			rolloutConfig.ProgressiveRolloutStrategy = mode
+		} else if !strings.EqualFold(rolloutConfig.ProgressiveRolloutStrategy, strategies.ResourceUtilStrategy) {
+			rolloutConfig.ProgressiveRolloutStrategy = mode
 		}
 	}
 

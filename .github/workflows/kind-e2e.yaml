@@ -30,10 +30,11 @@ env:
   REGISTRY_NAME: registry.local
   REGISTRY_PORT: 5000
   KO_DOCKER_REPO: registry.local:5000/knative
-  GOTESTSUM_VERSION: 1.7.0
+  GOTESTSUM_VERSION: 1.11.0
   KAPP_VERSION: 0.46.0
   YTT_VERSION: 0.40.1
   KO_FLAGS: --platform=linux/amd64
+  KNATIVE_SERVING_BRANCH: release-1.13
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   KNATIVE_DIR: /home/runner/work/serving-progressive-rollout
   KNATIVE_SERVING_DIR: /home/runner/work/serving-progressive-rollout/serving
@@ -66,12 +67,14 @@ jobs:
     # Install the latest release of ko
     - name: Install ko
       uses: ko-build/setup-ko@v0.6
+      with:
+        version: v0.15.2
 
     # Download the latest source code of Knative Serving
     - name: Download Knative Serving
       run: |
         cd ${KNATIVE_DIR}
-        git clone https://github.com/knative/serving.git "serving"
+        git clone -b ${KNATIVE_SERVING_BRANCH} --single-branch https://github.com/knative/serving.git
 
     - name: Setup Registry
       run: |

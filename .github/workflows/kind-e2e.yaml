@@ -35,6 +35,7 @@ env:
   YTT_VERSION: 0.40.1
   KO_FLAGS: --platform=linux/amd64
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  KNATIVE_SERVING_BRANCH: main
   KNATIVE_DIR: /home/runner/work/serving-progressive-rollout
   KNATIVE_SERVING_DIR: /home/runner/work/serving-progressive-rollout/serving
 
@@ -71,7 +72,7 @@ jobs:
     - name: Download Knative Serving
       run: |
         cd ${KNATIVE_DIR}
-        git clone https://github.com/knative/serving.git "serving"
+        git clone -b ${KNATIVE_SERVING_BRANCH} --single-branch https://github.com/knative/serving.git
 
     - name: Setup Registry
       run: |

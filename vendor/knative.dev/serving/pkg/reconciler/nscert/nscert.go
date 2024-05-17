@@ -40,7 +40,6 @@ import (
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/nscert/config"
 	"knative.dev/serving/pkg/reconciler/nscert/resources"
-	domaincfg "knative.dev/serving/pkg/reconciler/route/config"
 )
 
 // Reconciler implements controller.Reconciler for Certificate resources.
@@ -86,42 +85,16 @@ func (c *reconciler) ReconcileKind(ctx context.Context, ns *corev1.Namespace) pk
 		return fmt.Errorf("invalid label selector for namespaces: %w", err)
 	}
 	if !selector.Matches(kubelabels.Set(ns.ObjectMeta.Labels)) {
-		return c.deleteNamespaceCerts(ctx, ns, existingCerts, sets.New[string]())
+		return c.deleteNamespaceCerts(ctx, ns, existingCerts)
 	}
 
-	// Collect the domains which should have wildcard certs
-	wildcardDomains := sets.New[string]()
-	for k, v := range cfg.Domain.Domains {
-		if v.Type != domaincfg.DomainTypeWildcard {
-			continue
-		}
-		wildcardDomains.Insert(k)
-	}
+	// Only create wildcard certs for the default domain
+	defaultDomain := cfg.Domain.LookupDomainForLabels(nil /* labels */)
 
-	for domain := range wildcardDomains {
-		err := c.reconcileWildcardCert(ctx, ns, existingCerts, domain)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Cleanup any certs which should no longer exist
-	return c.deleteNamespaceCerts(ctx, ns, existingCerts, wildcardDomains)
-}
-
-// Create or update a wildcard cert for the given domain in the given namespace.
-func (c *reconciler) reconcileWildcardCert(
-	ctx context.Context,
-	ns *corev1.Namespace,
-	existingCerts []*v1alpha1.Certificate,
-	domain string,
-) error {
-	cfg := config.FromContext(ctx)
-
-	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, domain, ns.Name)
+	dnsName, err := wildcardDomain(cfg.Network.DomainTemplate, defaultDomain, ns.Name)
 	if err != nil {
 		return fmt.Errorf("failed to apply domain template %s to domain %s and namespace %s: %w",
-			cfg.Network.DomainTemplate, domain, ns.Name, err)
+			cfg.Network.DomainTemplate, defaultDomain, ns.Name, err)
 	}
 
 	// If any labeled cert has been issued for our DNSName then there's nothing to do
@@ -131,11 +104,11 @@ func (c *reconciler) reconcileWildcardCert(
 	}
 	recorder := controller.GetEventRecorder(ctx)
 
-	desiredCert := resources.MakeWildcardCertificate(ns, dnsName, domain, certClass(ctx, ns))
+	desiredCert := resources.MakeWildcardCertificate(ns, dnsName, defaultDomain, certClass(ctx, ns))
 
 	// If there is no matching cert find one previously created by this reconciler which may
 	// need to be updated.
-	existingCert, err := findNamespaceCert(ns, domain, existingCerts)
+	existingCert, err := findNamespaceCert(ns, existingCerts)
 	if apierrs.IsNotFound(err) {
 		cert, err := c.client.NetworkingV1alpha1().Certificates(ns.Name).Create(ctx, desiredCert, metav1.CreateOptions{})
 		if err != nil {
@@ -168,23 +141,18 @@ func (c *reconciler) reconcileWildcardCert(
 	return nil
 }
 
-func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namespace, certs []*v1alpha1.Certificate, keepDomains sets.Set[string]) error {
+func (c *reconciler) deleteNamespaceCerts(ctx context.Context, ns *corev1.Namespace, certs []*v1alpha1.Certificate) error {
 	recorder := controller.GetEventRecorder(ctx)
 	for _, cert := range certs {
-		if !metav1.IsControlledBy(cert, ns) {
-			continue
+		if metav1.IsControlledBy(cert, ns) {
+			if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{}); err != nil {
+				recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
+					"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
+				return err
+			}
+			recorder.Eventf(cert, corev1.EventTypeNormal, "Deleted",
+				"Deleted Knative Certificate %s/%s", cert.Namespace, cert.Name)
 		}
-		// Skip deleting certs for domains in keepDomains
-		if keepDomains.Has(cert.Labels[networking.WildcardCertDomainLabelKey]) {
-			continue
-		}
-		if err := c.client.NetworkingV1alpha1().Certificates(cert.Namespace).Delete(ctx, cert.Name, metav1.DeleteOptions{}); err != nil {
-			recorder.Eventf(cert, corev1.EventTypeNormal, "DeleteFailed",
-				"Failed to delete Knative Certificate %s/%s: %v", cert.Namespace, cert.Name, err)
-			return err
-		}
-		recorder.Eventf(cert, corev1.EventTypeNormal, "Deleted",
-			"Deleted Knative Certificate %s/%s", cert.Namespace, cert.Name)
 	}
 	return nil
 }
@@ -222,12 +190,9 @@ func findMatchingCert(domain string, certs []*v1alpha1.Certificate) *v1alpha1.Ce
 	return nil
 }
 
-func findNamespaceCert(ns *corev1.Namespace, domain string, certs []*v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
+func findNamespaceCert(ns *corev1.Namespace, certs []*v1alpha1.Certificate) (*v1alpha1.Certificate, error) {
 	for _, cert := range certs {
-		if !metav1.IsControlledBy(cert, ns) {
-			continue
-		}
-		if cert.Labels[networking.WildcardCertDomainLabelKey] == domain {
+		if metav1.IsControlledBy(cert, ns) {
 			return cert, nil
 		}
 	}

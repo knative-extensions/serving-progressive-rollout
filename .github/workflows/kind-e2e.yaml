@@ -34,7 +34,7 @@ env:
   KAPP_VERSION: 0.46.0
   YTT_VERSION: 0.40.1
   KO_FLAGS: --platform=linux/amd64
-  KNATIVE_SERVING_BRANCH: release-1.13
+  KNATIVE_SERVING_BRANCH: main
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   KNATIVE_DIR: /home/runner/work/serving-progressive-rollout
   KNATIVE_SERVING_DIR: /home/runner/work/serving-progressive-rollout/serving

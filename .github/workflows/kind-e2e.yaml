@@ -33,6 +33,7 @@ env:
   GOTESTSUM_VERSION: 1.7.0
   KAPP_VERSION: 0.46.0
   YTT_VERSION: 0.40.1
+  KO_VERSION: v0.15.2
   KO_FLAGS: --platform=linux/amd64
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   KNATIVE_SERVING_BRANCH: main
@@ -67,6 +68,8 @@ jobs:
     # Install the latest release of ko
     - name: Install ko
       uses: ko-build/setup-ko@v0.6
+      with:
+        version: ${KO_VERSION}
 
     # Download the latest source code of Knative Serving
     - name: Download Knative Serving

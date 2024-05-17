@@ -151,12 +151,28 @@ func GetFinalTargetRevision(service *servingv1.Service, config *servingv1.Config
 		// If the Traffic information is not empty in the service spec, the user has specified the traffic split
 		// information among multiple revisions. ultimateRevisionTarget is generated based these multiple revisions.
 		ultimateRevisionTarget = make([]v1.TargetRevision, len(service.Spec.Traffic))
+
+		// Important: there is a strange and tricky issue if the last element of the service.Spec.Traffic is the latest
+		// revision and the traffic is set to 0, because it will cause the RO into the status of an Unknown
+		// NewObservedGenFailure in the status, so that the rollout will not proceed.
+		// If the order is changed, e.g. if the latest revision with 0 percent traffic is not located in the end of
+		// the list, there won't be any issue.
+		margin := 0
+		size := len(service.Spec.Traffic)
+		if latestRevisionZero(service.Spec.Traffic[size-1]) {
+			margin = 1
+		}
 		for i := range service.Spec.Traffic {
-			initializeTargetRevisions(&ultimateRevisionTarget, &service.Spec.Traffic[i], i, lastRevName,
-				service, records)
+			initializeTargetRevisions(&ultimateRevisionTarget, &service.Spec.Traffic[i], (i+margin)%len(service.Spec.Traffic),
+				lastRevName, service, records)
 		}
 	}
 	return ultimateRevisionTarget
+}
+
+func latestRevisionZero(trafficTarget servingv1.TrafficTarget) bool {
+	return trafficTarget.Percent != nil && *trafficTarget.Percent == 0 &&
+		trafficTarget.LatestRevision != nil && *trafficTarget.LatestRevision
 }
 
 // GetInitialTargetRevision is used to generate the initialTargetRevision.

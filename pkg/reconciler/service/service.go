@@ -399,7 +399,21 @@ func getStartRevisions(ro *v1.RolloutOrchestrator) []v1.TargetRevision {
 		// that starting from the InitialRevisions
 		startRevisions = ro.Spec.InitialRevisions
 	}
-	return startRevisions
+
+	return removeZeroTraffic(startRevisions)
+}
+
+// If the percentage of traffic is set to 0, we need to remove it from the startRevisions, because it will lead to the
+// wrong calculation for target replicas.
+func removeZeroTraffic(revs []v1.TargetRevision) []v1.TargetRevision {
+	res := make([]v1.TargetRevision, 0)
+	for i, rev := range revs {
+		if rev.Percent != nil && *rev.Percent == 0 {
+			continue
+		}
+		res = append(res, revs[i])
+	}
+	return res
 }
 
 // getGauge returns the number of replicas and the traffic percentage it occupies, plus the minScale and maxScale

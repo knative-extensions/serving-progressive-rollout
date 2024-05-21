@@ -23,9 +23,11 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -56,7 +58,13 @@ var _ roreconciler.Interface = (*Reconciler)(nil)
 func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrator) pkgreconciler.Event {
 	ctx, cancel := context.WithTimeout(ctx, pkgreconciler.DefaultTimeout)
 	defer cancel()
-	defer r.cleanUpSPAs(ctx, ro)
+	logger := logging.FromContext(ctx)
+	defer func() {
+		err := r.cleanUpSPAs(ctx, ro)
+		if err != nil {
+			logger.Errorf("failed to clean up the SPA %s", err.Error())
+		}
+	}()
 
 	// If spec.StageRevisionStatus is nil, do nothing.
 	if len(ro.Spec.StageTargetRevisions) == 0 {
@@ -68,8 +76,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	// scales up or down, min and max scales defined by the Knative Service.
 	stageTargetRevisions := ro.Spec.StageTargetRevisions
 	revScalingUp, revScalingDown, err := RetrieveRevsUpDown(stageTargetRevisions)
-	r.resetObsoleteSPAs(ctx, ro)
+	if err != nil {
+		return err
+	}
 
+	err = r.resetObsoleteSPAs(ctx, ro)
 	if err != nil {
 		return err
 	}
@@ -114,7 +125,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	return nil
 }
 
-func (r *Reconciler) resetObsoleteSPAs(ctx context.Context, ro *v1.RolloutOrchestrator) {
+// resetObsoleteSPAs will set the StageMinScale to 0 and StageMaxScale to 1, if the revision with this spa is
+// not in ro.Spec.StageTargetRevisions.
+func (r *Reconciler) resetObsoleteSPAs(ctx context.Context, ro *v1.RolloutOrchestrator) error {
 	records := map[string]bool{}
 	for _, rev := range ro.Spec.StageTargetRevisions {
 		records[rev.RevisionName] = true
@@ -123,20 +136,28 @@ func (r *Reconciler) resetObsoleteSPAs(ctx context.Context, ro *v1.RolloutOrches
 	spaList, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).List(labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Name,
 	}))
-	if err == nil && len(spaList) > 0 {
-		for _, spa := range spaList {
-			// The SPA and the revision share the same name. If the revision is not in the StageTargetRevisions,
-			// update the SPA to make sure the revision scaling down to 0.
-			if !records[spa.Name] && (spa.Status.ActualScale == nil || *spa.Status.ActualScale != 0) {
-				spa.Spec.StageMinScale = ptr.Int32(0)
-				spa.Spec.StageMaxScale = ptr.Int32(1)
-				r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	for _, spa := range spaList {
+		// The SPA and the revision share the same name. If the revision is not in the StageTargetRevisions,
+		// update the SPA to make sure the revision scaling down to 0.
+		if !records[spa.Name] && (spa.Status.DesiredScale == nil || *spa.Status.DesiredScale != 0) {
+			spa.Spec.StageMinScale = ptr.Int32(0)
+			spa.Spec.StageMaxScale = ptr.Int32(1)
+			_, err = r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx, spa, metav1.UpdateOptions{})
+			if err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
-func (r *Reconciler) cleanUpSPAs(ctx context.Context, ro *v1.RolloutOrchestrator) {
+// cleanUpSPAs will delete the SPA associated with the revision that is deleted.
+func (r *Reconciler) cleanUpSPAs(ctx context.Context, ro *v1.RolloutOrchestrator) error {
 	records := map[string]bool{}
 	// Get the list of all the revisions for the knative service.
 	revList, err := r.revisionLister.Revisions(ro.Namespace).List(labels.SelectorFromSet(labels.Set{
@@ -144,24 +165,37 @@ func (r *Reconciler) cleanUpSPAs(ctx context.Context, ro *v1.RolloutOrchestrator
 		serving.ServiceLabelKey:       ro.Name,
 	}))
 
-	if err == nil && len(revList) > 0 {
-		for _, rev := range revList {
-			records[rev.Name] = true
-		}
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	for _, rev := range revList {
+		records[rev.Name] = true
 	}
 
 	// Get the list of all the SPAs for the knative service.
 	spaList, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).List(labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Name,
 	}))
-	if err == nil && len(spaList) > 0 {
-		for _, spa := range spaList {
-			// The SPA and the revision share the same name. If the revision is gone, delete the SPA.
-			if !records[spa.Name] {
-				r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Delete(ctx, spa.Name, metav1.DeleteOptions{})
+
+	if apierrs.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	for _, spa := range spaList {
+		// The SPA and the revision share the same name. If the revision is gone, delete the SPA.
+		if !records[spa.Name] {
+			err = r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Delete(ctx, spa.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 // RemoveNonTrafficRev removes the redundant TargetRevision from the list of TargetRevisions.

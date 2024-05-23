@@ -274,7 +274,6 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 // ModifyStatus for ScaleDownStep modifies the status of the rolloutOrchestrator after the old revision has scaled down to
 // the expected number of pods.
 func (s *ScaleDownStep) ModifyStatus(ro *v1.RolloutOrchestrator, ready bool) {
-
 	if ready {
 		ro.Status.MarkStageRevisionScaleDownReady()
 	} else {

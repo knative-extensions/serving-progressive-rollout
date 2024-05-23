@@ -84,7 +84,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 	if rollout == nil {
 		rollout = r.rolloutStrategy[strategies.AvailabilityStrategy]
 	}
-
 	ready, err := rollout.Reconcile(ctx, ro, revScalingUp, revScalingDown, r.enqueueAfter)
 	if err != nil {
 		return err
@@ -115,8 +114,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		ro.Spec.TargetRevisions) {
 		// Start to move to the next stage.
 		ro.Status.LaunchNewStage()
+		return nil
 	}
 
+	ro.Status.MarkStageRevisionScaleUpReady()
+	ro.Status.MarkStageRevisionScaleDownReady()
+	ro.Status.MarkStageRevisionReady()
+	ro.Status.MarkLastStageRevisionComplete()
 	return nil
 }
 

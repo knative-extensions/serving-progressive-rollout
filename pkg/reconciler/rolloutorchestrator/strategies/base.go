@@ -52,7 +52,7 @@ type RolloutStep interface {
 		enqueueAfter func(interface{}, time.Duration)) (bool, error)
 	// ModifyStatus function changes the status of the ro accordingly after the completion of the scaling up or down for the
 	// revisions.
-	ModifyStatus(ro *v1.RolloutOrchestrator)
+	ModifyStatus(ro *v1.RolloutOrchestrator, ready bool)
 }
 
 // The BaseScaleStep struct defines golang clients, that are necessary to access the kubernetes resources.

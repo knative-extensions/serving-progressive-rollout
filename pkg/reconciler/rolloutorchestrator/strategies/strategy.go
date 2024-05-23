@@ -54,9 +54,8 @@ func (r *Rollout) Reconcile(ctx context.Context, ro *v1.RolloutOrchestrator, rev
 			if err != nil {
 				return false, err
 			}
-			if ready {
-				step.ModifyStatus(ro)
-			} else {
+			step.ModifyStatus(ro, ready)
+			if !ready {
 				return false, nil
 			}
 		}
@@ -111,8 +110,14 @@ func (s *ScaleUpStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, re
 
 // ModifyStatus for ScaleUpStep modifies the status of the rolloutOrchestrator after the new revision has scaled up to
 // the expected number of pods.
-func (s *ScaleUpStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
-	ro.Status.MarkStageRevisionScaleUpReady()
+func (s *ScaleUpStep) ModifyStatus(ro *v1.RolloutOrchestrator, ready bool) {
+	if ready {
+		ro.Status.MarkStageRevisionScaleUpReady()
+	} else {
+		ro.Status.MarkStageRevisionScaleUpInProgress(v1.StageRevisionStart, v1.RolloutNewStage)
+		ro.Status.MarkStageRevisionInProgress(v1.StageRevisionStart, v1.RolloutNewStage)
+		ro.Status.MarkLastStageRevisionInComplete()
+	}
 }
 
 // The ScaleDownStep struct is responsible for scaling down the pods for the old revisions.
@@ -268,8 +273,15 @@ func (s *ScaleDownStep) Verify(ctx context.Context, ro *v1.RolloutOrchestrator, 
 
 // ModifyStatus for ScaleDownStep modifies the status of the rolloutOrchestrator after the old revision has scaled down to
 // the expected number of pods.
-func (s *ScaleDownStep) ModifyStatus(ro *v1.RolloutOrchestrator) {
-	ro.Status.MarkStageRevisionScaleDownReady()
+func (s *ScaleDownStep) ModifyStatus(ro *v1.RolloutOrchestrator, ready bool) {
+
+	if ready {
+		ro.Status.MarkStageRevisionScaleDownReady()
+	} else {
+		ro.Status.MarkStageRevisionScaleDownInProgress(v1.StageRevisionStart, v1.RolloutNewStage)
+		ro.Status.MarkStageRevisionInProgress(v1.StageRevisionStart, v1.RolloutNewStage)
+		ro.Status.MarkLastStageRevisionInComplete()
+	}
 }
 
 func NewRolloutStrategy(client clientset.Interface, kubeclient kubernetes.Interface, stagePodAutoscalerLister listers.StagePodAutoscalerLister) map[string]*Rollout {

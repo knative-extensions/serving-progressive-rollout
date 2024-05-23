@@ -80,11 +80,6 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		return err
 	}
 
-	err = r.resetObsoleteSPAs(ctx, ro)
-	if err != nil {
-		return err
-	}
-
 	rollout := r.rolloutStrategy[strings.ToLower(ro.Spec.RolloutStrategy)]
 	if rollout == nil {
 		rollout = r.rolloutStrategy[strategies.AvailabilityStrategy]

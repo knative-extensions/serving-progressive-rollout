@@ -120,18 +120,28 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, ro *v1.RolloutOrchestrat
 		ro.Spec.TargetRevisions) {
 		// Start to move to the next stage.
 		ro.Status.LaunchNewStage()
+		return nil
 	}
 
+	ro.Status.MarkStageRevisionScaleUpReady()
+	ro.Status.MarkStageRevisionScaleDownReady()
+	ro.Status.MarkStageRevisionReady()
+	ro.Status.MarkLastStageRevisionComplete()
 	return nil
 }
 
 // resetObsoleteSPAs will set the StageMinScale to 0 and StageMaxScale to 1, if the revision with this spa is
 // not in ro.Spec.StageTargetRevisions.
 func (r *Reconciler) resetObsoleteSPAs(ctx context.Context, ro *v1.RolloutOrchestrator) error {
-	records := map[string]bool{}
+	records, recordsIni := map[string]bool{}, map[string]bool{}
 	for _, rev := range ro.Spec.StageTargetRevisions {
 		records[rev.RevisionName] = true
 	}
+
+	for _, rev := range ro.Spec.InitialRevisions {
+		recordsIni[rev.RevisionName] = true
+	}
+
 	// Get the list of all the SPAs for the knative service.
 	spaList, err := r.stagePodAutoscalerLister.StagePodAutoscalers(ro.Namespace).List(labels.SelectorFromSet(labels.Set{
 		serving.ServiceLabelKey: ro.Name,
@@ -142,9 +152,9 @@ func (r *Reconciler) resetObsoleteSPAs(ctx context.Context, ro *v1.RolloutOrches
 		return err
 	}
 	for _, spa := range spaList {
-		// The SPA and the revision share the same name. If the revision is not in the StageTargetRevisions,
-		// update the SPA to make sure the revision scaling down to 0.
-		if !records[spa.Name] && (spa.Status.DesiredScale == nil || *spa.Status.DesiredScale != 0) {
+		// The SPA and the revision share the same name. If the revision is not in the StageTargetRevisions and not in
+		// InitialRevisions, update the SPA to make sure the revision scaling down to 0.
+		if !records[spa.Name] && !recordsIni[spa.Name] && (spa.Status.DesiredScale == nil || *spa.Status.DesiredScale != 0) {
 			spa.Spec.StageMinScale = ptr.Int32(0)
 			spa.Spec.StageMaxScale = ptr.Int32(1)
 			_, err = r.client.ServingV1().StagePodAutoscalers(ro.Namespace).Update(ctx, spa, metav1.UpdateOptions{})

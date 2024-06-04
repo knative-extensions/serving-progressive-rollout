@@ -484,14 +484,14 @@ golang.org/x/tools/internal/stdlib
 # gomodules.xyz/jsonpatch/v2 v2.4.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/api v0.181.0
+# google.golang.org/api v0.182.0
 ## explicit; go 1.20
 google.golang.org/api/support/bundler
-# google.golang.org/genproto/googleapis/api v0.0.0-20240506185236-b8a5c65736ae
+# google.golang.org/genproto/googleapis/api v0.0.0-20240513163218-0867130af1f8
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api/httpbody
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20240513163218-0867130af1f8
-## explicit; go 1.19
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20240521202816-d264139d666e
+## explicit; go 1.20
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.64.0
 ## explicit; go 1.19
@@ -1102,7 +1102,7 @@ k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20240530052547-16402967a78f
+# knative.dev/caching v0.0.0-20240603132637-bb31986d9396
 ## explicit; go 1.21
 knative.dev/caching/pkg/apis/caching
 knative.dev/caching/pkg/apis/caching/v1alpha1
@@ -1123,7 +1123,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20240529131459-3b6d6441e7ea
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20240530052748-1b470c4f662c
+# knative.dev/networking v0.0.0-20240603133819-41aa2087242d
 ## explicit; go 1.21
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1158,7 +1158,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20240529181700-7d52a43448b2
+# knative.dev/pkg v0.0.0-20240603145758-fce44ead15bd
 ## explicit; go 1.21
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1224,7 +1224,7 @@ knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
 knative.dev/pkg/websocket
-# knative.dev/serving v0.41.1-0.20240531084853-0ddd15e2ba1a
+# knative.dev/serving v0.41.1-0.20240603213049-2fd8465334ec
 ## explicit; go 1.21
 knative.dev/serving/pkg/activator
 knative.dev/serving/pkg/apis/autoscaling

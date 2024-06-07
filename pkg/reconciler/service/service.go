@@ -515,6 +515,22 @@ func getDeltaReplicasTraffic(currentReplicas int32, currentTraffic int64, ratio 
 	return int32(stageReplicas), int64(stageTrafficDelta)
 }
 
+func targetsCloneWithoutURL(revs []v1.TargetRevision) []v1.TargetRevision {
+	revsCopies := make([]v1.TargetRevision, len(revs))
+	for i := 0; i < len(revs); i++ {
+		revsCopies[i] = *revs[i].DeepCopy()
+		// Remove the fields URL and Tag.
+		revsCopies[i].URL = nil
+		revsCopies[i].Tag = ""
+	}
+	return revsCopies
+}
+
+func targetsEqual(initialRevs, targetRevs []v1.TargetRevision) bool {
+	return reflect.DeepEqual(initialRevs, targetRevs) || reflect.DeepEqual(targetsCloneWithoutURL(initialRevs),
+		targetsCloneWithoutURL(targetRevs))
+}
+
 // updateStageTargetRevisions updates the StageTargetRevisions based on the existing StageTargetRevisions,
 // Initial target Revisions, Final target revisions, and the current PodAutoscaler.
 func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfig,
@@ -522,7 +538,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	// The length of the TargetRevisions is always one here, meaning that there is
 	// only one revision as the target revision when the rollout is over.
 	var stageRevisionTarget []v1.TargetRevision
-	if !reflect.DeepEqual(ro.Spec.InitialRevisions, ro.Spec.TargetRevisions) {
+	if !targetsEqual(ro.Spec.InitialRevisions, ro.Spec.TargetRevisions) {
 		startRevisions := getStartRevisions(ro)
 		if len(startRevisions) == 0 || config.OverConsumptionRatio >= common.HundredPercent {
 			// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.

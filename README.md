@@ -7,6 +7,7 @@
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://cloud-native.slack.com/archives/C04LGHDR9K7)
 [![codecov](https://codecov.io/gh/knative-extensions/serving-progressive-rollout/branch/main/graph/badge.svg)](https://app.codecov.io/gh/knative-extensions/serving-progressive-rollout)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5913/badge)](https://bestpractices.coreinfrastructure.org/projects/5913)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fknative-extensions%2Fserving-progressive-rollout.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fknative-extensions%2Fserving-progressive-rollout?ref=badge_shield)
 
 Knative Serving Progressive Rollout is an extension to the Knative Serving. It provides middleware primitives that enable:
 
@@ -28,3 +29,7 @@ For documentation on the Knative Serving specification, see the [docs](https://g
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 and [DEVELOPMENT.md](./DEVELOPMENT.md). For a list of all help wanted issues
 across Knative, take a look at [CLOTRIBUTOR](https://clotributor.dev/search?project=knative&page=1).
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fknative-extensions%2Fserving-progressive-rollout.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fknative-extensions%2Fserving-progressive-rollout?ref=badge_large)

@@ -721,12 +721,25 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 					StageTargetRevisions: []v1.TargetRevision{
 						{
 							TrafficTarget: servingv1.TrafficTarget{
+								RevisionName:   "rev-001",
+								LatestRevision: ptr.Bool(false),
+								Percent:        nil,
+							},
+							Direction:      "down",
+							TargetReplicas: ptr.Int32(0),
+							MinScale:       ptr.Int32(8),
+							MaxScale:       ptr.Int32(8),
+						},
+						{
+							TrafficTarget: servingv1.TrafficTarget{
 								RevisionName:   "rev-002",
 								LatestRevision: ptr.Bool(true),
 								Percent:        ptr.Int64(100),
 							},
-							MinScale: ptr.Int32(10),
-							MaxScale: ptr.Int32(10),
+							Direction:      "up",
+							TargetReplicas: ptr.Int32(10),
+							MinScale:       ptr.Int32(10),
+							MaxScale:       ptr.Int32(10),
 						},
 					},
 					TargetFinishTime: apis.VolatileTime{

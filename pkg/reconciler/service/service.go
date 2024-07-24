@@ -540,10 +540,21 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	var stageRevisionTarget []v1.TargetRevision
 	if !targetsEqual(ro.Spec.InitialRevisions, ro.Spec.TargetRevisions) {
 		startRevisions := getStartRevisions(ro)
-		if len(startRevisions) == 0 || config.OverConsumptionRatio >= common.HundredPercent {
+		if len(startRevisions) == 0 {
 			// If the index is out of bound, assign the StageTargetRevisions to the final TargetRevisions.
 			ro.Spec.StageTargetRevisions = append([]v1.TargetRevision{}, ro.Spec.TargetRevisions...)
 			return nil
+		}
+
+		if config.OverConsumptionRatio >= common.HundredPercent {
+			ro.Spec.StageTargetRevisions = make([]v1.TargetRevision, 0, len(startRevisions)+len(ro.Spec.TargetRevisions))
+			for _, rev := range startRevisions {
+				rev.Percent = nil
+				rev.Direction = v1.DirectionDown
+				rev.LatestRevision = ptr.Bool(false)
+				ro.Spec.StageTargetRevisions = append(ro.Spec.StageTargetRevisions, rev)
+			}
+			ro.Spec.StageTargetRevisions = append(ro.Spec.StageTargetRevisions, ro.Spec.TargetRevisions...)
 		}
 
 		// The currentReplicas and currentTraffic will be used as the standard values to calculate

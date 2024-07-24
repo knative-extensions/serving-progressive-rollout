@@ -21,9 +21,8 @@ import (
 	"fmt"
 	"math"
 
-	goStats "go.opencensus.io/stats"
+	"go.opencensus.io/stats"
 	"go.uber.org/zap"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 
 	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
@@ -229,7 +228,15 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 }
 
 func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
-	pa.Status.DesiredScale, pa.Status.ActualScale = ptr.Int32(int32(pc.want)), ptr.Int32(int32(pc.ready))
+	pa.Status.ActualScale = ptr.Int32(int32(pc.ready))
+
+	// When the autoscaler just restarted, it does not yet have metrics and would change the desiredScale to -1 and moments
+	// later back to the correct value. The following condition omits this.
+	if pc.want == -1 && pa.Status.DesiredScale != nil && *pa.Status.DesiredScale >= 0 {
+		logger.Debugf("Ignoring change of desiredScale from %d to %d", *pa.Status.DesiredScale, pc.want)
+	} else {
+		pa.Status.DesiredScale = ptr.Int32(int32(pc.want))
+	}
 
 	reportMetrics(pa, pc)
 	computeActiveCondition(ctx, pa, spa, pc)
@@ -242,7 +249,7 @@ func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 
 	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
 
-	stats := []goStats.Measurement{
+	stats := []stats.Measurement{
 		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),
 		pendingPodCountM.M(int64(pc.pending)), terminatingPodCountM.M(int64(pc.terminating)),
 	}
@@ -357,20 +364,4 @@ func computeNumActivators(readyPods int, decider *scaling.Decider) int32 {
 	}
 
 	return int32(math.Max(minActivators, math.Ceil(capacityToCover/decider.Spec.ActivatorCapacity)))
-}
-
-// GetScaleBounds returns the min and the max scales for the current stage.
-func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler,
-	spa *autoscalingv1.StagePodAutoscaler) (int32, int32) {
-	min, max := pa.ScaleBounds(asConfig)
-	if spa != nil {
-		minS, maxS := spa.ScaleBounds()
-		if minS != nil && min > *minS {
-			min = *minS
-		}
-		if maxS != nil && max > *maxS {
-			max = *maxS
-		}
-	}
-	return min, max
 }

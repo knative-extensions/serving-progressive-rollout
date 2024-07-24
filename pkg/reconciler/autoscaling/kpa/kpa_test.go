@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Knative Authors
+Copyright 2023 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,10 +43,6 @@ import (
 
 	networkingclient "knative.dev/networking/pkg/client/injection/client"
 	filteredinformerfactory "knative.dev/pkg/client/injection/kube/informers/factory/filtered"
-	_ "knative.dev/pkg/metrics/testing"
-	_ "knative.dev/pkg/system/testing"
-	_ "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator/fake"
-	_ "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler/fake"
 	servingclient "knative.dev/serving/pkg/client/injection/client"
 	"knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable"
 	pareconciler "knative.dev/serving/pkg/client/injection/reconciler/autoscaling/v1alpha1/podautoscaler"
@@ -73,9 +69,13 @@ import (
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics/metricstest"
+	_ "knative.dev/pkg/metrics/testing"
 	"knative.dev/pkg/ptr"
 	"knative.dev/pkg/reconciler"
 	"knative.dev/pkg/system"
+	_ "knative.dev/pkg/system/testing"
+	_ "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/rolloutorchestrator/fake"
+	_ "knative.dev/serving-progressive-rollout/pkg/client/injection/informers/serving/v1/stagepodautoscaler/fake"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -103,9 +103,6 @@ const (
 	paStableWindow           = 45 * time.Second
 	progressDeadline         = 121 * time.Second
 	stableWindow             = 5 * time.Minute
-	testNamespace            = "test-namespace"
-	testRevision             = "test-revision"
-	key                      = testNamespace + "/" + testRevision
 )
 
 func defaultConfigMapData() map[string]string {
@@ -606,7 +603,7 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			// SKS does not exist, so we're just creating and have no status.
 			Object: kpa(testNamespace, testRevision, WithPASKSNotReady("No Private Service Name"),
-				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, unknownScale),
+				WithBufferedTraffic, WithPAMetricsService(privateSvc), withScales(0, defaultScale),
 				WithObservedGeneration(1)),
 		}},
 		WantCreates: []runtime.Object{
@@ -1032,7 +1029,7 @@ func TestReconcile(t *testing.T) {
 				-42 /* ebc */)),
 		Objects: append([]runtime.Object{
 			kpa(testNamespace, testRevision, WithPASKSReady, WithBufferedTraffic,
-				withScales(20, defaultScale), withInitialScaleB(20), WithReachabilityReachable,
+				withScales(20, defaultScale), withInitialScale(20), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc),
 			),
 			sks(testNamespace, testRevision, WithDeployRef(deployName), WithProxyMode, WithSKSReady, WithNumActivators(scaledAct)),
@@ -1043,7 +1040,7 @@ func TestReconcile(t *testing.T) {
 		}, makeReadyPods(20, testNamespace, testRevision)...),
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: kpa(testNamespace, testRevision, WithPASKSReady, WithTraffic,
-				markScaleTargetInitialized, withScales(20, 20), withInitialScaleB(20), WithReachabilityReachable,
+				markScaleTargetInitialized, withScales(20, 20), withInitialScale(20), WithReachabilityReachable,
 				WithPAStatusService(testRevision), WithPAMetricsService(privateSvc), WithObservedGeneration(1),
 			),
 		}},
@@ -1921,10 +1918,6 @@ func TestResolveScrapeTarget(t *testing.T) {
 	}
 }
 
-func withInitialScaleB(initScale int) PodAutoscalerOption {
-	return withInitialScale(initScale)
-}
-
 func withInitialScale(initScale int) PodAutoscalerOption {
 	return func(pa *autoscalingv1alpha1.PodAutoscaler) {
 		pa.Annotations = kmeta.UnionMaps(
@@ -2007,6 +2000,100 @@ func TestComputeActivatorNum(t *testing.T) {
 	}
 }
 
+func TestComputeStatus(t *testing.T) {
+	cases := []struct {
+		name string
+
+		haveActual       *int32
+		haveDesiredScale *int32
+
+		pcReady int
+		pcWant  int
+
+		wantActualScale  *int32
+		wantDesiredScale *int32
+	}{{
+		name: "initial",
+
+		haveActual:       nil,
+		haveDesiredScale: nil,
+
+		pcReady: 0,
+		pcWant:  1,
+
+		wantActualScale:  ptr.Int32(0),
+		wantDesiredScale: ptr.Int32(1),
+	}, {
+		name: "ready",
+
+		haveActual:       ptr.Int32(0),
+		haveDesiredScale: ptr.Int32(1),
+
+		pcReady: 1,
+		pcWant:  1,
+
+		wantActualScale:  ptr.Int32(1),
+		wantDesiredScale: ptr.Int32(1),
+	}, {
+		name: "stable",
+
+		haveActual:       ptr.Int32(1),
+		haveDesiredScale: ptr.Int32(1),
+
+		pcReady: 1,
+		pcWant:  1,
+
+		wantActualScale:  ptr.Int32(1),
+		wantDesiredScale: ptr.Int32(1),
+	}, {
+		name: "no metrics",
+
+		haveActual:       ptr.Int32(1),
+		haveDesiredScale: ptr.Int32(2),
+
+		pcReady: 2,
+		pcWant:  -1,
+
+		wantActualScale:  ptr.Int32(2),
+		wantDesiredScale: ptr.Int32(2),
+	}}
+
+	tc := &testConfigStore{config: defaultConfig()}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := tc.ToContext(context.Background())
+
+			pa := &autoscalingv1alpha1.PodAutoscaler{
+				Status: autoscalingv1alpha1.PodAutoscalerStatus{
+					ActualScale:  c.haveActual,
+					DesiredScale: c.haveDesiredScale,
+				},
+			}
+			pc := podCounts{
+				ready: c.pcReady,
+				want:  c.pcWant,
+			}
+
+			computeStatus(ctx, pa, nil, pc, logging.FromContext(ctx))
+
+			if c.wantActualScale == nil && pa.Status.ActualScale != nil || c.wantActualScale != nil && pa.Status.ActualScale == nil {
+				t.Errorf("Unexpected ActualScale. Want: %v, Got: %v", c.wantActualScale, pa.Status.ActualScale)
+			}
+			if c.wantActualScale != nil && pa.Status.ActualScale != nil && *c.wantActualScale != *pa.Status.ActualScale {
+				t.Errorf("Unexpected ActualScale. Want: %d, Got: %d", *c.wantActualScale, *pa.Status.ActualScale)
+			}
+
+			if c.wantDesiredScale == nil && pa.Status.DesiredScale != nil || c.wantDesiredScale != nil && pa.Status.DesiredScale == nil {
+				t.Errorf("Unexpected DesiredScale. Want: %v, Got: %v", c.wantDesiredScale, pa.Status.DesiredScale)
+			}
+			if c.wantDesiredScale != nil && pa.Status.DesiredScale != nil && *c.wantDesiredScale != *pa.Status.DesiredScale {
+				t.Errorf("Unexpected DesiredScale. Want: %d, Got: %d", *c.wantDesiredScale, *pa.Status.DesiredScale)
+			}
+		})
+	}
+}
+
 func TestReconcileWithNSR(t *testing.T) {
 	testRevision := "testRevision1"
 	testNamespace := "testNamespace1"
@@ -2014,12 +2101,7 @@ func TestReconcileWithNSR(t *testing.T) {
 	deployName := testRevision + "-deployment"
 	const (
 		defaultScale = 19
-		unknownScale = scaleUnknown
-		underscale   = defaultScale - 1
-		overscale    = defaultScale + 1
-
-		defaultAct = 3 // 1-10 ready pods + 200 TBC
-		scaledAct  = 4 // 11 or 12 ready pods + 200 TBC
+		defaultAct   = 3 // 1-10 ready pods + 200 TBC
 	)
 	privateSvc := names.PrivateService(testRevision)
 

@@ -25,7 +25,6 @@ import (
 	"knative.dev/pkg/apis/duck"
 	"knative.dev/pkg/injection/clients/dynamicclient"
 	"knative.dev/pkg/logging"
-	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 
 	netapis "knative.dev/networking/pkg/apis/networking"
 	netv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
@@ -33,6 +32,7 @@ import (
 	netheader "knative.dev/networking/pkg/http/header"
 	netprober "knative.dev/networking/pkg/prober"
 	pkgnet "knative.dev/pkg/network"
+	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/activator"
 	autoscalingv1alpha1 "knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
@@ -141,6 +141,10 @@ func activatorProbe(pa *autoscalingv1alpha1.PodAutoscaler, transport http.RoundT
 }
 
 func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconfig.Config) time.Duration {
+	// if revision is unreachable, no need to account for last pod retention
+	if pa.Spec.Reachability == autoscalingv1alpha1.ReachabilityUnreachable {
+		return 0
+	}
 	d, ok := pa.ScaleToZeroPodRetention()
 	if ok {
 		return d
@@ -320,6 +324,22 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 
 	logger.Debug("Successfully scaled to ", desiredScale)
 	return nil
+}
+
+// GetScaleBounds returns the min and the max scales for the current stage.
+func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler,
+	spa *autoscalingv1.StagePodAutoscaler) (int32, int32) {
+	min, max := pa.ScaleBounds(asConfig)
+	if spa != nil {
+		minS, maxS := spa.ScaleBounds()
+		if minS != nil && min > *minS {
+			min = *minS
+		}
+		if maxS != nil && max > *maxS {
+			max = *maxS
+		}
+	}
+	return min, max
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.

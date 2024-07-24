@@ -26,11 +26,10 @@ import (
 	"testing"
 	"time"
 
-	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
-	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
-
 	// These are the fake informers we want setup.
 	fakedynamicclient "knative.dev/pkg/injection/clients/dynamicclient/fake"
+	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	"knative.dev/serving/pkg/autoscaler/config/autoscalerconfig"
 	fakeservingclient "knative.dev/serving/pkg/client/injection/client/fake"
 	podscalable "knative.dev/serving/pkg/client/injection/ducks/autoscaling/v1alpha1/podscalable/fake"
 
@@ -63,6 +62,12 @@ import (
 
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/testing"
+)
+
+const (
+	testNamespace = "test-namespace"
+	testRevision  = "test-revision"
+	key           = testNamespace + "/" + testRevision
 )
 
 func TestScaler(t *testing.T) {
@@ -355,6 +360,33 @@ func TestScaler(t *testing.T) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
 			WithReachabilityReachable(k)
 		},
+	}, {
+		label:         "scale to zero ignore last pod retention if  revision is unreachable",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   true,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod))
+			WithReachabilityUnreachable(k)
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 10 * gracePeriod
+		},
+	}, {
+		label:         "can't scale to zero if revision is unreachable, but before deadline",
+		startReplicas: 1,
+		scaleTo:       0,
+		wantReplicas:  0,
+		wantScaling:   false,
+		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
+			paMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
+			WithReachabilityUnreachable(k)
+		},
+		configMutator: func(c *config.Config) {
+			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 10 * gracePeriod
+		},
+		wantCBCount: 1,
 	}, {
 		label:         "ignore minScale if unreachable",
 		startReplicas: 10,
@@ -673,6 +705,7 @@ func newRevision(ctx context.Context, t *testing.T, servingClient clientset.Inte
 
 func newDeployment(ctx context.Context, t *testing.T, dynamicClient dynamic.Interface, name string, replicas int) *appsv1.Deployment {
 	t.Helper()
+
 	uns := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "apps/v1",

@@ -35,7 +35,7 @@ env:
   YTT_VERSION: 0.40.1
   KO_FLAGS: --platform=linux/amd64
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  KNATIVE_SERVING_BRANCH: main
+  KNATIVE_SERVING_BRANCH: release-1.15
   KNATIVE_DIR: /home/runner/work/serving-progressive-rollout
   KNATIVE_SERVING_DIR: /home/runner/work/serving-progressive-rollout/serving
 

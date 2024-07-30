@@ -39,8 +39,8 @@ var (
 	// from the old to the new revision during each stage in the progressive rollout.
 	OverSubRatio = 10
 
-	// DefaultStageRolloutTimeout is the default timeout for stage to accomplish during the rollout.
-	DefaultStageRolloutTimeout = 2
+	// DefaultStageRolloutTimeoutMinutes is the default timeout for stage to accomplish during the rollout.
+	DefaultStageRolloutTimeoutMinutes = 2
 
 	// GroupName is the group name.
 	GroupName = "rollout.knative.dev"
@@ -48,8 +48,8 @@ var (
 	// OverConsumptionRatioKey is the annotation key Knative Service can use to specify the over consumption ratio.
 	OverConsumptionRatioKey = GroupName + "/over-consumption-ratio"
 
-	// StageRolloutTimeout is the annotation key Knative Service can use to specify the stage rollout timeout.
-	StageRolloutTimeout = GroupName + "/stage-rollout-timeout"
+	// StageRolloutTimeoutMinutes is the annotation key Knative Service can use to specify the stage rollout timeout.
+	StageRolloutTimeoutMinutes = GroupName + "/stage-rollout-timeout-minutes"
 
 	// ProgressiveRolloutEnabled is the annotation key Knative Service can use to enable or disable the progressive rollout.
 	ProgressiveRolloutEnabled = GroupName + "/progressive-rollout-enabled"

@@ -55,7 +55,7 @@ func NewConfigFromConfigMapFunc(configMap *corev1.ConfigMap, configMapN *corev1.
 	rolloutConfig := &RolloutConfig{
 		OverConsumptionRatio:       resources.OverSubRatio,
 		ProgressiveRolloutEnabled:  true,
-		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+		StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		RolloutDuration:            "0",
 		ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 	}
@@ -99,7 +99,7 @@ func LoadConfigFromService(annotation map[string]string, serviceAnnotation map[s
 		}
 	}
 
-	if val, ok := annotation[resources.StageRolloutTimeout]; ok {
+	if val, ok := annotation[resources.StageRolloutTimeoutMinutes]; ok {
 		timeout, err := strconv.Atoi(val)
 		if err == nil {
 			rolloutConfig.StageRolloutTimeoutMinutes = timeout

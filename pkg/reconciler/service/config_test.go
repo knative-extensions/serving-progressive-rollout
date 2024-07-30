@@ -38,7 +38,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 			RolloutDuration:            "0",
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
@@ -51,7 +51,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 			RolloutDuration:            "0",
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
@@ -145,23 +145,23 @@ func TestLoadConfigFromService(t *testing.T) {
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		},
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		},
 	}, {
 		name: "Test the RolloutConfig with valid annotation as input",
 		annotationInput: map[string]string{
-			resources.OverConsumptionRatioKey: "18",
-			resources.StageRolloutTimeout:     "10",
+			resources.OverConsumptionRatioKey:    "18",
+			resources.StageRolloutTimeoutMinutes: "10",
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		},
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       18,
@@ -173,13 +173,13 @@ func TestLoadConfigFromService(t *testing.T) {
 		annotationInput: map[string]string{
 			resources.OverConsumptionRatioKey:    "18",
 			resources.ProgressiveRolloutEnabled:  "false",
-			resources.StageRolloutTimeout:        "10",
+			resources.StageRolloutTimeoutMinutes: "10",
 			resources.ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		ExpectedResult: &RolloutConfig{
@@ -193,13 +193,13 @@ func TestLoadConfigFromService(t *testing.T) {
 		annotationInput: map[string]string{
 			resources.OverConsumptionRatioKey:    "18",
 			resources.ProgressiveRolloutEnabled:  "false",
-			resources.StageRolloutTimeout:        "10",
+			resources.StageRolloutTimeoutMinutes: "10",
 			resources.ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 			ProgressiveRolloutStrategy: strategies.ResourceUtilStrategy,
 		},
 		ExpectedResult: &RolloutConfig{
@@ -213,13 +213,13 @@ func TestLoadConfigFromService(t *testing.T) {
 		annotationInput: map[string]string{
 			resources.OverConsumptionRatioKey:    "18",
 			resources.ProgressiveRolloutEnabled:  "false",
-			resources.StageRolloutTimeout:        "10",
+			resources.StageRolloutTimeoutMinutes: "10",
 			resources.ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		ExpectedResult: &RolloutConfig{
@@ -231,13 +231,13 @@ func TestLoadConfigFromService(t *testing.T) {
 	}, {
 		name: "Test the RolloutConfig with invalid annotation as input",
 		annotationInput: map[string]string{
-			resources.OverConsumptionRatioKey: "18u",
-			resources.StageRolloutTimeout:     "8",
+			resources.OverConsumptionRatioKey:    "18u",
+			resources.StageRolloutTimeoutMinutes: "8",
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		},
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
@@ -247,18 +247,18 @@ func TestLoadConfigFromService(t *testing.T) {
 	}, {
 		name: "Test the RolloutConfig with invalid annotation as input",
 		annotationInput: map[string]string{
-			resources.OverConsumptionRatioKey: "18",
-			resources.StageRolloutTimeout:     "8o",
+			resources.OverConsumptionRatioKey:    "18",
+			resources.StageRolloutTimeoutMinutes: "8o",
 		},
 		configInput: &RolloutConfig{
 			OverConsumptionRatio:       resources.OverSubRatio,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		},
 		ExpectedResult: &RolloutConfig{
 			OverConsumptionRatio:       18,
 			ProgressiveRolloutEnabled:  true,
-			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeout,
+			StageRolloutTimeoutMinutes: resources.DefaultStageRolloutTimeoutMinutes,
 		},
 	}}
 	for _, test := range tests {

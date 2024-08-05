@@ -8,17 +8,17 @@ require (
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.7.0
+	golang.org/x/sync v0.8.0
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
 	k8s.io/code-generator v0.29.2
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00
-	knative.dev/caching v0.0.0-20240716132144-989f54c83776
-	knative.dev/hack v0.0.0-20240719133331-9c9eed6f6679
-	knative.dev/networking v0.0.0-20240716111826-bab7f2a3e556
-	knative.dev/pkg v0.0.0-20240716082220-4355f0c73608
-	knative.dev/serving v0.42.0
+	knative.dev/caching v0.0.0-20240805055809-0a5c1ed07f7a
+	knative.dev/hack v0.0.0-20240801232131-441a19fc9ead
+	knative.dev/networking v0.0.0-20240802083044-f1702380495f
+	knative.dev/pkg v0.0.0-20240805063731-c88d5dad9653
+	knative.dev/serving v0.42.1-0.20240805122451-1f480d02221c
 )
 
 require (
@@ -98,8 +98,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.54.0 // indirect
-	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -119,7 +119,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/grpc v1.65.0 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

@@ -78,7 +78,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 		// here via PrependReactor (this can be overridden below by the
 		// provided reactors).
 		dynamicClient.PrependReactor("patch", "*",
-			func(action ktesting.Action) (bool, runtime.Object, error) {
+			func(_ ktesting.Action) (bool, runtime.Object, error) {
 				return true, nil, nil
 			})
 

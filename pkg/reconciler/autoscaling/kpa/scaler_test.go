@@ -60,8 +60,8 @@ import (
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
-	. "knative.dev/pkg/reconciler/testing"
-	. "knative.dev/serving/pkg/testing"
+	recTest "knative.dev/pkg/reconciler/testing"
+	pkgTest "knative.dev/serving/pkg/testing"
 )
 
 const (
@@ -80,7 +80,7 @@ func TestScaler(t *testing.T) {
 		maxScale            int32
 		wantReplicas        int32
 		wantScaling         bool
-		sks                 SKSOption
+		sks                 pkgTest.SKSOption
 		paMutation          func(*autoscalingv1alpha1.PodAutoscaler)
 		proberfunc          func(*autoscalingv1alpha1.PodAutoscaler, http.RoundTripper) (bool, error)
 		configMutator       func(*config.Config)
@@ -104,7 +104,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  1,
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
-			WithWindowAnnotation(paStableWindow.String())(k)
+			pkgTest.WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow).Add(1*time.Second))
 		},
 		wantCBCount: 1,
@@ -115,7 +115,7 @@ func TestScaler(t *testing.T) {
 		wantReplicas:  0,
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
-			WithWindowAnnotation(paStableWindow.String())(k)
+			pkgTest.WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-stableWindow))
 		},
 	}, {
@@ -155,7 +155,7 @@ func TestScaler(t *testing.T) {
 		startReplicas: 1,
 		scaleTo:       0,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
-			WithWindowAnnotation(paStableWindow.String())(k)
+			pkgTest.WithWindowAnnotation(paStableWindow.String())(k)
 			paMarkActive(k, time.Now().Add(-paStableWindow))
 		},
 	}, {
@@ -347,7 +347,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
-			WithReachabilityReachable(k)
+			pkgTest.WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "scale down to minScale after grace period",
@@ -358,7 +358,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityReachable(k)
+			pkgTest.WithReachabilityReachable(k)
 		},
 	}, {
 		label:         "scale to zero ignore last pod retention if  revision is unreachable",
@@ -368,7 +368,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityUnreachable(k)
+			pkgTest.WithReachabilityUnreachable(k)
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 10 * gracePeriod
@@ -381,7 +381,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   false,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod+time.Second))
-			WithReachabilityUnreachable(k)
+			pkgTest.WithReachabilityUnreachable(k)
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.ScaleToZeroPodRetentionPeriod = 10 * gracePeriod
@@ -396,7 +396,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityUnreachable(k) // not needed, here for clarity
+			pkgTest.WithReachabilityUnreachable(k) // not needed, here for clarity
 		},
 	}, {
 		label:         "observe minScale if reachability unknown",
@@ -407,7 +407,7 @@ func TestScaler(t *testing.T) {
 		wantScaling:   true,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now().Add(-gracePeriod))
-			WithReachabilityUnknown(k)
+			pkgTest.WithReachabilityUnknown(k)
 		},
 	}, {
 		label:         "scales up",
@@ -511,7 +511,7 @@ func TestScaler(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := recTest.SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 
@@ -614,7 +614,7 @@ func TestDisableScaleToZero(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.label, func(t *testing.T) {
-			ctx, _, _ := SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
+			ctx, _, _ := recTest.SetupFakeContextWithCancel(t, func(ctx context.Context) context.Context {
 				return filteredinformerfactory.WithSelectors(ctx, serving.RevisionUID)
 			})
 
@@ -645,7 +645,7 @@ func TestDisableScaleToZero(t *testing.T) {
 			}
 			pa := newKPA(ctx, t, fakeservingclient.Get(ctx), revision)
 			paMarkActive(pa, time.Now())
-			WithReachabilityReachable(pa)
+			pkgTest.WithReachabilityReachable(pa)
 
 			conf := defaultConfig()
 			conf.Autoscaler.EnableScaleToZero = false
@@ -796,7 +796,7 @@ func TestActivatorProbe(t *testing.T) {
 	}()
 	theErr := errors.New("rain")
 
-	pa := kpa("who-let", "the-dogs-out", WithPAStatusService("woof"))
+	pa := kpa("who-let", "the-dogs-out", pkgTest.WithPAStatusService("woof"))
 	tests := []struct {
 		name    string
 		rt      network.RoundTripperFunc
@@ -804,7 +804,7 @@ func TestActivatorProbe(t *testing.T) {
 		wantErr bool
 	}{{
 		name: "ok",
-		rt: func(r *http.Request) (*http.Response, error) {
+		rt: func(_ *http.Request) (*http.Response, error) {
 			rsp := httptest.NewRecorder()
 			rsp.Write([]byte(activator.Name))
 			return rsp.Result(), nil
@@ -812,7 +812,7 @@ func TestActivatorProbe(t *testing.T) {
 		wantRes: true,
 	}, {
 		name: "400",
-		rt: func(r *http.Request) (*http.Response, error) {
+		rt: func(_ *http.Request) (*http.Response, error) {
 			rsp := httptest.NewRecorder()
 			rsp.Code = http.StatusBadRequest
 			rsp.Write([]byte("wrong header, I guess?"))
@@ -821,7 +821,7 @@ func TestActivatorProbe(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "wrong body",
-		rt: func(r *http.Request) (*http.Response, error) {
+		rt: func(_ *http.Request) (*http.Response, error) {
 			rsp := httptest.NewRecorder()
 			rsp.Write([]byte("haxoorprober"))
 			return rsp.Result(), nil
@@ -829,7 +829,7 @@ func TestActivatorProbe(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "all wrong",
-		rt: func(r *http.Request) (*http.Response, error) {
+		rt: func(_ *http.Request) (*http.Response, error) {
 			return nil, theErr
 		},
 		wantErr: true,

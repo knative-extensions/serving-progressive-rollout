@@ -87,7 +87,7 @@ func setupSharedElector(ctx context.Context, controllers []*controller.Impl) (le
 
 func coalesce(reconcilers []*leaderAware) reconciler.LeaderAware {
 	return &reconciler.LeaderAwareFuncs{
-		PromoteFunc: func(b reconciler.Bucket, enq func(reconciler.Bucket, types.NamespacedName)) error {
+		PromoteFunc: func(b reconciler.Bucket, _ func(reconciler.Bucket, types.NamespacedName)) error {
 			for _, r := range reconcilers {
 				r.reconciler.Promote(b, r.enqueue)
 			}

@@ -560,8 +560,8 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-# google.golang.org/protobuf v1.34.2
-## explicit; go 1.20
+# google.golang.org/protobuf v1.35.1
+## explicit; go 1.21
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
@@ -1144,7 +1144,7 @@ knative.dev/caching/pkg/client/listers/caching/v1alpha1
 # knative.dev/hack v0.0.0-20241010131451-05b2fb30cb4d
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20241010132208-75d9920a9248
+# knative.dev/networking v0.0.0-20241014132131-0561079d4264
 ## explicit; go 1.22.0
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1179,7 +1179,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20241010131207-e0f65ceabc68
+# knative.dev/pkg v0.0.0-20241014065030-59c22a189949
 ## explicit; go 1.22.0
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1246,7 +1246,7 @@ knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
 knative.dev/pkg/websocket
-# knative.dev/serving v0.42.1-0.20241010160607-2a87ffd884e8
+# knative.dev/serving v0.42.1-0.20241014143032-b98384c54d73
 ## explicit; go 1.22.0
 knative.dev/serving/pkg/activator
 knative.dev/serving/pkg/apis/autoscaling

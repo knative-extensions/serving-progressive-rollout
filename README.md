@@ -23,6 +23,7 @@ until the new version fully takes over the old version.
 
 For documentation on using Knative Serving, see the [serving section](https://www.knative.dev/docs/serving/) of the [Knative documentation site](https://www.knative.dev/docs).
 
+
 For documentation on the Knative Serving specification, see the [docs](https://github.com/knative/serving/tree/main/docs) folder of this repository.
 
 If you are interested in contributing, see [CONTRIBUTING.md](./CONTRIBUTING.md)

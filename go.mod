@@ -14,11 +14,11 @@ require (
 	k8s.io/client-go v0.30.3
 	k8s.io/code-generator v0.30.3
 	k8s.io/kube-openapi v0.0.0-20240808142205-8e686545bdb8
-	knative.dev/caching v0.0.0-20241115112144-5522d1afbedb
+	knative.dev/caching v0.0.0-20241118131847-a38b40d8a39c
 	knative.dev/hack v0.0.0-20241106013728-b7995315deb5
-	knative.dev/networking v0.0.0-20241115112044-5272a36dd4e5
-	knative.dev/pkg v0.0.0-20241115112044-215048add14b
-	knative.dev/serving v0.43.1-0.20241115111444-b51a57d2494a
+	knative.dev/networking v0.0.0-20241118132247-bbd3279aa3a4
+	knative.dev/pkg v0.0.0-20241118074447-a7fd9b10bb9f
+	knative.dev/serving v0.43.1-0.20241118143048-85ce915b5116
 )
 
 require (
@@ -119,7 +119,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.68.0 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

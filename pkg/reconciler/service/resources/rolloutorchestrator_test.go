@@ -264,23 +264,23 @@ func TestReadIntRevisionRecord(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			min, max := ReadIntRevisionRecord(test.RevisionRecord)
-			if min == nil {
-				if min != test.ExpectedMin {
-					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", min, test.ExpectedMin)
+			minR, maxR := ReadIntRevisionRecord(test.RevisionRecord)
+			if minR == nil {
+				if minR != test.ExpectedMin {
+					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", minR, test.ExpectedMin)
 				}
 			} else {
-				if *min != *test.ExpectedMin {
-					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", *min, *test.ExpectedMin)
+				if *minR != *test.ExpectedMin {
+					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", *minR, *test.ExpectedMin)
 				}
 			}
-			if max == nil {
-				if max != test.ExpectedMax {
-					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", max, test.ExpectedMax)
+			if maxR == nil {
+				if maxR != test.ExpectedMax {
+					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", maxR, test.ExpectedMax)
 				}
 			} else {
-				if *max != *test.ExpectedMax {
-					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", *max, *test.ExpectedMax)
+				if *maxR != *test.ExpectedMax {
+					t.Fatalf("Result of ReadIntRevisionRecord() = %v, want %v", *maxR, *test.ExpectedMax)
 				}
 			}
 		})

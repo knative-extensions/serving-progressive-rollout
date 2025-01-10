@@ -113,7 +113,7 @@ func CreateBaseStagePodAutoscaler(ro *v1.RolloutOrchestrator, revision *v1.Targe
 func UpdateSPAForRevUp(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision, _ bool) *v1.StagePodAutoscaler {
 	// For revisions scaling up, the StageMaxScale is always set to the final MaxScale.
 	spa.Spec.StageMaxScale = revision.MaxScale
-	min := getMinScale(revision)
+	minR := getMinScale(revision)
 
 	// TargetReplicas is nil, when either the revision has 0% traffic assigned or 100% traffic assigned.
 	// It will be either the old revision scales down to 0 or the new revision scale up to replace the old revision.
@@ -123,7 +123,7 @@ func UpdateSPAForRevUp(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision, 
 		return spa
 	}
 	targetReplicas := *revision.TargetReplicas
-	if targetReplicas < min && *revision.Percent < int64(100) {
+	if targetReplicas < minR && *revision.Percent < int64(100) {
 		// If the less than of 100% traffic is assigned to this revision or targetReplicas is less than minscale,
 		// set StageMinScale directly to targetReplicas.
 		spa.Spec.StageMinScale = ptr.Int32(targetReplicas)
@@ -149,8 +149,8 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 		return spa
 	}
 
-	min := getMinScale(revision)
-	max := getMaxScale(revision)
+	minR := getMinScale(revision)
+	maxR := getMaxScale(revision)
 
 	// If Percent is empty, it means the old revision has reduced the traffic down to 0%.
 	if revision.Percent == nil {
@@ -162,7 +162,7 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 
 	// If targetReplicas is equal to or greater than maxScale, StageMinScale and StageMaxScale are set to the final
 	// MinScale and MaxScale.
-	if revision.TargetReplicas == nil || *revision.TargetReplicas >= max {
+	if revision.TargetReplicas == nil || *revision.TargetReplicas >= maxR {
 		spa.Spec.StageMinScale = revision.MinScale
 		spa.Spec.StageMaxScale = revision.MaxScale
 		return spa
@@ -180,7 +180,7 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	spa.Spec.StageMaxScale = ptr.Int32(targetReplicas)
 
 	// If targetReplicas is less than minScale, StageMinScale is set to targetReplicas.
-	if targetReplicas < min {
+	if targetReplicas < minR {
 		spa.Spec.StageMinScale = ptr.Int32(targetReplicas)
 		return spa
 	}
@@ -197,10 +197,10 @@ func getMinScale(revision *v1.TargetRevision) (min int32) {
 	return
 }
 
-func getMaxScale(revision *v1.TargetRevision) (max int32) {
-	max = int32(math.MaxInt32)
+func getMaxScale(revision *v1.TargetRevision) (maxR int32) {
+	maxR = int32(math.MaxInt32)
 	if revision.MaxScale != nil {
-		max = *revision.MaxScale
+		maxR = *revision.MaxScale
 	}
 	return
 }
@@ -211,11 +211,11 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	if spa.Status.DesiredScale == nil || spa.Status.ActualScale == nil {
 		return false
 	}
-	min := getMinScale(revision)
-	max := getMaxScale(revision)
+	minR := getMinScale(revision)
+	maxR := getMaxScale(revision)
 	if revision.TargetReplicas == nil {
 		// For revision scaling up without TargetReplicas, it means this revision will be assigned 100% of the traffic.
-		return actualScaleBetweenMinMax(spa, min, max)
+		return actualScaleBetweenMinMax(spa, minR, maxR)
 	}
 
 	// There are two modes to scale up and down the replicas of the revisions:
@@ -228,13 +228,13 @@ func IsStageScaleUpReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	// 2. Traffic driven. In this case, TargetReplicas is larger than minScale and lower than or equal to maxScale
 	// for the revision. We need to change the number of the replicas by shifting the traffic. As long as we know the
 	// new revision is on the way of scaling up, we are able to start the scaling down phase as well.
-	if min >= *revision.TargetReplicas {
+	if minR >= *revision.TargetReplicas {
 		// This is for the first mode.
 		return *spa.Status.DesiredScale >= *revision.TargetReplicas && *spa.Status.ActualScale >= *revision.TargetReplicas
 	}
 
 	// This is for the second mode.
-	return *spa.Status.DesiredScale >= min && *spa.Status.ActualScale >= min
+	return *spa.Status.DesiredScale >= minR && *spa.Status.ActualScale >= minR
 }
 
 // IsStageScaleDownReady decides whether the scaling down has completed for the current stage, based

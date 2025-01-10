@@ -19,8 +19,8 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 )
@@ -38,25 +38,17 @@ type RolloutOrchestratorLister interface {
 
 // rolloutOrchestratorLister implements the RolloutOrchestratorLister interface.
 type rolloutOrchestratorLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.RolloutOrchestrator]
 }
 
 // NewRolloutOrchestratorLister returns a new RolloutOrchestratorLister.
 func NewRolloutOrchestratorLister(indexer cache.Indexer) RolloutOrchestratorLister {
-	return &rolloutOrchestratorLister{indexer: indexer}
-}
-
-// List lists all RolloutOrchestrators in the indexer.
-func (s *rolloutOrchestratorLister) List(selector labels.Selector) (ret []*v1.RolloutOrchestrator, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.RolloutOrchestrator))
-	})
-	return ret, err
+	return &rolloutOrchestratorLister{listers.New[*v1.RolloutOrchestrator](indexer, v1.Resource("rolloutorchestrator"))}
 }
 
 // RolloutOrchestrators returns an object that can list and get RolloutOrchestrators.
 func (s *rolloutOrchestratorLister) RolloutOrchestrators(namespace string) RolloutOrchestratorNamespaceLister {
-	return rolloutOrchestratorNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return rolloutOrchestratorNamespaceLister{listers.NewNamespaced[*v1.RolloutOrchestrator](s.ResourceIndexer, namespace)}
 }
 
 // RolloutOrchestratorNamespaceLister helps list and get RolloutOrchestrators.
@@ -74,26 +66,5 @@ type RolloutOrchestratorNamespaceLister interface {
 // rolloutOrchestratorNamespaceLister implements the RolloutOrchestratorNamespaceLister
 // interface.
 type rolloutOrchestratorNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all RolloutOrchestrators in the indexer for a given namespace.
-func (s rolloutOrchestratorNamespaceLister) List(selector labels.Selector) (ret []*v1.RolloutOrchestrator, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.RolloutOrchestrator))
-	})
-	return ret, err
-}
-
-// Get retrieves the RolloutOrchestrator from the indexer for a given namespace and name.
-func (s rolloutOrchestratorNamespaceLister) Get(name string) (*v1.RolloutOrchestrator, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("rolloutorchestrator"), name)
-	}
-	return obj.(*v1.RolloutOrchestrator), nil
+	listers.ResourceIndexer[*v1.RolloutOrchestrator]
 }

@@ -94,14 +94,14 @@ func ReadIntServiceAnnotation(service *servingv1.Service, key string) (result *i
 }
 
 // ReadIntRevisionRecord reads the minScale and maxScale in the RevisionRecord.
-func ReadIntRevisionRecord(val RevisionRecord) (min *int32, max *int32) {
+func ReadIntRevisionRecord(val RevisionRecord) (minR *int32, maxR *int32) {
 	if val.MinScale != nil {
-		min = ptr.Int32(*val.MinScale)
+		minR = ptr.Int32(*val.MinScale)
 	}
 	if val.MaxScale != nil {
-		max = ptr.Int32(*val.MaxScale)
+		maxR = ptr.Int32(*val.MaxScale)
 	}
-	return min, max
+	return minR, maxR
 }
 
 func initializeTargetRevisions(revisionTarget *[]v1.TargetRevision, traffic *servingv1.TrafficTarget,

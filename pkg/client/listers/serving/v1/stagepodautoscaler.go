@@ -19,8 +19,8 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 )
@@ -38,25 +38,17 @@ type StagePodAutoscalerLister interface {
 
 // stagePodAutoscalerLister implements the StagePodAutoscalerLister interface.
 type stagePodAutoscalerLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.StagePodAutoscaler]
 }
 
 // NewStagePodAutoscalerLister returns a new StagePodAutoscalerLister.
 func NewStagePodAutoscalerLister(indexer cache.Indexer) StagePodAutoscalerLister {
-	return &stagePodAutoscalerLister{indexer: indexer}
-}
-
-// List lists all StagePodAutoscalers in the indexer.
-func (s *stagePodAutoscalerLister) List(selector labels.Selector) (ret []*v1.StagePodAutoscaler, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.StagePodAutoscaler))
-	})
-	return ret, err
+	return &stagePodAutoscalerLister{listers.New[*v1.StagePodAutoscaler](indexer, v1.Resource("stagepodautoscaler"))}
 }
 
 // StagePodAutoscalers returns an object that can list and get StagePodAutoscalers.
 func (s *stagePodAutoscalerLister) StagePodAutoscalers(namespace string) StagePodAutoscalerNamespaceLister {
-	return stagePodAutoscalerNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return stagePodAutoscalerNamespaceLister{listers.NewNamespaced[*v1.StagePodAutoscaler](s.ResourceIndexer, namespace)}
 }
 
 // StagePodAutoscalerNamespaceLister helps list and get StagePodAutoscalers.
@@ -74,26 +66,5 @@ type StagePodAutoscalerNamespaceLister interface {
 // stagePodAutoscalerNamespaceLister implements the StagePodAutoscalerNamespaceLister
 // interface.
 type stagePodAutoscalerNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all StagePodAutoscalers in the indexer for a given namespace.
-func (s stagePodAutoscalerNamespaceLister) List(selector labels.Selector) (ret []*v1.StagePodAutoscaler, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.StagePodAutoscaler))
-	})
-	return ret, err
-}
-
-// Get retrieves the StagePodAutoscaler from the indexer for a given namespace and name.
-func (s stagePodAutoscalerNamespaceLister) Get(name string) (*v1.StagePodAutoscaler, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("stagepodautoscaler"), name)
-	}
-	return obj.(*v1.StagePodAutoscaler), nil
+	listers.ResourceIndexer[*v1.StagePodAutoscaler]
 }

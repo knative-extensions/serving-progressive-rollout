@@ -41,22 +41,24 @@ var stagepodautoscalersKind = v1.SchemeGroupVersion.WithKind("StagePodAutoscaler
 
 // Get takes name of the stagePodAutoscaler, and returns the corresponding stagePodAutoscaler object, and an error if there is any.
 func (c *FakeStagePodAutoscalers) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.StagePodAutoscaler, err error) {
+	emptyResult := &v1.StagePodAutoscaler{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(stagepodautoscalersResource, c.ns, name), &v1.StagePodAutoscaler{})
+		Invokes(testing.NewGetActionWithOptions(stagepodautoscalersResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StagePodAutoscaler), err
 }
 
 // List takes label and field selectors, and returns the list of StagePodAutoscalers that match those selectors.
 func (c *FakeStagePodAutoscalers) List(ctx context.Context, opts metav1.ListOptions) (result *v1.StagePodAutoscalerList, err error) {
+	emptyResult := &v1.StagePodAutoscalerList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(stagepodautoscalersResource, stagepodautoscalersKind, c.ns, opts), &v1.StagePodAutoscalerList{})
+		Invokes(testing.NewListActionWithOptions(stagepodautoscalersResource, stagepodautoscalersKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeStagePodAutoscalers) List(ctx context.Context, opts metav1.ListOpti
 // Watch returns a watch.Interface that watches the requested stagePodAutoscalers.
 func (c *FakeStagePodAutoscalers) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(stagepodautoscalersResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(stagepodautoscalersResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a stagePodAutoscaler and creates it.  Returns the server's representation of the stagePodAutoscaler, and an error, if there is any.
 func (c *FakeStagePodAutoscalers) Create(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.CreateOptions) (result *v1.StagePodAutoscaler, err error) {
+	emptyResult := &v1.StagePodAutoscaler{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(stagepodautoscalersResource, c.ns, stagePodAutoscaler), &v1.StagePodAutoscaler{})
+		Invokes(testing.NewCreateActionWithOptions(stagepodautoscalersResource, c.ns, stagePodAutoscaler, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StagePodAutoscaler), err
 }
 
 // Update takes the representation of a stagePodAutoscaler and updates it. Returns the server's representation of the stagePodAutoscaler, and an error, if there is any.
 func (c *FakeStagePodAutoscalers) Update(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.UpdateOptions) (result *v1.StagePodAutoscaler, err error) {
+	emptyResult := &v1.StagePodAutoscaler{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(stagepodautoscalersResource, c.ns, stagePodAutoscaler), &v1.StagePodAutoscaler{})
+		Invokes(testing.NewUpdateActionWithOptions(stagepodautoscalersResource, c.ns, stagePodAutoscaler, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StagePodAutoscaler), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStagePodAutoscalers) UpdateStatus(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.UpdateOptions) (*v1.StagePodAutoscaler, error) {
+func (c *FakeStagePodAutoscalers) UpdateStatus(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.UpdateOptions) (result *v1.StagePodAutoscaler, err error) {
+	emptyResult := &v1.StagePodAutoscaler{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(stagepodautoscalersResource, "status", c.ns, stagePodAutoscaler), &v1.StagePodAutoscaler{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(stagepodautoscalersResource, "status", c.ns, stagePodAutoscaler, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StagePodAutoscaler), err
 }
@@ -123,7 +128,7 @@ func (c *FakeStagePodAutoscalers) Delete(ctx context.Context, name string, opts 
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeStagePodAutoscalers) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(stagepodautoscalersResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(stagepodautoscalersResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.StagePodAutoscalerList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeStagePodAutoscalers) DeleteCollection(ctx context.Context, opts met
 
 // Patch applies the patch and returns the patched stagePodAutoscaler.
 func (c *FakeStagePodAutoscalers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.StagePodAutoscaler, err error) {
+	emptyResult := &v1.StagePodAutoscaler{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stagepodautoscalersResource, c.ns, name, pt, data, subresources...), &v1.StagePodAutoscaler{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(stagepodautoscalersResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StagePodAutoscaler), err
 }

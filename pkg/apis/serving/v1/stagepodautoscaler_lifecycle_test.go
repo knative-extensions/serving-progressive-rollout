@@ -60,12 +60,12 @@ func TestStagePodAutoscalerScaleBounds(t *testing.T) {
 		},
 	}
 
-	min, max := stagePodAutoscaler.ScaleBounds()
-	if !reflect.DeepEqual(*min, *minScale) {
-		t.Errorf("min in ScaleBounds() = %v, want: %v", min, *minScale)
+	minR, maxR := stagePodAutoscaler.ScaleBounds()
+	if !reflect.DeepEqual(*minR, *minScale) {
+		t.Errorf("min in ScaleBounds() = %v, want: %v", minR, *minScale)
 	}
-	if !reflect.DeepEqual(*max, *maxScale) {
-		t.Errorf("max in ScaleBounds() = %v, want: %v", max, *maxScale)
+	if !reflect.DeepEqual(*maxR, *maxScale) {
+		t.Errorf("max in ScaleBounds() = %v, want: %v", maxR, *maxScale)
 	}
 }
 

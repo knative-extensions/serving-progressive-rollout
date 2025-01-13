@@ -152,13 +152,13 @@ func lastPodRetention(pa *autoscalingv1alpha1.PodAutoscaler, cfg *autoscalerconf
 	return cfg.ScaleToZeroPodRetentionPeriod
 }
 
-// pre: 0 <= min <= max && 0 <= x
-func applyBounds(min, max, x int32) int32 {
-	if x < min {
-		return min
+// pre: 0 <= minR <= maxR && 0 <= x
+func applyBounds(minR, maxR, x int32) int32 {
+	if x < minR {
+		return minR
 	}
-	if max != 0 && x > max {
-		return max
+	if maxR != 0 && x > maxR {
+		return maxR
 	}
 	return x
 }
@@ -329,17 +329,17 @@ func (ks *scaler) applyScale(ctx context.Context, pa *autoscalingv1alpha1.PodAut
 // GetScaleBounds returns the min and the max scales for the current stage.
 func GetScaleBounds(asConfig *autoscalerconfig.Config, pa *autoscalingv1alpha1.PodAutoscaler,
 	spa *autoscalingv1.StagePodAutoscaler) (int32, int32) {
-	min, max := pa.ScaleBounds(asConfig)
+	minR, maxR := pa.ScaleBounds(asConfig)
 	if spa != nil {
 		minS, maxS := spa.ScaleBounds()
-		if minS != nil && min > *minS {
-			min = *minS
+		if minS != nil && minR > *minS {
+			minR = *minS
 		}
-		if maxS != nil && max > *maxS {
-			max = *maxS
+		if maxS != nil && maxR > *maxS {
+			maxR = *maxS
 		}
 	}
-	return min, max
+	return minR, maxR
 }
 
 // scale attempts to scale the given PA's target reference to the desired scale.
@@ -352,20 +352,20 @@ func (ks *scaler) scale(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscal
 		return desiredScale, nil
 	}
 
-	min, max := GetScaleBounds(asConfig, pa, spa)
+	minR, maxR := GetScaleBounds(asConfig, pa, spa)
 	initialScale := kparesources.GetInitialScale(asConfig, pa)
 	// Log reachability as quoted string, since default value is "".
 	logger.Debugf("MinScale = %d, MaxScale = %d, InitialScale = %d, DesiredScale = %d Reachable = %q",
-		min, max, initialScale, desiredScale, pa.Spec.Reachability)
+		minR, maxR, initialScale, desiredScale, pa.Spec.Reachability)
 	// If initial scale has been attained, ignore the initialScale altogether.
 	if initialScale > 1 && !pa.Status.IsScaleTargetInitialized() {
 		// Ignore initial scale if minScale >= initialScale.
-		if min < initialScale {
-			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", min, initialScale)
+		if minR < initialScale {
+			logger.Debugf("Adjusting min to meet the initial scale: %d -> %d", minR, initialScale)
 		}
-		min = intMax(initialScale, min)
+		minR = intMax(initialScale, minR)
 	}
-	if newScale := applyBounds(min, max, desiredScale); newScale != desiredScale {
+	if newScale := applyBounds(minR, maxR, desiredScale); newScale != desiredScale {
 		logger.Debugf("Adjusting desiredScale to meet the min and max bounds before applying: %d -> %d", desiredScale, newScale)
 		desiredScale = newScale
 	}

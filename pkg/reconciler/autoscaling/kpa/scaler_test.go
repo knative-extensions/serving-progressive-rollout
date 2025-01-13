@@ -1043,12 +1043,12 @@ func TestGetScaleBounds(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			min, max := GetScaleBounds(test.config, test.pa, test.spa)
-			if min != test.ExpectedMin {
-				t.Fatalf("Min of GetScaleBounds() = %v, want %v", min, test.ExpectedMin)
+			minR, maxR := GetScaleBounds(test.config, test.pa, test.spa)
+			if minR != test.ExpectedMin {
+				t.Fatalf("Min of GetScaleBounds() = %v, want %v", minR, test.ExpectedMin)
 			}
-			if max != test.ExpectedMax {
-				t.Fatalf("Max of GetScaleBounds() = %v, want %v", max, test.ExpectedMax)
+			if maxR != test.ExpectedMax {
+				t.Fatalf("Max of GetScaleBounds() = %v, want %v", maxR, test.ExpectedMax)
 			}
 		})
 	}

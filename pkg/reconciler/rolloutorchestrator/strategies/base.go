@@ -190,9 +190,9 @@ func UpdateSPAForRevDown(spa *v1.StagePodAutoscaler, revision *v1.TargetRevision
 	return spa
 }
 
-func getMinScale(revision *v1.TargetRevision) (min int32) {
+func getMinScale(revision *v1.TargetRevision) (minR int32) {
 	if revision.MinScale != nil {
-		min = *revision.MinScale
+		minR = *revision.MinScale
 	}
 	return
 }
@@ -246,8 +246,8 @@ func IsStageScaleDownReady(spa *v1.StagePodAutoscaler, revision *v1.TargetRevisi
 	if revision.TargetReplicas == nil {
 		// For revision scaling down without TargetReplicas, it means this revision will be assigned the same
 		// traffic percentage as the previous stage.
-		max := getMaxScale(revision)
-		return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, max)
+		maxR := getMaxScale(revision)
+		return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, maxR)
 	}
 	return bothValuesUnderTargetValue(*spa.Status.DesiredScale, *spa.Status.ActualScale, *revision.TargetReplicas)
 }
@@ -256,6 +256,6 @@ func bothValuesUnderTargetValue(desire, actual, target int32) bool {
 	return desire <= target && actual <= target
 }
 
-func actualScaleBetweenMinMax(spa *v1.StagePodAutoscaler, min, max int32) bool {
-	return *spa.Status.ActualScale >= min && *spa.Status.ActualScale <= max
+func actualScaleBetweenMinMax(spa *v1.StagePodAutoscaler, minR, maxR int32) bool {
+	return *spa.Status.ActualScale >= minR && *spa.Status.ActualScale <= maxR
 }

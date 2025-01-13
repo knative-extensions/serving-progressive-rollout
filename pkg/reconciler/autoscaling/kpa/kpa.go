@@ -316,12 +316,12 @@ func computeActiveCondition(ctx context.Context, pa *autoscalingv1alpha1.PodAuto
 // activeThreshold returns the scale required for the pa to be marked Active
 func activeThreshold(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler) int {
 	asConfig := config.FromContext(ctx).Autoscaler
-	min, _ := GetScaleBounds(asConfig, pa, spa)
+	minR, _ := GetScaleBounds(asConfig, pa, spa)
 	if !pa.Status.IsScaleTargetInitialized() {
 		initialScale := resources.GetInitialScale(asConfig, pa)
-		return int(intMax(min, initialScale))
+		return int(intMax(minR, initialScale))
 	}
-	return int(intMax(min, 1))
+	return int(intMax(minR, 1))
 }
 
 // resolveScrapeTarget returns metric service name to be scraped based on TBC configuration

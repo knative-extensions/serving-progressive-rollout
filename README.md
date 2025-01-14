@@ -12,6 +12,7 @@ Knative Serving Progressive Rollout is an extension to the Knative Serving. It p
 
 - The progressive rollout of a new version based on an existing version
 
+
 The main purpose of this project is to optimize the usage of the resources during the transitional time for the Knative
 Service from one version to another version. The original issue is opened [here](https://github.com/knative/serving/issues/12971), and the design doc is [here](https://docs.google.com/document/d/1C5iwrdC66axepm9iGVp_KrwbSnkbzfgx4iaQ_-QWc1I/edit).
 When the user launch a new version of the Knative Service, Knative Serving will by default launch all the replicas for

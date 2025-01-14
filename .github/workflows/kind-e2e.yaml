@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: setup-go
       uses: knative/actions/setup-go@main
@@ -55,7 +55,7 @@ jobs:
         mkdir -p ~/artifacts/build-extension
         mkdir -p ~/artifacts/registry
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
@@ -102,7 +102,7 @@ jobs:
         cd ${KNATIVE_SERVING_DIR}
         ./test/upload-test-images.sh
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: artifacts
         path: ~/artifacts
@@ -116,7 +116,7 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.28.x
+        - v1.30.x
 
         ingress:
         - istio
@@ -148,7 +148,7 @@ jobs:
     - name: setup-go
       uses: knative/actions/setup-go@main
 
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
@@ -157,7 +157,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: artifacts
         path: ~/artifacts
@@ -191,7 +191,7 @@ jobs:
         sudo mv ytt /usr/local/bin
         echo "::endgroup::"
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 

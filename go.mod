@@ -15,10 +15,10 @@ require (
 	k8s.io/code-generator v0.31.4
 	k8s.io/kube-openapi v0.0.0-20240808142205-8e686545bdb8
 	knative.dev/caching v0.0.0-20250113195200-dee364dbb0f7
-	knative.dev/hack v0.0.0-20250109131303-f8be0ccdff36
+	knative.dev/hack v0.0.0-20250116150306-c142b4835bc5
 	knative.dev/networking v0.0.0-20250113195501-679796878afc
 	knative.dev/pkg v0.0.0-20250113161000-0c2a238a16ed
-	knative.dev/serving v0.43.1-0.20250115173903-c3f2bfe4c93e
+	knative.dev/serving v0.43.1-0.20250116235705-a5988ebc81b1
 )
 
 require (

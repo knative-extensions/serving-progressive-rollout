@@ -14,11 +14,11 @@ require (
 	k8s.io/client-go v0.31.4
 	k8s.io/code-generator v0.31.4
 	k8s.io/kube-openapi v0.0.0-20240903163716-9e1beecbcb38
-	knative.dev/caching v0.0.0-20250129142755-41aa68a551d8
+	knative.dev/caching v0.0.0-20250204145224-ed50a5c83f6b
 	knative.dev/hack v0.0.0-20250128013659-5f7f0f50e9de
-	knative.dev/networking v0.0.0-20250204110424-a4342aa0ecc2
+	knative.dev/networking v0.0.0-20250204225923-e6fc9bbf3fb0
 	knative.dev/pkg v0.0.0-20250203163623-f62a97fc6ad4
-	knative.dev/serving v0.44.1-0.20250204121824-220c82691ebe
+	knative.dev/serving v0.44.1-0.20250205132413-a9c54670fee6
 )
 
 require (
@@ -56,11 +56,11 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20221002210726-e883f69e0206 // indirect
+	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
-	github.com/docker/cli v20.10.20+incompatible // indirect
+	github.com/docker/cli v27.1.1+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
-	github.com/docker/docker v25.0.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
@@ -76,7 +76,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/go-containerregistry v0.13.0 // indirect
+	github.com/google/go-containerregistry v0.20.2 // indirect
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230209165335-3624968304fd // indirect
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20230209165335-3624968304fd // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -95,7 +95,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc2 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.20.4 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
@@ -104,6 +104,7 @@ require (
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/vbatts/tar-split v0.11.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect

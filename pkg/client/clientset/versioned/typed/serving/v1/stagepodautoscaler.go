@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	servingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	scheme "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned/scheme"
 )
 
@@ -37,33 +37,34 @@ type StagePodAutoscalersGetter interface {
 
 // StagePodAutoscalerInterface has methods to work with StagePodAutoscaler resources.
 type StagePodAutoscalerInterface interface {
-	Create(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.CreateOptions) (*v1.StagePodAutoscaler, error)
-	Update(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.UpdateOptions) (*v1.StagePodAutoscaler, error)
+	Create(ctx context.Context, stagePodAutoscaler *servingv1.StagePodAutoscaler, opts metav1.CreateOptions) (*servingv1.StagePodAutoscaler, error)
+	Update(ctx context.Context, stagePodAutoscaler *servingv1.StagePodAutoscaler, opts metav1.UpdateOptions) (*servingv1.StagePodAutoscaler, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, stagePodAutoscaler *v1.StagePodAutoscaler, opts metav1.UpdateOptions) (*v1.StagePodAutoscaler, error)
+	UpdateStatus(ctx context.Context, stagePodAutoscaler *servingv1.StagePodAutoscaler, opts metav1.UpdateOptions) (*servingv1.StagePodAutoscaler, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.StagePodAutoscaler, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.StagePodAutoscalerList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*servingv1.StagePodAutoscaler, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*servingv1.StagePodAutoscalerList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.StagePodAutoscaler, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *servingv1.StagePodAutoscaler, err error)
 	StagePodAutoscalerExpansion
 }
 
 // stagePodAutoscalers implements StagePodAutoscalerInterface
 type stagePodAutoscalers struct {
-	*gentype.ClientWithList[*v1.StagePodAutoscaler, *v1.StagePodAutoscalerList]
+	*gentype.ClientWithList[*servingv1.StagePodAutoscaler, *servingv1.StagePodAutoscalerList]
 }
 
 // newStagePodAutoscalers returns a StagePodAutoscalers
 func newStagePodAutoscalers(c *ServingV1Client, namespace string) *stagePodAutoscalers {
 	return &stagePodAutoscalers{
-		gentype.NewClientWithList[*v1.StagePodAutoscaler, *v1.StagePodAutoscalerList](
+		gentype.NewClientWithList[*servingv1.StagePodAutoscaler, *servingv1.StagePodAutoscalerList](
 			"stagepodautoscalers",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.StagePodAutoscaler { return &v1.StagePodAutoscaler{} },
-			func() *v1.StagePodAutoscalerList { return &v1.StagePodAutoscalerList{} }),
+			func() *servingv1.StagePodAutoscaler { return &servingv1.StagePodAutoscaler{} },
+			func() *servingv1.StagePodAutoscalerList { return &servingv1.StagePodAutoscalerList{} },
+		),
 	}
 }

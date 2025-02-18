@@ -29,11 +29,11 @@ type FakeServingV1 struct {
 }
 
 func (c *FakeServingV1) RolloutOrchestrators(namespace string) v1.RolloutOrchestratorInterface {
-	return &FakeRolloutOrchestrators{c, namespace}
+	return newFakeRolloutOrchestrators(c, namespace)
 }
 
 func (c *FakeServingV1) StagePodAutoscalers(namespace string) v1.StagePodAutoscalerInterface {
-	return &FakeStagePodAutoscalers{c, namespace}
+	return newFakeStagePodAutoscalers(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -53,9 +53,9 @@ var ctors = []injection.ControllerConstructor{
 	serverlessservice.NewController,
 	service.NewController,
 	gc.NewController,
+	domainmapping.NewController,
 	nscert.NewController,
 	rolloutorchestrator.NewController,
-	domainmapping.NewController,
 }
 
 func main() {

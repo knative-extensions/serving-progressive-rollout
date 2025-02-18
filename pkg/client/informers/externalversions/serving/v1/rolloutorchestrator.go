@@ -19,24 +19,24 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	servingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	apisservingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	versioned "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
+	servingv1 "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 )
 
 // RolloutOrchestratorInformer provides access to a shared informer and lister for
 // RolloutOrchestrators.
 type RolloutOrchestratorInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.RolloutOrchestratorLister
+	Lister() servingv1.RolloutOrchestratorLister
 }
 
 type rolloutOrchestratorInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredRolloutOrchestratorInformer(client versioned.Interface, namespac
 				return client.ServingV1().RolloutOrchestrators(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1.RolloutOrchestrator{},
+		&apisservingv1.RolloutOrchestrator{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *rolloutOrchestratorInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *rolloutOrchestratorInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1.RolloutOrchestrator{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1.RolloutOrchestrator{}, f.defaultInformer)
 }
 
-func (f *rolloutOrchestratorInformer) Lister() v1.RolloutOrchestratorLister {
-	return v1.NewRolloutOrchestratorLister(f.Informer().GetIndexer())
+func (f *rolloutOrchestratorInformer) Lister() servingv1.RolloutOrchestratorLister {
+	return servingv1.NewRolloutOrchestratorLister(f.Informer().GetIndexer())
 }

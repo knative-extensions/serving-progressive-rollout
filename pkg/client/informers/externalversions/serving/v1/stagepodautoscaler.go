@@ -19,24 +19,24 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	servingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	apisservingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	versioned "knative.dev/serving-progressive-rollout/pkg/client/clientset/versioned"
 	internalinterfaces "knative.dev/serving-progressive-rollout/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
+	servingv1 "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 )
 
 // StagePodAutoscalerInformer provides access to a shared informer and lister for
 // StagePodAutoscalers.
 type StagePodAutoscalerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.StagePodAutoscalerLister
+	Lister() servingv1.StagePodAutoscalerLister
 }
 
 type stagePodAutoscalerInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredStagePodAutoscalerInformer(client versioned.Interface, namespace
 				return client.ServingV1().StagePodAutoscalers(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1.StagePodAutoscaler{},
+		&apisservingv1.StagePodAutoscaler{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *stagePodAutoscalerInformer) defaultInformer(client versioned.Interface,
 }
 
 func (f *stagePodAutoscalerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1.StagePodAutoscaler{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1.StagePodAutoscaler{}, f.defaultInformer)
 }
 
-func (f *stagePodAutoscalerInformer) Lister() v1.StagePodAutoscalerLister {
-	return v1.NewStagePodAutoscalerLister(f.Informer().GetIndexer())
+func (f *stagePodAutoscalerInformer) Lister() servingv1.StagePodAutoscalerLister {
+	return servingv1.NewStagePodAutoscalerLister(f.Informer().GetIndexer())
 }

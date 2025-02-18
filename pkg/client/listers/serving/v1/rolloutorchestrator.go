@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
-	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
+	servingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 )
 
 // RolloutOrchestratorLister helps list RolloutOrchestrators.
@@ -30,7 +30,7 @@ import (
 type RolloutOrchestratorLister interface {
 	// List lists all RolloutOrchestrators in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.RolloutOrchestrator, err error)
+	List(selector labels.Selector) (ret []*servingv1.RolloutOrchestrator, err error)
 	// RolloutOrchestrators returns an object that can list and get RolloutOrchestrators.
 	RolloutOrchestrators(namespace string) RolloutOrchestratorNamespaceLister
 	RolloutOrchestratorListerExpansion
@@ -38,17 +38,17 @@ type RolloutOrchestratorLister interface {
 
 // rolloutOrchestratorLister implements the RolloutOrchestratorLister interface.
 type rolloutOrchestratorLister struct {
-	listers.ResourceIndexer[*v1.RolloutOrchestrator]
+	listers.ResourceIndexer[*servingv1.RolloutOrchestrator]
 }
 
 // NewRolloutOrchestratorLister returns a new RolloutOrchestratorLister.
 func NewRolloutOrchestratorLister(indexer cache.Indexer) RolloutOrchestratorLister {
-	return &rolloutOrchestratorLister{listers.New[*v1.RolloutOrchestrator](indexer, v1.Resource("rolloutorchestrator"))}
+	return &rolloutOrchestratorLister{listers.New[*servingv1.RolloutOrchestrator](indexer, servingv1.Resource("rolloutorchestrator"))}
 }
 
 // RolloutOrchestrators returns an object that can list and get RolloutOrchestrators.
 func (s *rolloutOrchestratorLister) RolloutOrchestrators(namespace string) RolloutOrchestratorNamespaceLister {
-	return rolloutOrchestratorNamespaceLister{listers.NewNamespaced[*v1.RolloutOrchestrator](s.ResourceIndexer, namespace)}
+	return rolloutOrchestratorNamespaceLister{listers.NewNamespaced[*servingv1.RolloutOrchestrator](s.ResourceIndexer, namespace)}
 }
 
 // RolloutOrchestratorNamespaceLister helps list and get RolloutOrchestrators.
@@ -56,15 +56,15 @@ func (s *rolloutOrchestratorLister) RolloutOrchestrators(namespace string) Rollo
 type RolloutOrchestratorNamespaceLister interface {
 	// List lists all RolloutOrchestrators in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.RolloutOrchestrator, err error)
+	List(selector labels.Selector) (ret []*servingv1.RolloutOrchestrator, err error)
 	// Get retrieves the RolloutOrchestrator from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.RolloutOrchestrator, error)
+	Get(name string) (*servingv1.RolloutOrchestrator, error)
 	RolloutOrchestratorNamespaceListerExpansion
 }
 
 // rolloutOrchestratorNamespaceLister implements the RolloutOrchestratorNamespaceLister
 // interface.
 type rolloutOrchestratorNamespaceLister struct {
-	listers.ResourceIndexer[*v1.RolloutOrchestrator]
+	listers.ResourceIndexer[*servingv1.RolloutOrchestrator]
 }

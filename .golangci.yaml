@@ -4,8 +4,9 @@ run:
   build-tags:
     - e2e
 
-  skip-dirs:
-    - pkg/client
+issues:
+  exclude-dirs:
+    - pkg/client # Excludes generated client
 
 linters:
   enable:

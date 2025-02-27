@@ -3,7 +3,7 @@ module knative.dev/serving-progressive-rollout
 go 1.23.0
 
 require (
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/golang-lru v1.0.2
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.10.0
@@ -14,11 +14,11 @@ require (
 	k8s.io/client-go v0.32.2
 	k8s.io/code-generator v0.32.2
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7
-	knative.dev/caching v0.0.0-20250217154450-fae69d305618
-	knative.dev/hack v0.0.0-20250217122557-ce4c934f30e5
-	knative.dev/networking v0.0.0-20250217154350-2cde4327c6c8
-	knative.dev/pkg v0.0.0-20250218011850-c925de2a3f07
-	knative.dev/serving v0.44.1-0.20250217152724-7125e03443cd
+	knative.dev/caching v0.0.0-20250226145629-ad23fbda1a2b
+	knative.dev/hack v0.0.0-20250219013704-306ce745e077
+	knative.dev/networking v0.0.0-20250226145929-863b7af736fb
+	knative.dev/pkg v0.0.0-20250226145529-0372c089c78f
+	knative.dev/serving v0.44.1-0.20250227084930-02106588462d
 )
 
 require (

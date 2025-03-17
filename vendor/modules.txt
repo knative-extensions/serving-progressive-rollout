@@ -1179,7 +1179,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20241021183759-9b9d535af5ad
+# knative.dev/pkg v0.0.0-20250306143800-fff4f701c7af
 ## explicit; go 1.22.0
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1246,7 +1246,7 @@ knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
 knative.dev/pkg/websocket
-# knative.dev/serving v0.43.2
+# knative.dev/serving v0.43.3
 ## explicit; go 1.22.0
 knative.dev/serving/pkg/activator
 knative.dev/serving/pkg/apis/autoscaling

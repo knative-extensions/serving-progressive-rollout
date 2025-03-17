@@ -808,10 +808,10 @@ knative.dev/hack v0.0.0-20250220110655-b5e4ff820460 h1:N82WjXiv6RlXnA+qV4cA2tUbT
 knative.dev/hack v0.0.0-20250220110655-b5e4ff820460/go.mod h1:R0ritgYtjLDO9527h5vb5X6gfvt5LCrJ55BNbVDsWiY=
 knative.dev/networking v0.0.0-20241022012959-60e29ff520dc h1:0d9XXRLlyuHfINZLlYqo/BYe/+chqqNBMLKJldjTbtw=
 knative.dev/networking v0.0.0-20241022012959-60e29ff520dc/go.mod h1:G56j6VCLzfaN9yZ4IqfNyN4c3U1czvhUmKeZX4UjQ8Q=
-knative.dev/pkg v0.0.0-20241021183759-9b9d535af5ad h1:Nrjtr2H168rJeamH4QdyLMV1lEKHejNhaj1ymgQMfLk=
-knative.dev/pkg v0.0.0-20241021183759-9b9d535af5ad/go.mod h1:StJI72GWcm/iErmk4RqFJiOo8RLbVqPbHxUqeVwAzeo=
-knative.dev/serving v0.43.2 h1:itJXTQeWUnqoIChf5uXQ97UG0sxNos1H0ZHov4GA/+g=
-knative.dev/serving v0.43.2/go.mod h1:KhhRhb3HPyKSm924/QRjqtAj2U0x5UZM217SxVTbibs=
+knative.dev/pkg v0.0.0-20250306143800-fff4f701c7af h1:TIcDRFQshmgSiL3/HS0tqYnx+bKQ82oWZBh8UW/riSA=
+knative.dev/pkg v0.0.0-20250306143800-fff4f701c7af/go.mod h1:S/G3HM48IyRSvVg2sPyh9RK/F3VdmjCX+dSdoj/RxG8=
+knative.dev/serving v0.43.3 h1:3LWcWH2tCFm220+Q1E6D2uVOOrJp1ZN/ipV5DxsHf2o=
+knative.dev/serving v0.43.3/go.mod h1:fqLwdZe1aROIG/vlk1De3jTc5jS5Tik8NFoVJeQRLrU=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=

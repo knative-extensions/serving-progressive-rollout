@@ -162,7 +162,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	}
 
 	// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
-	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig))
+	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig, c.spaLister,
+		c.routeLister))
 	if err != nil {
 		return err
 	}
@@ -909,19 +910,70 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions 
 	return stageRevisionTarget
 }
 
-func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc *RolloutConfig) *servingv1.Service {
+func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
+	spaLister listers.StagePodAutoscalerLister, routeLister servinglisters.RouteLister) *servingv1.Service {
 	// If Knative Service defines more than one traffic, this feature tentatively does not cover this case.
 	if len(service.Spec.Traffic) > 1 {
 		return service
 	}
 	service.Spec.RouteSpec = servingv1.RouteSpec{
-		Traffic: convertIntoTrafficTarget(service.GetName(), ro, rc),
+		Traffic: convertIntoTrafficTarget(service.GetName(), ro, rc, spaLister, routeLister),
 	}
 	return service
 }
 
-func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *RolloutConfig) []servingv1.TrafficTarget {
+func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
+	spaLister listers.StagePodAutoscalerLister, routeLister servinglisters.RouteLister) []servingv1.TrafficTarget {
 	revisionTarget := ro.Spec.StageTargetRevisions
+	if !ro.IsNotConvertToOneUpgrade() && rc.ProgressiveRolloutEnabled {
+		// The revisionTarget is set directly to ro.Spec.StageTargetRevisions, because this is not a
+		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
+		// in the implementation. The traffic target is set directly configured in ro.Spec.StageTargetRevisions.
+		// However, if this is one-to-one or many-to-one rollout, we need to make sure the minimum number of
+		// replicas are met before shifting the traffic percentage over.
+		// Find out the name of the revision scaling up. Get the name of the spa for the revision scaling up.
+		// The name is the same as the revision name.
+		finalTargetRevs := ro.Spec.TargetRevisions
+		spaTargetRevName := finalTargetRevs[0].RevisionName
+		targetNumberReplicas := finalTargetRevs[0].MinScale
+
+		// Find the target number of replicas for the current stage.
+		for _, revision := range ro.Spec.StageTargetRevisions {
+			if revision.RevisionName == spaTargetRevName {
+				targetNumberReplicas = revision.TargetReplicas
+			}
+		}
+		spa, err := spaLister.StagePodAutoscalers(ro.Namespace).Get(spaTargetRevName)
+		// Check the number of replicas has reached the target number of replicas for the revision scaling up
+		if err == nil && *spa.Status.ActualScale < *targetNumberReplicas {
+			// If we have issues getting the spa, or the number of the replicas has reached the target number of
+			// the revision to scale up, we set the revisionTarget to ro.Spec.StageTargetRevisions.
+
+			// However, if there is no issue getting yhe spa, and the actual number of replicas is less than
+			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
+			// as the traffic information for the route.
+			if len(ro.Status.StageRevisionStatus) > 0 {
+				// If the ro has the StageRevisionStatus in the status, use it.
+				revisionTarget = ro.Status.StageRevisionStatus
+				for index := 0; index < len(revisionTarget); index++ {
+					revisionTarget[index].LatestRevision = ptr.Bool(false)
+				}
+			} else {
+				// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
+				route, errRoute := routeLister.Routes(ro.Namespace).Get(ro.Name)
+				if errRoute != nil && !apierrs.IsNotFound(errRoute) {
+					if len(route.Status.Traffic) > 0 {
+						traffics := route.Status.Traffic
+						for index := 0; index < len(traffics); index++ {
+							traffics[index].LatestRevision = ptr.Bool(false)
+						}
+						return traffics
+					}
+				}
+			}
+		}
+	}
+
 	trafficTarget := make([]servingv1.TrafficTarget, 0, len(revisionTarget))
 	for _, revision := range revisionTarget {
 		target := servingv1.TrafficTarget{}

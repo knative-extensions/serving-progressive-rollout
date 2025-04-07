@@ -862,7 +862,7 @@ func TestTransformService(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			service := TransformService(test.service, test.ro, nil)
+			service := TransformService(test.service, test.ro, nil, nil, nil)
 			if !reflect.DeepEqual(service, test.ExpectedService) {
 				t.Fatalf("Result of TransformService() = %v, want %v", service, test.ExpectedService)
 			}

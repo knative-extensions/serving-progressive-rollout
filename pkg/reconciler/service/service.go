@@ -162,8 +162,8 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	}
 
 	// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
-	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig, c.spaLister,
-		c.routeLister))
+	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig, c.spaLister.StagePodAutoscalers(service.Namespace),
+		c.routeLister.Routes(service.Namespace)))
 	if err != nil {
 		return err
 	}
@@ -911,7 +911,7 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions 
 }
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
-	spaLister listers.StagePodAutoscalerLister, routeLister servinglisters.RouteLister) *servingv1.Service {
+	spaLister listers.StagePodAutoscalerNamespaceLister, routeLister servinglisters.RouteNamespaceLister) *servingv1.Service {
 	// If Knative Service defines more than one traffic, this feature tentatively does not cover this case.
 	if len(service.Spec.Traffic) > 1 {
 		return service
@@ -923,7 +923,7 @@ func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc
 }
 
 func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
-	spaLister listers.StagePodAutoscalerLister, routeLister servinglisters.RouteLister) []servingv1.TrafficTarget {
+	spaLister listers.StagePodAutoscalerNamespaceLister, routeLister servinglisters.RouteNamespaceLister) []servingv1.TrafficTarget {
 	revisionTarget := ro.Spec.StageTargetRevisions
 	if !ro.IsNotConvertToOneUpgrade() && rc.ProgressiveRolloutEnabled {
 		// The revisionTarget is set directly to ro.Spec.StageTargetRevisions, because this is not a
@@ -935,17 +935,18 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		// The name is the same as the revision name.
 		finalTargetRevs := ro.Spec.TargetRevisions
 		spaTargetRevName := finalTargetRevs[0].RevisionName
-		targetNumberReplicas := finalTargetRevs[0].MinScale
+		targetNumberReplicas, minScale := finalTargetRevs[0].MinScale, finalTargetRevs[0].MinScale
 
 		// Find the target number of replicas for the current stage.
 		for _, revision := range ro.Spec.StageTargetRevisions {
-			if revision.RevisionName == spaTargetRevName {
+			if revision.RevisionName == spaTargetRevName && revision.TargetReplicas != nil {
 				targetNumberReplicas = revision.TargetReplicas
 			}
 		}
-		spa, err := spaLister.StagePodAutoscalers(ro.Namespace).Get(spaTargetRevName)
+		spa, err := spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
-		if err == nil && *spa.Status.ActualScale < *targetNumberReplicas {
+		if err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil && minScale != nil &&
+			*spa.Status.ActualScale < *minScale && *spa.Status.ActualScale < *targetNumberReplicas {
 			// If we have issues getting the spa, or the number of the replicas has reached the target number of
 			// the revision to scale up, we set the revisionTarget to ro.Spec.StageTargetRevisions.
 
@@ -956,15 +957,21 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 				// If the ro has the StageRevisionStatus in the status, use it.
 				revisionTarget = ro.Status.StageRevisionStatus
 				for index := 0; index < len(revisionTarget); index++ {
+					if revisionTarget[index].RevisionName == spaTargetRevName {
+						continue
+					}
 					revisionTarget[index].LatestRevision = ptr.Bool(false)
 				}
 			} else {
 				// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
-				route, errRoute := routeLister.Routes(ro.Namespace).Get(ro.Name)
+				route, errRoute := routeLister.Get(ro.Name)
 				if errRoute != nil && !apierrs.IsNotFound(errRoute) {
 					if len(route.Status.Traffic) > 0 {
 						traffics := route.Status.Traffic
 						for index := 0; index < len(traffics); index++ {
+							if traffics[index].RevisionName == spaTargetRevName {
+								continue
+							}
 							traffics[index].LatestRevision = ptr.Bool(false)
 						}
 						return traffics

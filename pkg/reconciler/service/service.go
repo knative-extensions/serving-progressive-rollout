@@ -956,7 +956,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			if len(ro.Status.StageRevisionStatus) > 0 {
 				// If the ro has the StageRevisionStatus in the status, use it.
 				revisionTarget = ro.Status.StageRevisionStatus
-				for index := 0; index < len(revisionTarget); index++ {
+				for index := range revisionTarget {
 					if revisionTarget[index].RevisionName == spaTargetRevName {
 						continue
 					}
@@ -965,17 +965,15 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			} else {
 				// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
 				route, errRoute := routeLister.Get(ro.Name)
-				if errRoute != nil && !apierrs.IsNotFound(errRoute) {
-					if len(route.Status.Traffic) > 0 {
-						traffics := route.Status.Traffic
-						for index := 0; index < len(traffics); index++ {
-							if traffics[index].RevisionName == spaTargetRevName {
-								continue
-							}
-							traffics[index].LatestRevision = ptr.Bool(false)
+				if errRoute == nil && len(route.Status.Traffic) > 0 {
+					traffics := route.Status.Traffic
+					for index := range traffics {
+						if traffics[index].RevisionName == spaTargetRevName || (traffics[index].LatestRevision != nil && *traffics[index].LatestRevision) {
+							continue
 						}
-						return traffics
+						traffics[index].LatestRevision = ptr.Bool(false)
 					}
+					return traffics
 				}
 			}
 		}

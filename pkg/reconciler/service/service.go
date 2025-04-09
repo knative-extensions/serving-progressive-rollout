@@ -983,8 +983,6 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 	trafficTarget := make([]servingv1.TrafficTarget, 0, len(revisionTarget))
 	for _, revision := range revisionTarget {
 		target := servingv1.TrafficTarget{}
-		target.LatestRevision = revision.LatestRevision
-
 		if revision.Percent == nil {
 			// There is a difference between assigning 0% of the traffic and assigning nil traffic to the revision:
 			// 0% of the traffic means no traffic will go to the target revision, but the revision is still active,
@@ -1011,8 +1009,10 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			} else {
 				target.ConfigurationName = name
 			}
+			target.LatestRevision = ptr.Bool(true)
 		} else {
 			target.RevisionName = revision.RevisionName
+			target.LatestRevision = ptr.Bool(false)
 		}
 		target.Tag = revision.Tag
 		target.URL = revision.URL

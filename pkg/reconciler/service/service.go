@@ -925,6 +925,8 @@ func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc
 func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
 	spaLister listers.StagePodAutoscalerNamespaceLister, routeLister servinglisters.RouteNamespaceLister) []servingv1.TrafficTarget {
 	revisionTarget := ro.Spec.StageTargetRevisions
+	finalTargetRevs := ro.Spec.TargetRevisions
+	targetRevName := finalTargetRevs[0].RevisionName
 	if !ro.IsNotConvertToOneUpgrade() && rc.ProgressiveRolloutEnabled {
 		// The revisionTarget is set directly to ro.Spec.StageTargetRevisions, because this is not a
 		// one-to-one revision upgrade or the rollout feature is disabled. We do not cover this use case
@@ -933,8 +935,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		// replicas are met before shifting the traffic percentage over.
 		// Find out the name of the revision scaling up. Get the name of the spa for the revision scaling up.
 		// The name is the same as the revision name.
-		finalTargetRevs := ro.Spec.TargetRevisions
-		spaTargetRevName := finalTargetRevs[0].RevisionName
+		spaTargetRevName := targetRevName
 		targetNumberReplicas, minScale := finalTargetRevs[0].MinScale, finalTargetRevs[0].MinScale
 
 		// Find the target number of replicas for the current stage.
@@ -968,7 +969,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 				if errRoute == nil && len(route.Status.Traffic) > 0 {
 					traffics := route.Status.Traffic
 					for index := range traffics {
-						if traffics[index].RevisionName == spaTargetRevName || (traffics[index].LatestRevision != nil && *traffics[index].LatestRevision) {
+						if traffics[index].RevisionName == spaTargetRevName {
 							continue
 						}
 						traffics[index].LatestRevision = ptr.Bool(false)

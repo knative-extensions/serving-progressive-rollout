@@ -1006,6 +1006,8 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		}
 
 		if revision.LatestRevision != nil && *revision.LatestRevision {
+			// No matter the RevisionName is available for the latest revision or not, we cannot
+			// set the RevisionName here. Only ConfigurationName is allowed.
 			if strings.TrimSpace(revision.ConfigurationName) != "" {
 				target.ConfigurationName = revision.ConfigurationName
 			} else {

@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -1005,8 +1006,47 @@ func TestTransformService(t *testing.T) {
 							LatestRevision: ptr.Bool(false),
 						},
 						{
+							RevisionName:   "rev-002",
+							Percent:        ptr.Int64(10),
+							LatestRevision: ptr.Bool(true),
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "Test with StageTargetRevisions with revision name for the latest revision with error getting SPA",
+		spaLister: MockSPALister{
+			ActualScale: ptr.Int32(1),
+			Err:         fmt.Errorf("Unable to find the resource"),
+		},
+		routeLister: MockRouteLister{},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled: true,
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+		},
+		ro: MockRolloutOrchestratorNoStatus,
+		ExpectedService: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							Percent:        ptr.Int64(80),
+							LatestRevision: ptr.Bool(false),
+						},
+						{
 							ConfigurationName: "test-name",
-							Percent:           ptr.Int64(10),
+							Percent:           ptr.Int64(20),
 							LatestRevision:    ptr.Bool(true),
 						},
 					},
@@ -1018,7 +1058,7 @@ func TestTransformService(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			service := TransformService(test.service, test.ro, test.rc, test.spaLister, test.routeLister)
-			if !reflect.DeepEqual(service.Spec.RouteSpec.Traffic, test.ExpectedService.Spec.RouteSpec.Traffic) {
+			if !reflect.DeepEqual(service, test.ExpectedService) {
 				t.Fatalf("Result of TransformService() = %v, want %v", service, test.ExpectedService)
 			}
 		})
@@ -1027,6 +1067,7 @@ func TestTransformService(t *testing.T) {
 
 type MockSPALister struct {
 	ActualScale *int32
+	Err         error
 }
 
 func (spaLister MockSPALister) List(_ labels.Selector) (ret []*v1.StagePodAutoscaler, err error) {
@@ -1038,7 +1079,7 @@ func (spaLister MockSPALister) Get(_ string) (*v1.StagePodAutoscaler, error) {
 		Status: v1.StagePodAutoscalerStatus{
 			ActualScale: spaLister.ActualScale,
 		},
-	}, nil
+	}, spaLister.Err
 }
 
 type MockRouteLister struct {
@@ -1059,9 +1100,9 @@ func (routeLister MockRouteLister) Get(_ string) (*servingv1.Route, error) {
 						LatestRevision: ptr.Bool(false),
 					},
 					{
-						ConfigurationName: "test-name",
-						Percent:           ptr.Int64(10),
-						LatestRevision:    ptr.Bool(true),
+						RevisionName:   "rev-002",
+						Percent:        ptr.Int64(10),
+						LatestRevision: ptr.Bool(true),
 					},
 				},
 			},

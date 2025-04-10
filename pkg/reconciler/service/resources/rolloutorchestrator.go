@@ -197,9 +197,9 @@ func GetInitialTargetRevision(service *servingv1.Service, config *servingv1.Conf
 }
 
 // consolidateTraffic consolidates traffic with the same revision name into one.
-func consolidateTraffic(traffic []servingv1.TrafficTarget) []servingv1.TrafficTarget {
+func consolidateTraffic(trafficTargets []servingv1.TrafficTarget) []servingv1.TrafficTarget {
 	trafficMap := map[string]*servingv1.TrafficTarget{}
-	for _, traffic := range traffic {
+	for _, traffic := range trafficTargets {
 		if trafficInMap, found := trafficMap[traffic.RevisionName]; !found {
 			trafficMap[traffic.RevisionName] = traffic.DeepCopy()
 		} else {

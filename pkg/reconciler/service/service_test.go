@@ -17,22 +17,24 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/ptr"
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
+	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	palisters "knative.dev/serving/pkg/client/listers/autoscaling/v1alpha1"
+	servinglisters "knative.dev/serving/pkg/client/listers/serving/v1"
 )
 
 func TestCreateRevRecordsFromRevList(t *testing.T) {
@@ -771,72 +773,154 @@ func TestUpdateStageTargetRevisions(t *testing.T) {
 	}
 }
 
+var (
+	MockRolloutOrchestrator = &v1.RolloutOrchestrator{
+		Spec: v1.RolloutOrchestratorSpec{
+			InitialRevisions: []v1.TargetRevision{
+				{
+					TrafficTarget: servingv1.TrafficTarget{
+						RevisionName:   "rev-001",
+						LatestRevision: ptr.Bool(false),
+						Percent:        ptr.Int64(100),
+					},
+					MinScale: ptr.Int32(10),
+					MaxScale: ptr.Int32(10),
+				},
+			},
+			TargetRevisions: []v1.TargetRevision{
+				{
+					TrafficTarget: servingv1.TrafficTarget{
+						RevisionName:   "rev-002",
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					},
+					MinScale: ptr.Int32(10),
+					MaxScale: ptr.Int32(10),
+				},
+			},
+			StageTarget: v1.StageTarget{
+				StageTargetRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "rev-001",
+							LatestRevision: ptr.Bool(false),
+							Percent:        ptr.Int64(80),
+						},
+						MinScale:       ptr.Int32(10),
+						MaxScale:       ptr.Int32(10),
+						TargetReplicas: ptr.Int32(8),
+						Direction:      "down",
+					},
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "rev-002",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(20),
+						},
+						MinScale:       ptr.Int32(10),
+						MaxScale:       ptr.Int32(10),
+						Direction:      "up",
+						TargetReplicas: ptr.Int32(2),
+					},
+				},
+			},
+		},
+		Status: v1.RolloutOrchestratorStatus{
+			RolloutOrchestratorStatusFields: v1.RolloutOrchestratorStatusFields{
+				StageRevisionStatus: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "rev-001",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(100),
+						},
+						MinScale:       ptr.Int32(10),
+						MaxScale:       ptr.Int32(10),
+						TargetReplicas: ptr.Int32(10),
+					},
+				},
+			},
+		},
+	}
+	MockRolloutOrchestratorNoStatus = &v1.RolloutOrchestrator{
+		Spec: v1.RolloutOrchestratorSpec{
+			InitialRevisions: []v1.TargetRevision{
+				{
+					TrafficTarget: servingv1.TrafficTarget{
+						RevisionName:   "rev-001",
+						LatestRevision: ptr.Bool(false),
+						Percent:        ptr.Int64(100),
+					},
+					MinScale: ptr.Int32(10),
+					MaxScale: ptr.Int32(10),
+				},
+			},
+			TargetRevisions: []v1.TargetRevision{
+				{
+					TrafficTarget: servingv1.TrafficTarget{
+						RevisionName:   "rev-002",
+						LatestRevision: ptr.Bool(true),
+						Percent:        ptr.Int64(100),
+					},
+					MinScale: ptr.Int32(10),
+					MaxScale: ptr.Int32(10),
+				},
+			},
+			StageTarget: v1.StageTarget{
+				StageTargetRevisions: []v1.TargetRevision{
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "rev-001",
+							LatestRevision: ptr.Bool(false),
+							Percent:        ptr.Int64(80),
+						},
+						MinScale:       ptr.Int32(10),
+						MaxScale:       ptr.Int32(10),
+						TargetReplicas: ptr.Int32(8),
+						Direction:      "down",
+					},
+					{
+						TrafficTarget: servingv1.TrafficTarget{
+							RevisionName:   "rev-002",
+							LatestRevision: ptr.Bool(true),
+							Percent:        ptr.Int64(20),
+						},
+						MinScale:       ptr.Int32(10),
+						MaxScale:       ptr.Int32(10),
+						Direction:      "up",
+						TargetReplicas: ptr.Int32(2),
+					},
+				},
+			},
+		},
+	}
+)
+
 func TestTransformService(t *testing.T) {
 	tests := []struct {
 		name            string
 		service         *servingv1.Service
 		ro              *v1.RolloutOrchestrator
+		spaLister       listers.StagePodAutoscalerNamespaceLister
+		routeLister     servinglisters.RouteNamespaceLister
+		rc              *RolloutConfig
 		ExpectedService *servingv1.Service
 	}{{
 		name: "Test with StageTargetRevisions with revision name for the latest revision",
+		spaLister: MockSPALister{
+			ActualScale: ptr.Int32(2),
+		},
+		routeLister: MockRouteLister{},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled: true,
+		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-ns",
 			},
 		},
-		ro: &v1.RolloutOrchestrator{
-			Spec: v1.RolloutOrchestratorSpec{
-				InitialRevisions: []v1.TargetRevision{
-					{
-						TrafficTarget: servingv1.TrafficTarget{
-							RevisionName:   "rev-001",
-							LatestRevision: ptr.Bool(false),
-							Percent:        ptr.Int64(100),
-						},
-						MinScale: ptr.Int32(10),
-						MaxScale: ptr.Int32(10),
-					},
-				},
-				TargetRevisions: []v1.TargetRevision{
-					{
-						TrafficTarget: servingv1.TrafficTarget{
-							RevisionName:   "rev-002",
-							LatestRevision: ptr.Bool(true),
-							Percent:        ptr.Int64(100),
-						},
-						MinScale: ptr.Int32(10),
-						MaxScale: ptr.Int32(10),
-					},
-				},
-				StageTarget: v1.StageTarget{
-					StageTargetRevisions: []v1.TargetRevision{
-						{
-							TrafficTarget: servingv1.TrafficTarget{
-								RevisionName:   "rev-001",
-								LatestRevision: ptr.Bool(false),
-								Percent:        ptr.Int64(60),
-							},
-							MinScale:       ptr.Int32(10),
-							MaxScale:       ptr.Int32(10),
-							TargetReplicas: ptr.Int32(6),
-							Direction:      "down",
-						},
-						{
-							TrafficTarget: servingv1.TrafficTarget{
-								RevisionName:   "rev-002",
-								LatestRevision: ptr.Bool(true),
-								Percent:        ptr.Int64(40),
-							},
-							MinScale:       ptr.Int32(10),
-							MaxScale:       ptr.Int32(10),
-							Direction:      "up",
-							TargetReplicas: ptr.Int32(4),
-						},
-					},
-				},
-			},
-		},
+		ro: MockRolloutOrchestrator,
 		ExpectedService: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
@@ -848,24 +932,180 @@ func TestTransformService(t *testing.T) {
 						{
 							RevisionName:   "rev-001",
 							LatestRevision: ptr.Bool(false),
-							Percent:        ptr.Int64(60),
+							Percent:        ptr.Int64(80),
 						},
 						{
 							ConfigurationName: "test-name",
 							LatestRevision:    ptr.Bool(true),
-							Percent:           ptr.Int64(40),
+							Percent:           ptr.Int64(20),
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "Test with StageTargetRevisions with revision name for the latest revision, but not reaching target replicas",
+		spaLister: MockSPALister{
+			ActualScale: ptr.Int32(1),
+		},
+		routeLister: MockRouteLister{},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled: true,
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+		},
+		ro: MockRolloutOrchestrator,
+		ExpectedService: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							LatestRevision: ptr.Bool(false),
+							Percent:        ptr.Int64(100),
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "Test with StageTargetRevisions with revision name for the latest revision, use routeLister",
+		spaLister: MockSPALister{
+			ActualScale: ptr.Int32(1),
+		},
+		routeLister: MockRouteLister{},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled: true,
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+		},
+		ro: MockRolloutOrchestratorNoStatus,
+		ExpectedService: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							Percent:        ptr.Int64(90),
+							LatestRevision: ptr.Bool(false),
+						},
+						{
+							RevisionName:   "rev-002",
+							Percent:        ptr.Int64(10),
+							LatestRevision: ptr.Bool(true),
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "Test with StageTargetRevisions with revision name for the latest revision with error getting SPA",
+		spaLister: MockSPALister{
+			ActualScale: ptr.Int32(1),
+			Err:         fmt.Errorf("Unable to find the resource"),
+		},
+		routeLister: MockRouteLister{},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled: true,
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+		},
+		ro: MockRolloutOrchestratorNoStatus,
+		ExpectedService: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							Percent:        ptr.Int64(80),
+							LatestRevision: ptr.Bool(false),
+						},
+						{
+							ConfigurationName: "test-name",
+							Percent:           ptr.Int64(20),
+							LatestRevision:    ptr.Bool(true),
 						},
 					},
 				},
 			},
 		},
 	}}
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			service := TransformService(test.service, test.ro, nil)
+			service := TransformService(test.service, test.ro, test.rc, test.spaLister, test.routeLister)
 			if !reflect.DeepEqual(service, test.ExpectedService) {
 				t.Fatalf("Result of TransformService() = %v, want %v", service, test.ExpectedService)
 			}
 		})
 	}
+}
+
+type MockSPALister struct {
+	ActualScale *int32
+	Err         error
+}
+
+func (spaLister MockSPALister) List(_ labels.Selector) (ret []*v1.StagePodAutoscaler, err error) {
+	return nil, nil
+}
+
+func (spaLister MockSPALister) Get(_ string) (*v1.StagePodAutoscaler, error) {
+	return &v1.StagePodAutoscaler{
+		Status: v1.StagePodAutoscalerStatus{
+			ActualScale: spaLister.ActualScale,
+		},
+	}, spaLister.Err
+}
+
+type MockRouteLister struct {
+}
+
+func (routeLister MockRouteLister) List(_ labels.Selector) (ret []*servingv1.Route, err error) {
+	return nil, nil
+}
+
+func (routeLister MockRouteLister) Get(_ string) (*servingv1.Route, error) {
+	return &servingv1.Route{
+		Status: servingv1.RouteStatus{
+			RouteStatusFields: servingv1.RouteStatusFields{
+				Traffic: []servingv1.TrafficTarget{
+					{
+						RevisionName:   "rev-001",
+						Percent:        ptr.Int64(90),
+						LatestRevision: ptr.Bool(false),
+					},
+					{
+						RevisionName:   "rev-002",
+						Percent:        ptr.Int64(10),
+						LatestRevision: ptr.Bool(true),
+					},
+				},
+			},
+		},
+	}, nil
 }

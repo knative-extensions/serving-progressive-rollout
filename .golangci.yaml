@@ -1,13 +1,7 @@
+version: "2"
 run:
-  timeout: 5m
-
   build-tags:
     - e2e
-
-issues:
-  exclude-dirs:
-    - pkg/client # Excludes generated client
-
 linters:
   enable:
     - asciicheck
@@ -15,14 +9,32 @@ linters:
     - gosec
     - prealloc
     - revive
-    - stylecheck
+    - staticcheck
     - tparallel
     - unconvert
     - unparam
   disable:
     - errcheck
-
-linters-settings:
-  gosec:
-    excludes:
-      - G115
+  settings:
+    gosec:
+      excludes:
+        - G115
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - pkg/client
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

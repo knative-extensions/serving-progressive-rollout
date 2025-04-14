@@ -44,6 +44,7 @@ import (
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/strategies"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/serving"
@@ -937,14 +938,38 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		// The name is the same as the revision name.
 		spaTargetRevName := targetRevName
 		targetNumberReplicas, minScale := finalTargetRevs[0].MinScale, finalTargetRevs[0].MinScale
+		var minScalingDown *int32
+		targetNameScalingDown := ""
+		var targetReplicasPercentage *int64
 
 		// Find the target number of replicas for the current stage.
 		for _, revision := range ro.Spec.StageTargetRevisions {
 			if revision.RevisionName == spaTargetRevName && revision.TargetReplicas != nil {
 				targetNumberReplicas = revision.TargetReplicas
+				targetReplicasPercentage = revision.Percent
+			}
+
+			if revision.Direction == v1.DirectionDown {
+				targetNameScalingDown = revision.RevisionName
+				minScalingDown = revision.MinScale
 			}
 		}
-		spa, err := spaLister.Get(spaTargetRevName)
+
+		// Verify if the revision scaling down is traffic driven or not.
+		spa, err := spaLister.Get(targetNameScalingDown)
+		trafficDriven := true
+
+		if err == nil && ((spa.Status.ActualScale != nil && minScalingDown != nil &&
+			*spa.Status.ActualScale <= *minScalingDown) ||
+			(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil)) {
+			trafficDriven = false
+		}
+
+		lastStage := false
+		if targetReplicasPercentage != nil && *targetReplicasPercentage == 100 {
+			lastStage = true
+		}
+		spa, err = spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
 		if err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil && minScale != nil &&
 			*spa.Status.ActualScale < *minScale && *spa.Status.ActualScale < *targetNumberReplicas {
@@ -954,27 +979,31 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			// However, if there is no issue getting yhe spa, and the actual number of replicas is less than
 			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
 			// as the traffic information for the route.
-			if len(ro.Status.StageRevisionStatus) > 0 {
-				// If the ro has the StageRevisionStatus in the status, use it.
-				revisionTarget = ro.Status.StageRevisionStatus
-				for index := range revisionTarget {
-					if revisionTarget[index].RevisionName == spaTargetRevName {
-						continue
-					}
-					revisionTarget[index].LatestRevision = ptr.Bool(false)
-				}
-			} else {
-				// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
-				route, errRoute := routeLister.Get(ro.Name)
-				if errRoute == nil && len(route.Status.Traffic) > 0 {
-					traffics := route.Status.Traffic
-					for index := range traffics {
-						if traffics[index].RevisionName == spaTargetRevName {
+
+			if rc.ProgressiveRolloutStrategy == strategies.AvailabilityStrategy ||
+				(rc.ProgressiveRolloutStrategy == strategies.ResourceUtilStrategy && !trafficDriven && !lastStage) {
+				if len(ro.Status.StageRevisionStatus) > 0 {
+					// If the ro has the StageRevisionStatus in the status, use it.
+					revisionTarget = ro.Status.StageRevisionStatus
+					for index := range revisionTarget {
+						if revisionTarget[index].RevisionName == spaTargetRevName {
 							continue
 						}
-						traffics[index].LatestRevision = ptr.Bool(false)
+						revisionTarget[index].LatestRevision = ptr.Bool(false)
 					}
-					return traffics
+				} else {
+					// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
+					route, errRoute := routeLister.Get(ro.Name)
+					if errRoute == nil && len(route.Status.Traffic) > 0 {
+						traffics := route.Status.Traffic
+						for index := range traffics {
+							if traffics[index].RevisionName == spaTargetRevName {
+								continue
+							}
+							traffics[index].LatestRevision = ptr.Bool(false)
+						}
+						return traffics
+					}
 				}
 			}
 		}

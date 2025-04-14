@@ -29,6 +29,7 @@ import (
 	v1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
 	listers "knative.dev/serving-progressive-rollout/pkg/client/listers/serving/v1"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/common"
+	"knative.dev/serving-progressive-rollout/pkg/reconciler/rolloutorchestrator/strategies"
 	"knative.dev/serving-progressive-rollout/pkg/reconciler/service/resources"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"knative.dev/serving/pkg/apis/autoscaling/v1alpha1"
@@ -912,7 +913,8 @@ func TestTransformService(t *testing.T) {
 		},
 		routeLister: MockRouteLister{},
 		rc: &RolloutConfig{
-			ProgressiveRolloutEnabled: true,
+			ProgressiveRolloutEnabled:  true,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -950,7 +952,8 @@ func TestTransformService(t *testing.T) {
 		},
 		routeLister: MockRouteLister{},
 		rc: &RolloutConfig{
-			ProgressiveRolloutEnabled: true,
+			ProgressiveRolloutEnabled:  true,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -983,7 +986,8 @@ func TestTransformService(t *testing.T) {
 		},
 		routeLister: MockRouteLister{},
 		rc: &RolloutConfig{
-			ProgressiveRolloutEnabled: true,
+			ProgressiveRolloutEnabled:  true,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1022,7 +1026,8 @@ func TestTransformService(t *testing.T) {
 		},
 		routeLister: MockRouteLister{},
 		rc: &RolloutConfig{
-			ProgressiveRolloutEnabled: true,
+			ProgressiveRolloutEnabled:  true,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
 		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{

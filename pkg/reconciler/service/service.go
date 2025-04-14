@@ -936,9 +936,10 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		// replicas are met before shifting the traffic percentage over.
 		// Find out the name of the revision scaling up. Get the name of the spa for the revision scaling up.
 		// The name is the same as the revision name.
-		spaTargetRevName, targetNameScalingDown := targetRevName, ""
+		spaTargetRevName := targetRevName
 		targetNumberReplicas, minScale := finalTargetRevs[0].MinScale, finalTargetRevs[0].MinScale
 		var minScalingDown *int32
+		targetNameScalingDown := ""
 		var targetReplicasPercentage *int64
 
 		// Find the target number of replicas for the current stage.
@@ -956,13 +957,15 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 
 		// Verify if the revision scaling down is traffic driven or not.
 		spa, err := spaLister.Get(targetNameScalingDown)
-		trafficDriven, lastStage := true, false
-		if err == nil && (spa.Status.ActualScale != nil && minScalingDown != nil &&
+		trafficDriven := true
+
+		if err == nil && ((spa.Status.ActualScale != nil && minScalingDown != nil &&
 			*spa.Status.ActualScale <= *minScalingDown) ||
-			(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil) {
+			(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil)) {
 			trafficDriven = false
 		}
 
+		lastStage := false
 		if targetReplicasPercentage != nil && *targetReplicasPercentage == 100 {
 			lastStage = true
 		}
@@ -978,7 +981,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			// as the traffic information for the route.
 
 			if rc.ProgressiveRolloutStrategy == strategies.AvailabilityStrategy ||
-				rc.ProgressiveRolloutStrategy == strategies.ResourceUtilStrategy && !trafficDriven && !lastStage {
+				(rc.ProgressiveRolloutStrategy == strategies.ResourceUtilStrategy && !trafficDriven && !lastStage) {
 				if len(ro.Status.StageRevisionStatus) > 0 {
 					// If the ro has the StageRevisionStatus in the status, use it.
 					revisionTarget = ro.Status.StageRevisionStatus

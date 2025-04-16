@@ -959,9 +959,9 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		spa, err := spaLister.Get(targetNameScalingDown)
 		trafficDriven := true
 
-		if err == nil && ((spa.Status.ActualScale != nil && minScalingDown != nil &&
+		if apierrs.IsNotFound(err) || (err == nil && ((spa.Status.ActualScale != nil && minScalingDown != nil &&
 			*spa.Status.ActualScale <= *minScalingDown) ||
-			(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil)) {
+			(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil))) {
 			trafficDriven = false
 		}
 
@@ -969,19 +969,19 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		if targetReplicasPercentage != nil && *targetReplicasPercentage == 100 {
 			lastStage = true
 		}
+
 		spa, err = spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
-		if err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil && minScale != nil &&
-			*spa.Status.ActualScale < *minScale && *spa.Status.ActualScale < *targetNumberReplicas {
+		if apierrs.IsNotFound(err) || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
+			minScale != nil && *targetNumberReplicas <= *minScale && *spa.Status.ActualScale < *targetNumberReplicas) {
 			// If we have issues getting the spa, or the number of the replicas has reached the target number of
 			// the revision to scale up, we set the revisionTarget to ro.Spec.StageTargetRevisions.
 
 			// However, if there is no issue getting yhe spa, and the actual number of replicas is less than
 			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
 			// as the traffic information for the route.
-
-			if rc.ProgressiveRolloutStrategy == strategies.AvailabilityStrategy ||
-				(rc.ProgressiveRolloutStrategy == strategies.ResourceUtilStrategy && !trafficDriven && !lastStage) {
+			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) ||
+				(strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.ResourceUtilStrategy) && !trafficDriven && !lastStage) {
 				if len(ro.Status.StageRevisionStatus) > 0 {
 					// If the ro has the StageRevisionStatus in the status, use it.
 					revisionTarget = ro.Status.StageRevisionStatus

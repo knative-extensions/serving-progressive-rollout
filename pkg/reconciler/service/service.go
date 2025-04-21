@@ -938,39 +938,42 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 		// The name is the same as the revision name.
 		spaTargetRevName := targetRevName
 		targetNumberReplicas, minScale := finalTargetRevs[0].MinScale, finalTargetRevs[0].MinScale
-		var minScalingDown *int32
-		targetNameScalingDown := ""
-		var targetReplicasPercentage *int64
+
+		// Comment out the following lines for further consideration with resourceUtil mode
+		//var minScalingDown *int32
+		//targetNameScalingDown := ""
+		//var targetReplicasPercentage *int64
 
 		// Find the target number of replicas for the current stage.
 		for _, revision := range ro.Spec.StageTargetRevisions {
 			if revision.RevisionName == spaTargetRevName && revision.TargetReplicas != nil {
 				targetNumberReplicas = revision.TargetReplicas
-				targetReplicasPercentage = revision.Percent
+				// targetReplicasPercentage = revision.Percent
 			}
 
-			if revision.Direction == v1.DirectionDown {
-				targetNameScalingDown = revision.RevisionName
-				minScalingDown = revision.MinScale
-			}
+			//if revision.Direction == v1.DirectionDown {
+			//	targetNameScalingDown = revision.RevisionName
+			//	minScalingDown = revision.MinScale
+			//}
 		}
 
 		// Verify if the revision scaling down is traffic driven or not.
-		spa, err := spaLister.Get(targetNameScalingDown)
-		trafficDriven := true
+		// Comment out the following lines for further consideration with resourceUtil mode
+		//spa, err := spaLister.Get(targetNameScalingDown)
+		//trafficDriven := true
+		//
+		//if apierrs.IsNotFound(err) || (err == nil && ((spa.Status.ActualScale != nil && minScalingDown != nil &&
+		//	*spa.Status.ActualScale <= *minScalingDown) ||
+		//	(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil))) {
+		//	trafficDriven = false
+		//}
+		//
+		//lastStage := false
+		//if targetReplicasPercentage != nil && *targetReplicasPercentage == 100 {
+		//	lastStage = true
+		//}
 
-		if apierrs.IsNotFound(err) || (err == nil && ((spa.Status.ActualScale != nil && minScalingDown != nil &&
-			*spa.Status.ActualScale <= *minScalingDown) ||
-			(spa.Status.ActualScale != nil && *spa.Status.ActualScale == 0 && minScalingDown == nil))) {
-			trafficDriven = false
-		}
-
-		lastStage := false
-		if targetReplicasPercentage != nil && *targetReplicasPercentage == 100 {
-			lastStage = true
-		}
-
-		spa, err = spaLister.Get(spaTargetRevName)
+		spa, err := spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
 		if apierrs.IsNotFound(err) || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
 			minScale != nil && *targetNumberReplicas <= *minScale && *spa.Status.ActualScale < *targetNumberReplicas) {
@@ -980,8 +983,9 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			// However, if there is no issue getting yhe spa, and the actual number of replicas is less than
 			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
 			// as the traffic information for the route.
-			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) ||
-				(strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.ResourceUtilStrategy) && !trafficDriven && !lastStage) {
+			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) {
+				// Comment out the following lines for further consideration with resourceUtil mode
+				// || (strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.ResourceUtilStrategy) && !trafficDriven && !lastStage) {
 				if len(ro.Status.StageRevisionStatus) > 0 {
 					// If the ro has the StageRevisionStatus in the status, use it.
 					revisionTarget = ro.Status.StageRevisionStatus

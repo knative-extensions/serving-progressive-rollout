@@ -1,6 +1,6 @@
 module knative.dev/serving-progressive-rollout
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/google/go-cmp v0.7.0
@@ -18,7 +18,7 @@ require (
 	knative.dev/hack v0.0.0-20250331013814-c577ed9f7775
 	knative.dev/networking v0.0.0-20250415164913-6268d931d247
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
-	knative.dev/serving v0.44.1-0.20250421011706-7f044f16a11a
+	knative.dev/serving v0.44.1-0.20250422125738-a4c4491ecfd4
 )
 
 require (

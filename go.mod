@@ -14,11 +14,11 @@ require (
 	k8s.io/client-go v0.32.2
 	k8s.io/code-generator v0.32.2
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7
-	knative.dev/caching v0.0.0-20250424013925-250c6a13b784
+	knative.dev/caching v0.0.0-20250501125908-1dec38fa0505
 	knative.dev/hack v0.0.0-20250424013725-c4037b0fe56b
-	knative.dev/networking v0.0.0-20250424014624-16635c6d8dcc
+	knative.dev/networking v0.0.0-20250501223908-a06da1d4a880
 	knative.dev/pkg v0.0.0-20250424013628-d5e74d29daa3
-	knative.dev/serving v0.45.1-0.20250429135306-7decfdc7ccb5
+	knative.dev/serving v0.45.1-0.20250502121809-803fdbfd75e6
 )
 
 require (
@@ -72,7 +72,7 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect

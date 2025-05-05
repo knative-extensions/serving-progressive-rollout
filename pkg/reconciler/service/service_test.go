@@ -911,7 +911,9 @@ func TestTransformService(t *testing.T) {
 		spaLister: MockSPALister{
 			ActualScale: ptr.Int32(2),
 		},
-		routeLister: MockRouteLister{},
+		routeLister: MockRouteLister{
+			WithNewRev: true,
+		},
 		rc: &RolloutConfig{
 			ProgressiveRolloutEnabled:  true,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
@@ -950,7 +952,9 @@ func TestTransformService(t *testing.T) {
 		spaLister: MockSPALister{
 			ActualScale: ptr.Int32(1),
 		},
-		routeLister: MockRouteLister{},
+		routeLister: MockRouteLister{
+			WithNewRev: true,
+		},
 		rc: &RolloutConfig{
 			ProgressiveRolloutEnabled:  true,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
@@ -975,6 +979,52 @@ func TestTransformService(t *testing.T) {
 							LatestRevision: ptr.Bool(false),
 							Percent:        ptr.Int64(100),
 						},
+						{
+							ConfigurationName: "test-name",
+							LatestRevision:    ptr.Bool(true),
+							Percent:           ptr.Int64(0),
+						},
+					},
+				},
+			},
+		},
+	}, {
+		name: "Test with StageTargetRevisions with revision name for the latest revision, with no ro status, but route status",
+		spaLister: MockSPALister{
+			ActualScale: ptr.Int32(1),
+		},
+		routeLister: MockRouteLister{
+			WithNewRev: false,
+		},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled:  true,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+		},
+		ro: MockRolloutOrchestratorNoStatus,
+		ExpectedService: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							LatestRevision: ptr.Bool(false),
+							Percent:        ptr.Int64(100),
+						},
+						{
+							ConfigurationName: "test-name",
+							LatestRevision:    ptr.Bool(true),
+							Percent:           ptr.Int64(0),
+						},
 					},
 				},
 			},
@@ -984,7 +1034,9 @@ func TestTransformService(t *testing.T) {
 		spaLister: MockSPALister{
 			ActualScale: ptr.Int32(1),
 		},
-		routeLister: MockRouteLister{},
+		routeLister: MockRouteLister{
+			WithNewRev: true,
+		},
 		rc: &RolloutConfig{
 			ProgressiveRolloutEnabled:  true,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
@@ -1024,7 +1076,9 @@ func TestTransformService(t *testing.T) {
 			ActualScale: ptr.Int32(1),
 			Err:         fmt.Errorf("Unable to find the resource"),
 		},
-		routeLister: MockRouteLister{},
+		routeLister: MockRouteLister{
+			WithNewRev: true,
+		},
 		rc: &RolloutConfig{
 			ProgressiveRolloutEnabled:  true,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
@@ -1088,6 +1142,7 @@ func (spaLister MockSPALister) Get(_ string) (*v1.StagePodAutoscaler, error) {
 }
 
 type MockRouteLister struct {
+	WithNewRev bool
 }
 
 func (routeLister MockRouteLister) List(_ labels.Selector) (ret []*servingv1.Route, err error) {
@@ -1095,18 +1150,33 @@ func (routeLister MockRouteLister) List(_ labels.Selector) (ret []*servingv1.Rou
 }
 
 func (routeLister MockRouteLister) Get(_ string) (*servingv1.Route, error) {
+	if routeLister.WithNewRev {
+		return &servingv1.Route{
+			Status: servingv1.RouteStatus{
+				RouteStatusFields: servingv1.RouteStatusFields{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							Percent:        ptr.Int64(90),
+							LatestRevision: ptr.Bool(false),
+						},
+						{
+							RevisionName:   "rev-002",
+							Percent:        ptr.Int64(10),
+							LatestRevision: ptr.Bool(true),
+						},
+					},
+				},
+			},
+		}, nil
+	}
 	return &servingv1.Route{
 		Status: servingv1.RouteStatus{
 			RouteStatusFields: servingv1.RouteStatusFields{
 				Traffic: []servingv1.TrafficTarget{
 					{
 						RevisionName:   "rev-001",
-						Percent:        ptr.Int64(90),
-						LatestRevision: ptr.Bool(false),
-					},
-					{
-						RevisionName:   "rev-002",
-						Percent:        ptr.Int64(10),
+						Percent:        ptr.Int64(100),
 						LatestRevision: ptr.Bool(true),
 					},
 				},

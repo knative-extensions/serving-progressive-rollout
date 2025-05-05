@@ -989,24 +989,24 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 				if len(ro.Status.StageRevisionStatus) > 0 {
 					// If the ro has the StageRevisionStatus in the status, use it.
 					revisionTarget = ro.Status.StageRevisionStatus
-					found := false
+					// found := false
 					for index := range revisionTarget {
 						if revisionTarget[index].RevisionName == spaTargetRevName {
-							found = true
+							// found = true
 							continue
 						}
 						revisionTarget[index].LatestRevision = ptr.Bool(false)
 					}
-					if !found {
-						// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
-						// sometimes report the error of "No traffic. The target is not receiving traffic", which
-						// will kill the pods of the new revision during the progressive rollout.
-						// The last one of ro.Spec.StageTargetRevisions is certainly the RevisionTarget for the
-						// new revision,
-						newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
-						newRevisionTarget.Percent = ptr.Int64(int64(0))
-						revisionTarget = append(revisionTarget, newRevisionTarget)
-					}
+					//if !found {
+					//	// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
+					//	// sometimes report the error of "No traffic. The target is not receiving traffic", which
+					//	// will kill the pods of the new revision during the progressive rollout.
+					//	// The last one of ro.Spec.StageTargetRevisions is certainly the RevisionTarget for the
+					//	// new revision,
+					//	newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
+					//	newRevisionTarget.Percent = ptr.Int64(int64(0))
+					//	revisionTarget = append(revisionTarget, newRevisionTarget)
+					//}
 				} else {
 					// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
 					route, errRoute := routeLister.Get(ro.Name)

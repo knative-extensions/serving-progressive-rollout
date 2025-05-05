@@ -1012,30 +1012,30 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 					route, errRoute := routeLister.Get(ro.Name)
 					if errRoute == nil && len(route.Status.Traffic) > 0 {
 						traffics := route.Status.Traffic
-						found := false
+						//found := false
 						for index := range traffics {
 							if traffics[index].RevisionName == spaTargetRevName {
-								found = true
+								//found = true
 								continue
 							}
 							traffics[index].LatestRevision = ptr.Bool(false)
 						}
-						if !found {
-							// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
-							// sometimes report the error of "No traffic. The target is not receiving traffic", which
-							// will kill the pods of the new revision during the progressive rollout.
-							newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
-							newRevisionTarget.Percent = ptr.Int64(int64(0))
-
-							newRevisionTraffic := servingv1.TrafficTarget{
-								ConfigurationName: name,
-								LatestRevision:    newRevisionTarget.LatestRevision,
-								Percent:           newRevisionTarget.Percent,
-								Tag:               newRevisionTarget.Tag,
-								URL:               newRevisionTarget.URL,
-							}
-							traffics = append(traffics, newRevisionTraffic)
-						}
+						//if !found {
+						//	// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
+						//	// sometimes report the error of "No traffic. The target is not receiving traffic", which
+						//	// will kill the pods of the new revision during the progressive rollout.
+						//	newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
+						//	newRevisionTarget.Percent = ptr.Int64(int64(0))
+						//
+						//	newRevisionTraffic := servingv1.TrafficTarget{
+						//		ConfigurationName: name,
+						//		LatestRevision:    newRevisionTarget.LatestRevision,
+						//		Percent:           newRevisionTarget.Percent,
+						//		Tag:               newRevisionTarget.Tag,
+						//		URL:               newRevisionTarget.URL,
+						//	}
+						//	traffics = append(traffics, newRevisionTraffic)
+						//}
 						return traffics
 					}
 				}

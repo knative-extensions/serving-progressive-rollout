@@ -983,7 +983,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 			// However, if there is no issue getting the spa, and the actual number of replicas is less than
 			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
 			// as the traffic information for the route.
-			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) {
+			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) && rc.RolloutDuration == "0" {
 				// Comment out the following lines for further consideration with resourceUtil mode
 				// || (strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.ResourceUtilStrategy) && !trafficDriven && !lastStage) {
 				if len(ro.Status.StageRevisionStatus) > 0 {

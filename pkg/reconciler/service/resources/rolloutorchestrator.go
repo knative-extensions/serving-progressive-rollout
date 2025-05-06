@@ -84,7 +84,7 @@ func ReadIntAnnotation(revision *servingv1.Revision, key string) (result *int32)
 
 // ReadIntServiceAnnotation reads the int value of a specific key in the annotation of the service.
 func ReadIntServiceAnnotation(service *servingv1.Service, key string) (result *int32) {
-	if val, ok := service.Spec.Template.ObjectMeta.Annotations[key]; ok {
+	if val, ok := service.Spec.Template.Annotations[key]; ok {
 		i, err := strconv.ParseInt(val, 10, 32)
 		if err == nil {
 			result = ptr.Int32(int32(i))

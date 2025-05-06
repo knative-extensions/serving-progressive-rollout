@@ -267,11 +267,10 @@ func (lister MockPodAutoscalerLister) List(_ labels.Selector) (ret []*v1alpha1.P
 
 func (lister MockPodAutoscalerLister) Get(name string) (*v1alpha1.PodAutoscaler, error) {
 	num := int32(5)
-	if name == "rev-001" {
-		// This number matches the number of replicas for the revision 001.
+	switch name {
+	case "rev-001":
 		num = 4
-	} else if name == "rev-002" {
-		// This number matches the number of replicas for the revision 002.
+	case "rev-002":
 		num = 0
 	}
 	return &v1alpha1.PodAutoscaler{
@@ -290,11 +289,10 @@ func (lister MockPodAutoscalerDoubleRevs) List(_ labels.Selector) (ret []*v1alph
 
 func (lister MockPodAutoscalerDoubleRevs) Get(name string) (*v1alpha1.PodAutoscaler, error) {
 	num := int32(5)
-	if name == "rev-001" {
-		// This number matches the number of replicas for the revision 001.
+	switch name {
+	case "rev-001":
 		num = 8
-	} else if name == "rev-002" {
-		// This number matches the number of replicas for the revision 002.
+	case "rev-002":
 		num = 2
 	}
 	return &v1alpha1.PodAutoscaler{

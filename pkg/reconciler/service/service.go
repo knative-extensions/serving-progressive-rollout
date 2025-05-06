@@ -590,7 +590,7 @@ func updateStageTargetRevisions(ro *v1.RolloutOrchestrator, config *RolloutConfi
 	ro.Spec.StageTargetRevisions = stageRevisionTarget
 
 	// Set the target time when the current stage will be over.
-	ro.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
+	ro.Spec.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(time.Duration(float64(time.Minute) * float64(config.StageRolloutTimeoutMinutes))))
 	return nil
 }
 
@@ -625,7 +625,7 @@ func (c *Reconciler) checkServiceOrchestratorsReady(ctx context.Context, so *v1.
 		if err != nil {
 			return err
 		}
-		so.Spec.StageTarget.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(
+		so.Spec.TargetFinishTime.Inner = metav1.NewTime(time.Now().Add(
 			time.Duration(float64(c.rolloutConfig.StageRolloutTimeoutMinutes) * float64(time.Minute))))
 		_, err = c.client.ServingV1().RolloutOrchestrators(service.Namespace).Update(ctx, so, metav1.UpdateOptions{})
 		if err != nil {

@@ -28,7 +28,7 @@ linters:
       - std-error-handling
     paths:
       - pkg/client
-      - third_party$
+      - third_party
       - builtin$
       - examples$
 formatters:

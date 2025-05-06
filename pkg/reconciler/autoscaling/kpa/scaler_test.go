@@ -502,7 +502,7 @@ func TestScaler(t *testing.T) {
 		wantCBCount:   1,
 		paMutation: func(k *autoscalingv1alpha1.PodAutoscaler) {
 			paMarkInactive(k, time.Now())
-			k.ObjectMeta.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			k.Annotations[autoscaling.InitialScaleAnnotationKey] = "0"
 		},
 		configMutator: func(c *config.Config) {
 			c.Autoscaler.AllowZeroInitialScale = true

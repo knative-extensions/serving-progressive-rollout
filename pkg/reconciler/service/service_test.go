@@ -956,6 +956,7 @@ func TestTransformService(t *testing.T) {
 		rc: &RolloutConfig{
 			ProgressiveRolloutEnabled:  true,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+			RolloutDuration:            "0",
 		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{

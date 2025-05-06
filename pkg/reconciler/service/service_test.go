@@ -958,6 +958,7 @@ func TestTransformService(t *testing.T) {
 		rc: &RolloutConfig{
 			ProgressiveRolloutEnabled:  true,
 			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+			RolloutDuration:            "0",
 		},
 		service: &servingv1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1018,11 +1019,11 @@ func TestTransformService(t *testing.T) {
 						{
 							RevisionName:   "rev-001",
 							LatestRevision: ptr.Bool(false),
-							Percent:        ptr.Int64(100),
+							Percent:        ptr.Int64(80),
 						},
 						{
 							ConfigurationName: "test-name",
-							Percent:           ptr.Int64(0),
+							Percent:           ptr.Int64(20),
 							LatestRevision:    ptr.Bool(true),
 						},
 					},
@@ -1058,13 +1059,13 @@ func TestTransformService(t *testing.T) {
 					Traffic: []servingv1.TrafficTarget{
 						{
 							RevisionName:   "rev-001",
-							Percent:        ptr.Int64(90),
+							Percent:        ptr.Int64(80),
 							LatestRevision: ptr.Bool(false),
 						},
 						{
-							RevisionName:   "rev-002",
-							Percent:        ptr.Int64(10),
-							LatestRevision: ptr.Bool(true),
+							ConfigurationName: "test-name",
+							Percent:           ptr.Int64(20),
+							LatestRevision:    ptr.Bool(true),
 						},
 					},
 				},

@@ -1020,11 +1020,6 @@ func TestTransformService(t *testing.T) {
 							LatestRevision: ptr.Bool(false),
 							Percent:        ptr.Int64(100),
 						},
-						{
-							ConfigurationName: "test-name",
-							LatestRevision:    ptr.Bool(true),
-							Percent:           ptr.Int64(0),
-						},
 					},
 				},
 			},

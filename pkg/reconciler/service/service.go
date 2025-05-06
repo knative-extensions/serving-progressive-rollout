@@ -975,12 +975,12 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 
 		spa, err := spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
-		if apierrs.IsNotFound(err) || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
+		if apierrs.IsNotFound(err) || spa.Status.ActualScale == nil || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
 			minScale != nil && *targetNumberReplicas <= *minScale && *spa.Status.ActualScale < *targetNumberReplicas) {
 			// If we have issues getting the spa, or the number of the replicas has reached the target number of
 			// the revision to scale up, we set the revisionTarget to ro.Spec.StageTargetRevisions.
 
-			// However, if there is no issue getting yhe spa, and the actual number of replicas is less than
+			// However, if there is no issue getting the spa, and the actual number of replicas is less than
 			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
 			// as the traffic information for the route.
 			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) {

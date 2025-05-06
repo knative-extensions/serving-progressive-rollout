@@ -1018,12 +1018,12 @@ func TestTransformService(t *testing.T) {
 						{
 							RevisionName:   "rev-001",
 							LatestRevision: ptr.Bool(false),
-							Percent:        ptr.Int64(100),
+							Percent:        ptr.Int64(80),
 						},
 						{
 							ConfigurationName: "test-name",
 							LatestRevision:    ptr.Bool(true),
-							Percent:           ptr.Int64(0),
+							Percent:           ptr.Int64(20),
 						},
 					},
 				},
@@ -1034,7 +1034,7 @@ func TestTransformService(t *testing.T) {
 		spaLister: MockSPALister{
 			ActualScale: ptr.Int32(1),
 		},
-		routeLister: MockRouteLister{
+		routeLister: MockRouteListerWithNewRev{
 			WithNewRev: true,
 		},
 		rc: &RolloutConfig{
@@ -1058,13 +1058,13 @@ func TestTransformService(t *testing.T) {
 					Traffic: []servingv1.TrafficTarget{
 						{
 							RevisionName:   "rev-001",
-							Percent:        ptr.Int64(90),
+							Percent:        ptr.Int64(80),
 							LatestRevision: ptr.Bool(false),
 						},
 						{
-							RevisionName:   "rev-002",
-							Percent:        ptr.Int64(10),
-							LatestRevision: ptr.Bool(true),
+							ConfigurationName: "test-name",
+							Percent:           ptr.Int64(20),
+							LatestRevision:    ptr.Bool(true),
 						},
 					},
 				},
@@ -1112,11 +1112,52 @@ func TestTransformService(t *testing.T) {
 				},
 			},
 		},
+	}, {
+		name: "Test with StageTargetRevisions with revision name for the latest revision with empty ActualScale",
+		spaLister: MockSPALister{
+			ActualScale: nil,
+		},
+		routeLister: MockRouteLister{
+			WithNewRev: true,
+		},
+		rc: &RolloutConfig{
+			ProgressiveRolloutEnabled:  true,
+			ProgressiveRolloutStrategy: strategies.AvailabilityStrategy,
+		},
+		service: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+		},
+		ro: MockRolloutOrchestratorNoStatus,
+		ExpectedService: &servingv1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-name",
+				Namespace: "test-ns",
+			},
+			Spec: servingv1.ServiceSpec{
+				RouteSpec: servingv1.RouteSpec{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							Percent:        ptr.Int64(80),
+							LatestRevision: ptr.Bool(false),
+						},
+						{
+							ConfigurationName: "test-name",
+							Percent:           ptr.Int64(20),
+							LatestRevision:    ptr.Bool(true),
+						},
+					},
+				},
+			},
+		},
 	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			service := TransformService(test.service, test.ro, test.rc, test.spaLister, test.routeLister)
+			service := TransformService(test.service, test.ro, test.rc, test.spaLister)
 			if !reflect.DeepEqual(service, test.ExpectedService) {
 				t.Fatalf("Result of TransformService() = %v, want %v", service, test.ExpectedService)
 			}
@@ -1150,6 +1191,50 @@ func (routeLister MockRouteLister) List(_ labels.Selector) (ret []*servingv1.Rou
 }
 
 func (routeLister MockRouteLister) Get(_ string) (*servingv1.Route, error) {
+	if routeLister.WithNewRev {
+		return &servingv1.Route{
+			Status: servingv1.RouteStatus{
+				RouteStatusFields: servingv1.RouteStatusFields{
+					Traffic: []servingv1.TrafficTarget{
+						{
+							RevisionName:   "rev-001",
+							Percent:        ptr.Int64(100),
+							LatestRevision: ptr.Bool(true),
+						},
+						//{
+						//	RevisionName:   "rev-002",
+						//	Percent:        ptr.Int64(10),
+						//	LatestRevision: ptr.Bool(true),
+						//},
+					},
+				},
+			},
+		}, nil
+	}
+	return &servingv1.Route{
+		Status: servingv1.RouteStatus{
+			RouteStatusFields: servingv1.RouteStatusFields{
+				Traffic: []servingv1.TrafficTarget{
+					{
+						RevisionName:   "rev-001",
+						Percent:        ptr.Int64(100),
+						LatestRevision: ptr.Bool(true),
+					},
+				},
+			},
+		},
+	}, nil
+}
+
+type MockRouteListerWithNewRev struct {
+	WithNewRev bool
+}
+
+func (routeLister MockRouteListerWithNewRev) List(_ labels.Selector) (ret []*servingv1.Route, err error) {
+	return nil, nil
+}
+
+func (routeLister MockRouteListerWithNewRev) Get(_ string) (*servingv1.Route, error) {
 	if routeLister.WithNewRev {
 		return &servingv1.Route{
 			Status: servingv1.RouteStatus{

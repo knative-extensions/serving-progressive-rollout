@@ -163,8 +163,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, service *servingv1.Servi
 	}
 
 	// After the RolloutOrchestrator is created or updated, call the base reconciliation loop of the service.
-	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig, c.spaLister.StagePodAutoscalers(service.Namespace),
-		c.routeLister.Routes(service.Namespace)))
+	err = c.baseReconciler.ReconcileKind(ctx, TransformService(service, rolloutOrchestrator, c.rolloutConfig, c.spaLister.StagePodAutoscalers(service.Namespace)))
 	if err != nil {
 		return err
 	}
@@ -912,19 +911,19 @@ func calculateStageTargetRevisions(replicasMap map[string]int32, startRevisions 
 }
 
 func TransformService(service *servingv1.Service, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
-	spaLister listers.StagePodAutoscalerNamespaceLister, routeLister servinglisters.RouteNamespaceLister) *servingv1.Service {
+	spaLister listers.StagePodAutoscalerNamespaceLister) *servingv1.Service {
 	// If Knative Service defines more than one traffic, this feature tentatively does not cover this case.
 	if len(service.Spec.Traffic) > 1 {
 		return service
 	}
 	service.Spec.RouteSpec = servingv1.RouteSpec{
-		Traffic: convertIntoTrafficTarget(service.GetName(), ro, rc, spaLister, routeLister),
+		Traffic: convertIntoTrafficTarget(service.GetName(), ro, rc, spaLister),
 	}
 	return service
 }
 
 func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *RolloutConfig,
-	spaLister listers.StagePodAutoscalerNamespaceLister, routeLister servinglisters.RouteNamespaceLister) []servingv1.TrafficTarget {
+	spaLister listers.StagePodAutoscalerNamespaceLister) []servingv1.TrafficTarget {
 	revisionTarget := ro.Spec.StageTargetRevisions
 	finalTargetRevs := ro.Spec.TargetRevisions
 	targetRevName := finalTargetRevs[0].RevisionName
@@ -975,12 +974,16 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 
 		spa, err := spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
-		if apierrs.IsNotFound(err) || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
-			minScale != nil && *targetNumberReplicas <= *minScale && *spa.Status.ActualScale < *targetNumberReplicas) {
+		if apierrs.IsNotFound(err) || spa.Status.ActualScale == nil || (err == nil && targetNumberReplicas != nil &&
+			spa.Status.ActualScale != nil && minScale != nil && *targetNumberReplicas <= *minScale &&
+			*spa.Status.ActualScale < *targetNumberReplicas) {
 			// If we have issues getting the spa, or the number of the replicas has reached the target number of
 			// the revision to scale up, we set the revisionTarget to ro.Spec.StageTargetRevisions.
 
-			// However, if there is no issue getting yhe spa, and the actual number of replicas is less than
+			// If spa.Status.ActualScale, it means spa is still being created and synchronized with the PodAutoscaler,
+			// so we need to pick up the StageRevisionStatus from the status.
+
+			// However, if there is no issue getting the spa, and the actual number of replicas is less than
 			// the target number of replicas, we need to use ro.Status.StageRevisionStatus or route.Status.Traffic
 			// as the traffic information for the route.
 			if strings.EqualFold(rc.ProgressiveRolloutStrategy, strategies.AvailabilityStrategy) {
@@ -1006,37 +1009,6 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 						newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
 						newRevisionTarget.Percent = ptr.Int64(int64(0))
 						revisionTarget = append(revisionTarget, newRevisionTarget)
-					}
-				} else {
-					// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
-					route, errRoute := routeLister.Get(ro.Name)
-					if errRoute == nil && len(route.Status.Traffic) > 0 {
-						traffics := route.Status.Traffic
-						found := false
-						for index := range traffics {
-							if traffics[index].RevisionName == spaTargetRevName {
-								found = true
-								continue
-							}
-							traffics[index].LatestRevision = ptr.Bool(false)
-						}
-						if !found {
-							// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
-							// sometimes report the error of "No traffic. The target is not receiving traffic", which
-							// will kill the pods of the new revision during the progressive rollout.
-							newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
-							newRevisionTarget.Percent = ptr.Int64(int64(0))
-
-							newRevisionTraffic := servingv1.TrafficTarget{
-								ConfigurationName: name,
-								LatestRevision:    newRevisionTarget.LatestRevision,
-								Percent:           newRevisionTarget.Percent,
-								Tag:               newRevisionTarget.Tag,
-								URL:               newRevisionTarget.URL,
-							}
-							traffics = append(traffics, newRevisionTraffic)
-						}
-						return traffics
 					}
 				}
 			}

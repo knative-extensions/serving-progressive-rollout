@@ -977,12 +977,12 @@ func TestTransformService(t *testing.T) {
 						{
 							RevisionName:   "rev-001",
 							LatestRevision: ptr.Bool(false),
-							Percent:        ptr.Int64(100),
+							Percent:        ptr.Int64(80),
 						},
 						{
 							ConfigurationName: "test-name",
 							LatestRevision:    ptr.Bool(true),
-							Percent:           ptr.Int64(0),
+							Percent:           ptr.Int64(20),
 						},
 					},
 				},

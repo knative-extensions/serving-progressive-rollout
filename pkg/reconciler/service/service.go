@@ -975,7 +975,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 
 		spa, err := spaLister.Get(spaTargetRevName)
 		// Check the number of replicas has reached the target number of replicas for the revision scaling up
-		if apierrs.IsNotFound(err) || spa.Status.ActualScale == nil || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
+		if err != nil || spa.Status.ActualScale == nil || (err == nil && targetNumberReplicas != nil && spa.Status.ActualScale != nil &&
 			minScale != nil && *targetNumberReplicas <= *minScale && *spa.Status.ActualScale < *targetNumberReplicas) {
 			// If we have issues getting the spa, or the number of the replicas has reached the target number of
 			// the revision to scale up, we set the revisionTarget to ro.Spec.StageTargetRevisions.
@@ -998,7 +998,7 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 						revisionTarget[index].LatestRevision = ptr.Bool(false)
 					}
 
-					if !found && !apierrs.IsNotFound(err) && spa.Status.ActualScale != nil && *spa.Status.ActualScale > 0 {
+					if !found && spa != nil && spa.Status.ActualScale != nil && *spa.Status.ActualScale > 0 {
 						// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
 						// sometimes report the error of "No traffic. The target is not receiving traffic", which
 						// will kill the pods of the new revision during the progressive rollout.
@@ -1007,37 +1007,6 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 						newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
 						newRevisionTarget.Percent = ptr.Int64(int64(0))
 						revisionTarget = append(revisionTarget, newRevisionTarget)
-					}
-				} else {
-					// If the ro does not have the StageRevisionStatus in the status, use the existing one in route.
-					route, errRoute := routeLister.Get(ro.Name)
-					if errRoute == nil && len(route.Status.Traffic) > 0 {
-						traffics := route.Status.Traffic
-						found := false
-						for index := range traffics {
-							if traffics[index].RevisionName == spaTargetRevName {
-								found = true
-								continue
-							}
-							traffics[index].LatestRevision = ptr.Bool(false)
-						}
-						if !found && !apierrs.IsNotFound(err) && spa.Status.ActualScale != nil && *spa.Status.ActualScale > 0 {
-							// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
-							// sometimes report the error of "No traffic. The target is not receiving traffic", which
-							// will kill the pods of the new revision during the progressive rollout.
-							newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
-							newRevisionTarget.Percent = ptr.Int64(int64(0))
-
-							newRevisionTraffic := servingv1.TrafficTarget{
-								ConfigurationName: name,
-								LatestRevision:    newRevisionTarget.LatestRevision,
-								Percent:           newRevisionTarget.Percent,
-								Tag:               newRevisionTarget.Tag,
-								URL:               newRevisionTarget.URL,
-							}
-							traffics = append(traffics, newRevisionTraffic)
-						}
-						return traffics
 					}
 				}
 			}

@@ -998,12 +998,16 @@ func convertIntoTrafficTarget(name string, ro *v1.RolloutOrchestrator, rc *Rollo
 						revisionTarget[index].LatestRevision = ptr.Bool(false)
 					}
 
-					if !found && spa != nil && spa.Status.ActualScale != nil && *spa.Status.ActualScale > 0 {
+					if !found {
 						// We must assign the traffic to the new revision, even of it is 0%. Otherwise, the PA will
 						// sometimes report the error of "No traffic. The target is not receiving traffic", which
 						// will kill the pods of the new revision during the progressive rollout.
 						// The last one of ro.Spec.StageTargetRevisions is certainly the RevisionTarget for the
 						// new revision.
+						// Even if the number of the pod for the new revision does not reach 1, assigning 0% to the empty
+						// revision will lead to "100% assigned to the old and 0% assigned to the old as well". Istio/Envoy
+						// will pick up the higher value as priority, so there is still 100% traffic assigned to the old
+						// revision.
 						newRevisionTarget := ro.Spec.StageTargetRevisions[len(ro.Spec.StageTargetRevisions)-1]
 						newRevisionTarget.Percent = ptr.Int64(int64(0))
 						revisionTarget = append(revisionTarget, newRevisionTarget)

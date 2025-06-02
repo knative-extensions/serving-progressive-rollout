@@ -1304,7 +1304,7 @@ knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
 knative.dev/pkg/websocket
-# knative.dev/serving v0.45.1-0.20250523001030-c36383ed56d1
+# knative.dev/serving v0.45.1-0.20250529121820-92b23aa11d52
 ## explicit; go 1.24.0
 knative.dev/serving/pkg/activator
 knative.dev/serving/pkg/apis/autoscaling

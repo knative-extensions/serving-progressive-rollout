@@ -101,7 +101,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			},
 		},
 		ExpectedResult: nil,
-		ExpectedError:  fmt.Errorf("failed to parse data: %s", "failed to parse \"over-consumption-ratio\": strconv.Atoi: parsing \"15s\": invalid syntax"),
+		ExpectedError:  fmt.Errorf("failed to parse data: %s", "failed to parse \"over-consumption-ratio\": strconv.ParseInt: parsing \"15s\": invalid syntax"),
 	}, {
 		name: "Test the RolloutConfig with invalid ConfigMap data as input",
 		input: &corev1.ConfigMap{
@@ -112,7 +112,7 @@ func TestNewConfigFromConfigMapFunc(t *testing.T) {
 			},
 		},
 		ExpectedResult: nil,
-		ExpectedError:  fmt.Errorf("failed to parse data: %s", "strconv.ParseBool: parsing \"invalid-false\": invalid syntax"),
+		ExpectedError:  fmt.Errorf("failed to parse data: %s", "failed to parse \"progressive-rollout-enabled\": strconv.ParseBool: parsing \"invalid-false\": invalid syntax"),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

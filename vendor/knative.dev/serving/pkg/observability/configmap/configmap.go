@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2025 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package
+package configmap
 
-// Package config holds the typed objects that define the schemas for
-// assorted ConfigMap objects on which the Revision controller depends.
-package config
+import (
+	corev1 "k8s.io/api/core/v1"
+	o11yconfigmap "knative.dev/pkg/observability/configmap"
+	"knative.dev/serving/pkg/observability"
+)
+
+func Name() string {
+	return o11yconfigmap.Name()
+}
+
+func Parse(c *corev1.ConfigMap) (*observability.Config, error) {
+	return observability.NewFromMap(c.Data)
+}

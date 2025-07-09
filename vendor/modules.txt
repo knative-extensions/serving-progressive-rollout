@@ -1304,7 +1304,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/ptr
 k8s.io/utils/trace
-# knative.dev/caching v0.0.0-20250707164907-d0e27d23221b
+# knative.dev/caching v0.0.0-20250708014010-99e6352a57b1
 ## explicit; go 1.24.0
 knative.dev/caching/pkg/apis/caching
 knative.dev/caching/pkg/apis/caching/v1alpha1
@@ -1322,10 +1322,10 @@ knative.dev/caching/pkg/client/injection/client/fake
 knative.dev/caching/pkg/client/injection/informers/caching/v1alpha1/image
 knative.dev/caching/pkg/client/injection/informers/factory
 knative.dev/caching/pkg/client/listers/caching/v1alpha1
-# knative.dev/hack v0.0.0-20250514121446-f525e187efdc
+# knative.dev/hack v0.0.0-20250708013849-70d4b00da6ba
 ## explicit; go 1.21
 knative.dev/hack
-# knative.dev/networking v0.0.0-20250707164707-14e7b4882ada
+# knative.dev/networking v0.0.0-20250708014646-f8c92385906a
 ## explicit; go 1.24.0
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1360,7 +1360,7 @@ knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/ingress
 knative.dev/networking/pkg/k8s
 knative.dev/networking/pkg/prober
-# knative.dev/pkg v0.0.0-20250707154506-3eb1089fec09
+# knative.dev/pkg v0.0.0-20250708013613-d3550d4350f9
 ## explicit; go 1.24.0
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1439,13 +1439,12 @@ knative.dev/pkg/resolver
 knative.dev/pkg/signals
 knative.dev/pkg/system
 knative.dev/pkg/system/testing
-knative.dev/pkg/tracing/config
 knative.dev/pkg/tracker
 knative.dev/pkg/version
 knative.dev/pkg/webhook
 knative.dev/pkg/webhook/certificates/resources
 knative.dev/pkg/websocket
-# knative.dev/serving v0.45.1-0.20250702012654-a329e361ff18
+# knative.dev/serving v0.45.1-0.20250709011302-dc0034928a36
 ## explicit; go 1.24.0
 knative.dev/serving/pkg/activator
 knative.dev/serving/pkg/apis/autoscaling
@@ -1510,6 +1509,8 @@ knative.dev/serving/pkg/gc
 knative.dev/serving/pkg/http
 knative.dev/serving/pkg/metrics
 knative.dev/serving/pkg/networking
+knative.dev/serving/pkg/observability
+knative.dev/serving/pkg/observability/configmap
 knative.dev/serving/pkg/queue
 knative.dev/serving/pkg/queue/health
 knative.dev/serving/pkg/queue/readiness

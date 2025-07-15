@@ -21,12 +21,11 @@ import (
 	"fmt"
 	"math"
 
-	"go.opencensus.io/stats"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 
 	nv1alpha1 "knative.dev/networking/pkg/apis/networking/v1alpha1"
 	"knative.dev/pkg/logging"
-	pkgmetrics "knative.dev/pkg/metrics"
 	"knative.dev/pkg/ptr"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	autoscalingv1 "knative.dev/serving-progressive-rollout/pkg/apis/serving/v1"
@@ -73,6 +72,8 @@ type Reconciler struct {
 	deciders   resources.Deciders
 	scaler     *scaler
 	spaLister  sprlisters.StagePodAutoscalerLister
+
+	metrics *kpaMetrics
 }
 
 // Check that our Reconciler implements the necessary interfaces.
@@ -110,7 +111,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 			return fmt.Errorf("error reconciling SKS: %w", err)
 		}
 		pa.Status.MarkSKSNotReady(noPrivateServiceName) // In both cases this is true.
-		computeStatus(ctx, pa, spa, podCounts{want: scaleUnknown}, logger)
+		computeStatus(ctx, pa, spa, podCounts{want: scaleUnknown}, logger, c.metrics)
 		return nil
 	}
 
@@ -194,7 +195,7 @@ func (c *Reconciler) ReconcileKind(ctx context.Context, pa *autoscalingv1alpha1.
 		terminating: terminating,
 	}
 	logger.Infof("Observed pod counts=%#v", pc)
-	computeStatus(ctx, pa, spa, pc, logger)
+	computeStatus(ctx, pa, spa, pc, logger, c.metrics)
 	return nil
 }
 
@@ -227,7 +228,8 @@ func (c *Reconciler) reconcileDecider(ctx context.Context, pa *autoscalingv1alph
 	return decider, nil
 }
 
-func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler, pc podCounts, logger *zap.SugaredLogger) {
+func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, spa *autoscalingv1.StagePodAutoscaler,
+	pc podCounts, logger *zap.SugaredLogger, m *kpaMetrics) {
 	pa.Status.ActualScale = ptr.Int32(int32(pc.ready))
 
 	// When the autoscaler just restarted, it does not yet have metrics and would change the desiredScale to -1 and moments
@@ -238,26 +240,23 @@ func computeStatus(ctx context.Context, pa *autoscalingv1alpha1.PodAutoscaler, s
 		pa.Status.DesiredScale = ptr.Int32(int32(pc.want))
 	}
 
-	reportMetrics(pa, pc)
+	reportMetrics(m, pa, pc)
 	computeActiveCondition(ctx, pa, spa, pc)
 	logger.Debugf("PA Status after reconcile: %#v", pa.Status.Status)
 }
 
-func reportMetrics(pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
+func reportMetrics(m *kpaMetrics, pa *autoscalingv1alpha1.PodAutoscaler, pc podCounts) {
 	serviceLabel := pa.Labels[serving.ServiceLabelKey] // This might be empty.
 	configLabel := pa.Labels[serving.ConfigurationLabelKey]
 
-	ctx := metrics.RevisionContext(pa.Namespace, serviceLabel, configLabel, pa.Name)
+	attrs := attribute.NewSet(
+		metrics.K8sNamespaceKey.With(pa.Namespace),
+		metrics.RevisionNameKey.With(pa.Name),
+		metrics.ServiceNameKey.With(serviceLabel),
+		metrics.ConfigurationNameKey.With(configLabel),
+	)
 
-	stats := []stats.Measurement{
-		actualPodCountM.M(int64(pc.ready)), notReadyPodCountM.M(int64(pc.notReady)),
-		pendingPodCountM.M(int64(pc.pending)), terminatingPodCountM.M(int64(pc.terminating)),
-	}
-	// Negative "want" values represent an empty metrics pipeline and thus no specific request is being made.
-	if pc.want >= 0 {
-		stats = append(stats, requestedPodCountM.M(int64(pc.want)))
-	}
-	pkgmetrics.RecordBatch(ctx, stats...)
+	m.Record(attrs, pc)
 }
 
 // computeActiveCondition updates the status of a PA given the current scale (got), desired scale (want)

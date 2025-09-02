@@ -1,12 +1,7 @@
-# Knative Serving Progressive Rollout
+> [!IMPORTANT]
+> This repository is now deprecated & archived. It was an experiment to explore progressive rollout strategies.
 
-[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/knative-extensions/serving-progressive-rollout)
-[![Go Report Card](https://goreportcard.com/badge/knative-extensions/serving-progressive-rollout)](https://goreportcard.com/report/knative-extensions/serving-progressive-rollout)
-[![Releases](https://img.shields.io/github/release-pre/knative-extensions/serving-progressive-rollout.svg?sort=semver)](https://github.com/knative-extensions/serving-progressive-rollout/releases)
-[![LICENSE](https://img.shields.io/github/license/knative-extensions/serving-progressive-rollout.svg)](https://github.com/knative-extensions/serving-progressive-rollout/blob/main/LICENSE)
-[![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://cloud-native.slack.com/archives/C04LGHDR9K7)
-[![codecov](https://codecov.io/gh/knative-extensions/serving-progressive-rollout/branch/main/graph/badge.svg)](https://app.codecov.io/gh/knative-extensions/serving-progressive-rollout)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5913/badge)](https://bestpractices.coreinfrastructure.org/projects/5913)
+# Knative Serving Progressive Rollout
 
 Knative Serving Progressive Rollout is an extension to the Knative Serving. It provides middleware primitives that enable:
 
